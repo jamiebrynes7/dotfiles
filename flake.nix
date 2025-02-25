@@ -114,5 +114,16 @@
     in {
       lib = { inherit mkNixosSystem mkDarwin mkShells; };
       devShells = mkShells { };
+      templates = {
+        darwin = {
+          path = ./templates/darwin;
+          description =
+            "A template for a Darwin system managed with nix-darwin";
+        };
+        nixos = {
+          path = ./templates/nixos;
+          description = "A template for a NixOS system";
+        };
+      };
     };
 }

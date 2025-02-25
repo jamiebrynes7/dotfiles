@@ -63,15 +63,34 @@
           ] ++ modules;
         };
 
-      mkDarwinShell = { }:
+      baseShellPkgs = { pkgs, ... }: {
+        packages = with pkgs; [ just nil nixfmt-classic ];
+      };
+
+      mkDarwinShell = { modules }:
         let pkgs = nixDarwinPkgs { };
         in inputs.devenv.lib.mkShell {
           inherit pkgs inputs;
-          modules =
-            [ ({ pkgs, config, ... }: { packages = with pkgs; [ just ]; }) ];
+          modules = [ baseShellPkgs ] ++ modules;
         };
 
-      mkShells = { }: { aarch64-darwin.default = mkDarwinShell { }; };
+      mkLinuxShell = { system, modules }:
+        let pkgs = nixOsPkgs { inherit system; };
+        in inputs.devenv.lib.mkShell {
+          inherit pkgs inputs;
+          modules = [ baseShellPkgs ] ++ modules;
+        };
 
-    in { lib = { inherit mkDarwin mkShells; }; };
+      mkShells = { modules ? [ ] }: {
+        aarch64-darwin.default = mkDarwinShell { inherit modules; };
+        x86_64-linux.default = mkLinuxShell {
+          inherit modules;
+          system = "x86_64-linux";
+        };
+      };
+
+    in {
+      lib = { inherit mkDarwin mkShells; };
+      devShells = mkShells { };
+    };
 }

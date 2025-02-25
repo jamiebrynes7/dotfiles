@@ -2,7 +2,7 @@
 with lib;
 let
   cfg = config.dotfiles.programs.zsh;
-  enableBrewIntegration = osConfig.dotfiles.darwin.brew.enable;
+  enableBrewIntegration = osConfig.dotfiles.darwin.brew.enable or false;
 in {
   options.dotfiles.programs.zsh = { enable = mkEnableOption "Enable zsh"; };
 

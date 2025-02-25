@@ -1,0 +1,11 @@
+default:
+    just --list
+
+build:
+    nix run nix-darwin -- build --flake ./#default
+
+switch:
+    nix run nix-darwin -- switch --flake ./#default
+
+update:
+    nix flake update dotfiles

@@ -63,6 +63,28 @@
           ] ++ modules;
         };
 
+      mkNixosSystem =
+        { system, hostname, user, home, modules ? [ ], overlays ? [ ] }@args:
+        let pkgs = nixOsPkgs { inherit overlays system; };
+        in inputs.nixpkgs.lib.nixosSystem {
+          inherit system;
+          modules = [
+            {
+              nixpkgs.pkgs = pkgs;
+              networking.hostName = args.hostname;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                users.${user} = inputs.nixpkgs.lib.modules.importApply ./home {
+                  inherit home;
+                };
+              };
+            }
+            inputs.home-manager.nixosModules.home-manager
+          ] ++ modules;
+          specialArgs = { inherit inputs; };
+        };
+
       baseShellPkgs = { pkgs, ... }: {
         packages = with pkgs; [ just nil nixfmt-classic ];
       };
@@ -90,7 +112,7 @@
       };
 
     in {
-      lib = { inherit mkDarwin mkShells; };
+      lib = { inherit mkNixosSystem mkDarwin mkShells; };
       devShells = mkShells { };
     };
 }

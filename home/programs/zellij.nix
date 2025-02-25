@@ -7,7 +7,10 @@ in {
   };
 
   config = mkIf cfg.enable {
-    programs.zellij.enable = true;
+    programs.zellij = {
+      enable = true;
+      enableZshIntegration = true;
+    };
 
     # TODO: Convert zellij config into Nix expression.
     xdg.configFile."zellij/config.kdl" = {

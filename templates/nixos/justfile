@@ -1,0 +1,11 @@
+default:
+    just --list
+
+build:
+    sudo nixos-rebuild build --flake ./#default
+
+switch:
+    sudo nixos-rebuild switch --flake ./#default
+
+update:
+    nix flake update dotfiles

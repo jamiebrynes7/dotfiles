@@ -4,7 +4,14 @@ let
   cfg = config.dotfiles.programs.zsh;
   enableBrewIntegration = osConfig.dotfiles.darwin.brew.enable or false;
 in {
-  options.dotfiles.programs.zsh = { enable = mkEnableOption "Enable zsh"; };
+  options.dotfiles.programs.zsh = {
+    enable = mkEnableOption "Enable zsh";
+    extra = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      description = "Path to extra zsh config to include";
+    };
+  };
 
   config.programs.zsh = mkIf cfg.enable {
     enable = true;
@@ -22,7 +29,10 @@ in {
       theme = "robbyrussell";
     };
 
-    initExtra =
-      mkIf enableBrewIntegration ''eval "$(/opt/homebrew/bin/brew shellenv)"'';
+    initExtra = concatLines [
+      (optionalString enableBrewIntegration
+        ''eval "$(/opt/homebrew/bin/brew shellenv)"'')
+      (optionalString (cfg.extra != null) "source ${cfg.extra}")
+    ];
   };
 }

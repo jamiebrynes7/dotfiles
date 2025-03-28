@@ -7,8 +7,8 @@
     darwinConfigurations.default = dotfiles.lib.mkDarwin {
       hostname = "TODO";
       user = "TODO";
-      home = ./sys/home.nix;
-      modules = [ ./sys/configuration.nix ];
+      home = ./home.nix;
+      modules = [ ./configuration.nix ];
     };
     devShells = dotfiles.lib.mkShells { };
   };

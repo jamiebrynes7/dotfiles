@@ -1,7 +1,7 @@
 {
   description = "System configuration for $system";
 
-  inputs = { dotfiles.url = "git+ssh://git@github.com/jamiebrynes7/dotfiles"; };
+  inputs = { dotfiles.url = "github:jamiebrynes7/dotfiles"; };
 
   outputs = { self, dotfiles }: {
     darwinConfigurations.default = dotfiles.lib.mkDarwin {

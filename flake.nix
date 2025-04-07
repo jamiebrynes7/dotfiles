@@ -85,6 +85,28 @@
           specialArgs = { inherit inputs; };
         };
 
+      mkHomeManagerSystem =
+        { system, user, directory, home, overlays ? [ ] }@args:
+        let pkgs = nixOsPkgs { inherit overlays system; };
+        in inputs.home-manager.lib.homeManagerConfiguration {
+          inherit pkgs;
+          modules = [
+            {
+              home = {
+                username = user;
+                homeDirectory = directory;
+              };
+            }
+            {
+              imports = [
+                (inputs.nixpkgs.lib.modules.importApply ./home {
+                  inherit home;
+                })
+              ];
+            }
+          ];
+        };
+
       baseShellPkgs = { pkgs, ... }: {
         packages = with pkgs; [ just nil nixfmt-classic ];
       };
@@ -112,7 +134,7 @@
       };
 
     in {
-      lib = { inherit mkNixosSystem mkDarwin mkShells; };
+      lib = { inherit mkNixosSystem mkDarwin mkHomeManagerSystem mkShells; };
       devShells = mkShells { };
       templates = {
         darwin = {
@@ -123,6 +145,10 @@
         nixos = {
           path = ./templates/nixos;
           description = "A template for a NixOS system";
+        };
+        home-manager = {
+          path = ./templates/home-manager;
+          description = "A template for a home-manager system";
         };
       };
     };

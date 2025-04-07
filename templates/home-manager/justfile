@@ -1,0 +1,11 @@
+default:
+    just --list
+
+build:
+    nix run nixpkgs#home-manager -- build --flake ./#default
+
+switch:
+    nix run nixpkgs#home-manager -- switch --flake ./#default
+
+update:
+    nix flake update dotfiles

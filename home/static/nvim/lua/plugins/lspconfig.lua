@@ -9,7 +9,7 @@ utils.set_key("n", "ga", vim.lsp.buf.code_action)
 utils.set_key("n", "gr", vim.lsp.buf.references)
 
 -- Setup LSP servers
-lsp.tsserver.setup({
+lsp.ts_ls.setup({
 	capabilities = require("cmp_nvim_lsp").default_capabilities(),
 })
 lsp.svelte.setup({})

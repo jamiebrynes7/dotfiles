@@ -1,0 +1,7 @@
+{
+  "$schema": "vscode://schemas/settings/user",
+  "[rust]": {
+    "editor.tabSize": 4
+  },
+  "rust-analyzer.cargo.buildScripts.enable": true,
+}

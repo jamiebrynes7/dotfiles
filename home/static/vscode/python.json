@@ -1,0 +1,6 @@
+{
+  "$schema": "vscode://schemas/settings/user",
+  "[python]": {
+    "editor.tabSize": 4,
+  }
+}

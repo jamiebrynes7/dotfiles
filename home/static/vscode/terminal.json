@@ -1,0 +1,6 @@
+{
+  "$schema": "vscode://schemas/settings/user",
+  "terminal.integrated.fontFamily": "JetBrainsMono Nerd Font, JetBrains Mono",
+  "terminal.integrated.fontLigatures": true,
+  "terminal.integrated.copyOnSelection": true,
+}

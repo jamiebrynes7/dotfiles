@@ -1,0 +1,12 @@
+{
+  "$schema": "vscode://schemas/settings/user",
+  "[yaml]": {
+    "editor.tabSize": 2,
+    "breadcrumbs.showArrays": true,
+    "editor.quickSuggestions": {
+      "other": true,
+      "comments": false,
+      "strings": true
+    }
+  },
+}

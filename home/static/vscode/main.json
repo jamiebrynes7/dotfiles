@@ -1,0 +1,6 @@
+{
+  "$schema": "vscode://schemas/settings/user",
+  "update.mode": "manual",
+  "workbench.sideBar.location": "left",
+  "workbench.startupEditor": "none",
+}

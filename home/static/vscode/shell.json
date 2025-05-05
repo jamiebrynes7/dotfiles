@@ -1,0 +1,6 @@
+{
+  "$schema": "vscode://schemas/settings/user",
+  "[shellscript]": {
+    "editor.tabSize": 2,
+  }
+}

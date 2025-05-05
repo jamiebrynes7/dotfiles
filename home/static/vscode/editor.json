@@ -1,0 +1,13 @@
+{
+  "$schema": "vscode://schemas/settings/user",
+  "editor.fontFamily": "JetBrainsMono Nerd Font, JetBrains Mono",
+  "editor.fontLigatures": true,
+  "editor.wordWrap": "on",
+  "editor.minimap.enabled": false,
+  "editor.formatOnSave": true,
+  "editor.bracketPairColorization.enabled": false,
+  "editor.renderWhitespace": "none",
+  "editor.minimap.showSlider": "always",
+  "editor.inlineSuggest.enabled": true,
+  "editor.inlineSuggest.suppressSuggestions": true,
+}

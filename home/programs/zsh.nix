@@ -21,7 +21,10 @@ in {
     autosuggestion.enable = true;
     enableCompletion = true;
 
-    shellAliases = { ll = "ls -lah"; };
+    shellAliases = {
+      ll = "ls -lah";
+      lg = "lazygit";
+    };
 
     oh-my-zsh = {
       enable = true;

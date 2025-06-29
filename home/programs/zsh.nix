@@ -32,7 +32,7 @@ in {
       theme = "robbyrussell";
     };
 
-    initExtra = concatLines [
+    initContent = concatLines [
       (optionalString enableBrewIntegration
         ''eval "$(/opt/homebrew/bin/brew shellenv)"'')
       (optionalString (cfg.extra != null) "source ${cfg.extra}")

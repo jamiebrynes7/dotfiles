@@ -7,7 +7,6 @@ local plugins = {
 	"barbecue",
 	"cmp",
 	"conform",
-	"feline",
 	"fidget",
 	"gitsigns",
 	"indent-blankline",

@@ -41,7 +41,6 @@ in {
         tokyonight-nvim
 
         # Editor setup
-        feline-nvim
         nvim-tree-lua
         gitsigns-nvim
         indent-blankline-nvim

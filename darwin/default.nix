@@ -1,10 +1,17 @@
-{ config, ... }: {
+{ config, lib, ... }:
+with lib;
+let cfg = config.dotfiles.darwin;
+in {
   imports = [ ./brew.nix ];
 
-  config = {
-    # Enable nix-daemon for multi-user systems.
-    services.nix-daemon.enable = true;
+  options.dotfiles.darwin = {
+    primaryUser = mkOption {
+      type = types.str;
+      description = "The primary user of the system.";
+    };
+  };
 
+  config = {
     # Needed to ensure that the nix installation works as expected.
     # May need to bootstrap the first invocation.
     nix.extraOptions = ''
@@ -12,6 +19,8 @@
     '';
 
     system = {
+      primaryUser = cfg.primaryUser;
+
       # Remap caps-lock to escape.
       keyboard = {
         enableKeyMapping = true;
@@ -28,7 +37,7 @@
     };
 
     # Allow touch ID for sudo authentication.
-    security.pam.enableSudoTouchIdAuth = true;
+    security.pam.services.sudo_local.touchIdAuth = true;
   };
 
 }

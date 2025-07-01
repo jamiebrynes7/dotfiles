@@ -48,7 +48,8 @@ in {
       pf = "push --force";
       c = "commit";
 
-      fomo = "!git fetch origin master && git rebase origin/master";
+      fomo =
+        "!fomo() { git fetch origin master && git rebase $@ origin/master; }; fomo";
     };
 
     extraConfig = {

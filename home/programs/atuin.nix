@@ -7,6 +7,11 @@ in {
   config.programs.atuin = mkIf cfg.enable {
     enable = true;
     enableZshIntegration = true; # TODO: Should follow zsh enablement?
-    settings = { enter_accept = false; };
+    settings = {
+      enter_accept = false;
+      style = "full";
+      inline_height = 0;
+      workspaces = true;
+    };
   };
 }

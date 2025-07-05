@@ -42,7 +42,7 @@ in {
         italic.family = cfg.fontFamily;
       };
 
-      import = [ pkgs.alacritty-theme.tokyo_night ];
+      general.import = [ pkgs.alacritty-theme.tokyo_night ];
     };
   };
 }

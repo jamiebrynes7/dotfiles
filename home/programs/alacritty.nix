@@ -43,6 +43,7 @@ in {
       };
 
       general.import = [ pkgs.alacritty-theme.tokyo_night ];
+      show_startup_tips = false;
     };
   };
 }

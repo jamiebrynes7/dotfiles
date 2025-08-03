@@ -21,11 +21,18 @@
 
     # Tools
     devenv.url = "github:cachix/devenv";
+    claude-code = {
+      url = "github:sadjow/claude-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, ... }@inputs:
     let
-      defaultOverlays = [ inputs.alacritty-themes.overlays.default ];
+      defaultOverlays = [
+        inputs.alacritty-themes.overlays.default
+        inputs.claude-code.overlays.default
+      ];
 
       nixOsPkgs = { overlays ? [ ], system }:
         import inputs.nixpkgs {

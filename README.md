@@ -35,6 +35,20 @@ nix flake init -t github:jamiebrynes7/dotfiles#nixos
 
 These commands will create the necessary configuration files in your current directory, which you can then customize for your specific needs.
 
+### Iteration
+
+When iterating on this repository and a child one, its easiest to set the local flake ref to avoid the constant need to push. To do so, update the flake URL:
+
+```diff
+-  inputs = { dotfiles.url = "github:jamiebrynes7/dotfiles"; };
++  inputs = { dotfiles.url = "path:${DOTFILES_PATH}"; };
+```
+
+And run:
+
+```
+nix flake update
+```
 
 ---
 

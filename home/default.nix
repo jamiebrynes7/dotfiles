@@ -1,7 +1,10 @@
 { home }:
 { pkgs, ... }:
 let
-  programs = builtins.map (f: ./programs/${f}) (builtins.filter
-    (f: builtins.match ".*\\.nix" f != null && f != "default.nix")
-    (builtins.attrNames (builtins.readDir ./programs/.)));
+  programsDir = builtins.readDir ./programs/.;
+  programs = builtins.map (name: ./programs/${name}) (builtins.filter (name:
+    let entry = builtins.getAttr name programsDir;
+    in (entry == "regular" && builtins.match ".*\\.nix" name != null && name
+      != "default.nix") || (entry == "directory"))
+    (builtins.attrNames programsDir));
 in { imports = [ home ./profiles.nix ] ++ programs; }

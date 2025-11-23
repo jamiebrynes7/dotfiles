@@ -1,6 +1,9 @@
 { config, lib, pkgs, ... }:
 with lib;
-let cfg = config.dotfiles.programs.claude-code;
+let
+  cfg = config.dotfiles.programs.claude-code;
+
+  # TODO: Future add support for commands/agents.
 in {
   options.dotfiles.programs.claude-code = {
     enable = mkEnableOption "Enable claude-code";
@@ -11,7 +14,11 @@ in {
   };
 
   config = mkMerge [
-    (mkIf cfg.enable { home.packages = [ pkgs.claude-code ]; })
+    (mkIf cfg.enable {
+      home.packages = [ pkgs.claude-code ];
+
+      home.file = { ".claude/CLAUDE.md".source = ./CLAUDE.md; };
+    })
     (mkIf (cfg.enable && cfg.automaticPermissionPreservation) {
       home.activation.claudeStableLink =
         lib.hm.dag.entryAfter [ "writeBoundary" ] ''

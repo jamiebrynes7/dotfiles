@@ -22,7 +22,7 @@
     # Tools
     devenv.url = "github:cachix/devenv";
     claude-code = {
-      url = "github:sadjow/claude-code-nix";
+      url = "github:jamiebrynes7/claude-code-native-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

@@ -15,7 +15,7 @@ in {
 
   config.programs.zsh = mkIf cfg.enable {
     enable = true;
-    dotDir = ".config/zsh";
+    dotDir = config.home.homeDirectory + "/.config/zsh";
 
     autocd = true;
     autosuggestion.enable = true;

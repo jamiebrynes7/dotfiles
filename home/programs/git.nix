@@ -20,7 +20,7 @@ in {
         email = cfg.email;
       };
 
-      aliases = {
+      alias = {
         # Create a new branch
         new = "checkout -b";
 

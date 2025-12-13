@@ -13,8 +13,6 @@ in {
     };
 
     # TODO: Convert zellij config into Nix expression.
-    xdg.configFile."zellij/config.kdl" = {
-      source = ../static/zellij/config.kdl;
-    };
+    xdg.configFile."zellij/config.kdl" = { source = ./config.kdl; };
   };
 }

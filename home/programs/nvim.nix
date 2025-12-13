@@ -44,26 +44,13 @@ in {
         nvim-tree-lua
         gitsigns-nvim
         indent-blankline-nvim
-        barbecue-nvim
+
+        # Autocomplete
+        nvim-cmp
+        cmp-buffer
 
         # Telescope
         telescope-nvim
-
-        # LSP & related
-        nvim-lspconfig
-        nvim-navic
-        symbols-outline-nvim
-        fidget-nvim
-        trouble-nvim
-        nvim-cmp
-        cmp-nvim-lsp
-        cmp-buffer
-        vim-vsnip
-        cmp-vsnip
-
-        # Formatting
-        (gitHubPlugin "stevearc/conform.nvim" "refs/tags/v4.2.0"
-          "66affb4034ee6d77160f0aed99b615fad311ce14")
       ];
     };
 

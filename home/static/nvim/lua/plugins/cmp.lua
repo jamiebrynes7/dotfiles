@@ -2,10 +2,8 @@ local cmp = require('cmp')
 
 cmp.setup({
     sources = {
-        { name = "nvim_lsp" },
         { name = "path" },
         { name = "buffer" },
-        { name = "vsnip" },
     },
     mapping = {
         ['<S-Tab>'] = cmp.mapping.select_prev_item(),

@@ -79,11 +79,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1768620518,
-        "narHash": "sha256-l6B8mYC/lOSm6G0y972Oo+ItnG7uM5gFUVMhmvRei0U=",
+        "lastModified": 1768669324,
+        "narHash": "sha256-Bym+cD3dKGPBdH5Ni5txGY4h0DazYdyhMPUOkP5f3Es=",
         "owner": "jamiebrynes7",
         "repo": "claude-code-native-nix",
-        "rev": "e915918ef3fc101c5590cb0c43a264938a8fc21f",
+        "rev": "4a0e4887427ccac4cffa2ed8ccc7d21fd4da2918",
         "type": "github"
       },
       "original": {
@@ -410,11 +410,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1768323494,
-        "narHash": "sha256-yBXJLE6WCtrGo7LKiB6NOt6nisBEEkguC/lq/rP3zRQ=",
+        "lastModified": 1768621446,
+        "narHash": "sha256-6YwHV1cjv6arXdF/PQc365h1j+Qje3Pydk501Rm4Q+4=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "2c3e5ec5df46d3aeee2a1da0bfedd74e21f4bf3a",
+        "rev": "72ac591e737060deab2b86d6952babd1f896d7c5",
         "type": "github"
       },
       "original": {

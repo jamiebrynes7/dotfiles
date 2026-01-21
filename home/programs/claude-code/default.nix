@@ -7,7 +7,14 @@ let
     exec ${pkgs.claude-code}/bin/claude "$@"
   '';
 
-  # TODO: Future add support for commands/agents.
+  # Build attribute set for command files
+  commandFiles = let
+    commandsDir = ./commands;
+    files = builtins.readDir commandsDir;
+  in lib.mapAttrs' (name: type:
+    lib.nameValuePair ".claude/commands/${name}" {
+      source = commandsDir + "/${name}";
+    }) (lib.filterAttrs (name: type: type == "regular") files);
 in {
   options.dotfiles.programs.claude-code = {
     enable = mkEnableOption "Enable claude-code";
@@ -20,7 +27,7 @@ in {
   };
 
   config = mkIf cfg.enable {
-    home.file = { ".claude/CLAUDE.md".source = ./CLAUDE.md; };
+    home.file = { ".claude/CLAUDE.md".source = ./CLAUDE.md; } // commandFiles;
     home.activation.claudeStableLink =
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         mkdir -p $HOME/.local/bin

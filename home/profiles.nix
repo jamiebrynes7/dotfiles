@@ -20,6 +20,7 @@ in {
         bat.enable = true;
         direnv.enable = true;
         git.enable = true;
+        gh.enable = true;
         nvim.enable = true;
         zsh.enable = true;
       };

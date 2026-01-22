@@ -1,6 +1,6 @@
 ---
 description: Code review a pull request
-allowed-tools: Bash(gh pr diff:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checkout:*)
+cc:allowed-tools: Bash(gh pr diff:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checkout:*)
 ---
 
 <preflight-checks>

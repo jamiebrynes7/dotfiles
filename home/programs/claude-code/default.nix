@@ -2,32 +2,17 @@
 with lib;
 let
   cfg = config.dotfiles.programs.claude-code;
+  aiCommands = import ../../lib/ai/commands { inherit lib pkgs; };
+  commands = aiCommands.mkCommandFiles {
+    variant = "cc";
+    targetDir = ".claude/commands";
+    extraCommandsDir = cfg.commandsDir;
+  };
+
   claudeWrapper = pkgs.writeShellScript "claude-wrapper" ''
     ${cfg.extraScript}
     exec ${pkgs.claude-code}/bin/claude "$@"
   '';
-
-  # Read .md files from a directory, returning an attrset of name -> path
-  readCommandDir = dir:
-    let files = builtins.readDir dir;
-    in lib.mapAttrs (name: _: dir + "/${name}")
-    (lib.filterAttrs
-      (name: type: type == "regular" && lib.hasSuffix ".md" name)
-      files);
-
-  localCommands = readCommandDir ../../lib/ai/commands;
-  extraCommands =
-    if cfg.commandsDir != null then readCommandDir cfg.commandsDir else { };
-
-  # Check for name conflicts
-  localNames = builtins.attrNames localCommands;
-  extraNames = builtins.attrNames extraCommands;
-  conflicts = builtins.filter (name: builtins.elem name localNames) extraNames;
-
-  # Build the final command files attribute set
-  commandFiles = lib.mapAttrs' (name: path:
-    lib.nameValuePair ".claude/commands/${name}" { source = path; })
-    (localCommands // extraCommands);
 in {
   options.dotfiles.programs.claude-code = {
     enable = mkEnableOption "Enable claude-code";
@@ -47,14 +32,14 @@ in {
 
   config = mkIf cfg.enable {
     assertions = [{
-      assertion = conflicts == [ ];
+      assertion = commands.conflicts == [ ];
       message =
         "claude-code: command name conflicts between built-in commands and provided commands: ${
-          builtins.concatStringsSep ", " conflicts
+          builtins.concatStringsSep ", " commands.conflicts
         }";
     }];
 
-    home.file = { ".claude/CLAUDE.md".source = ./CLAUDE.md; } // commandFiles;
+    home.file = { ".claude/CLAUDE.md".source = ./CLAUDE.md; } // commands.files;
     home.activation.claudeStableLink =
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         mkdir -p $HOME/.local/bin

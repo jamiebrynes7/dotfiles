@@ -7,14 +7,27 @@ let
     exec ${pkgs.claude-code}/bin/claude "$@"
   '';
 
-  # Build attribute set for command files
-  commandFiles = let
-    commandsDir = ./commands;
-    files = builtins.readDir commandsDir;
-  in lib.mapAttrs' (name: type:
-    lib.nameValuePair ".claude/commands/${name}" {
-      source = commandsDir + "/${name}";
-    }) (lib.filterAttrs (name: type: type == "regular") files);
+  # Read .md files from a directory, returning an attrset of name -> path
+  readCommandDir = dir:
+    let files = builtins.readDir dir;
+    in lib.mapAttrs (name: _: dir + "/${name}")
+    (lib.filterAttrs
+      (name: type: type == "regular" && lib.hasSuffix ".md" name)
+      files);
+
+  localCommands = readCommandDir ../../lib/ai/commands;
+  extraCommands =
+    if cfg.commandsDir != null then readCommandDir cfg.commandsDir else { };
+
+  # Check for name conflicts
+  localNames = builtins.attrNames localCommands;
+  extraNames = builtins.attrNames extraCommands;
+  conflicts = builtins.filter (name: builtins.elem name localNames) extraNames;
+
+  # Build the final command files attribute set
+  commandFiles = lib.mapAttrs' (name: path:
+    lib.nameValuePair ".claude/commands/${name}" { source = path; })
+    (localCommands // extraCommands);
 in {
   options.dotfiles.programs.claude-code = {
     enable = mkEnableOption "Enable claude-code";
@@ -24,9 +37,23 @@ in {
       description =
         "Shell lines to run before execing claude-code (e.g. env tweaks).";
     };
+    commandsDir = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      description =
+        "Path to a directory of additional command files to symlink into ~/.claude/commands.";
+    };
   };
 
   config = mkIf cfg.enable {
+    assertions = [{
+      assertion = conflicts == [ ];
+      message =
+        "claude-code: command name conflicts between built-in commands and provided commands: ${
+          builtins.concatStringsSep ", " conflicts
+        }";
+    }];
+
     home.file = { ".claude/CLAUDE.md".source = ./CLAUDE.md; } // commandFiles;
     home.activation.claudeStableLink =
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''

@@ -20,6 +20,7 @@ let
   settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON {
     alwaysThinkingEnabled = true;
     hooks = mergedHooks;
+    permissions = cfg.permissions;
   });
 in {
   imports = [ ./hooks ];
@@ -43,9 +44,32 @@ in {
       default = { };
       description = "Named hook definitions for Claude Code";
     };
+    permissions = mkOption {
+      type = types.submodule {
+        options = {
+          allow = mkOption {
+            type = types.listOf types.str;
+            default = [ ];
+            description = "List of permissions to allow.";
+          };
+          deny = mkOption {
+            type = types.listOf types.str;
+            default = [ ];
+            description = "List of permissions to deny.";
+          };
+        };
+      };
+      default = {
+        allow = [ ];
+        deny = [ ];
+      };
+      description = "Permissions configuration for Claude Code.";
+    };
   };
 
   config = mkIf cfg.enable {
+    dotfiles.programs.claude-code.permissions = { allow = [ "Skill" ]; };
+
     assertions = [{
       assertion = commands.conflicts == [ ];
       message =

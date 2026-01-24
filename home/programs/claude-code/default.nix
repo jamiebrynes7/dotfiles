@@ -13,7 +13,17 @@ let
     ${cfg.extraScript}
     exec ${pkgs.claude-code}/bin/claude "$@"
   '';
+
+  hookTypes = import ./hooks/types.nix { inherit lib; };
+  mergedHooks = hookTypes.mergeHooks cfg.hooks;
+
+  settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON {
+    alwaysThinkingEnabled = true;
+    hooks = mergedHooks;
+  });
 in {
+  imports = [ ./hooks ];
+
   options.dotfiles.programs.claude-code = {
     enable = mkEnableOption "Enable claude-code";
     extraScript = mkOption {
@@ -28,6 +38,11 @@ in {
       description =
         "Path to a directory of additional command files to symlink into ~/.claude/commands.";
     };
+    hooks = mkOption {
+      type = types.attrsOf hookTypes.hookType;
+      default = { };
+      description = "Named hook definitions for Claude Code";
+    };
   };
 
   config = mkIf cfg.enable {
@@ -39,7 +54,11 @@ in {
         }";
     }];
 
-    home.file = { ".claude/CLAUDE.md".source = ./CLAUDE.md; } // commands.files;
+    home.file = {
+      ".claude/CLAUDE.md".source = ./CLAUDE.md;
+      ".claude/settings.json".source = settingsJson;
+    } // commands.files;
+
     home.activation.claudeStableLink =
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         mkdir -p $HOME/.local/bin

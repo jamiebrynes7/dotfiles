@@ -25,6 +25,10 @@
       url = "github:jamiebrynes7/claude-code-native-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    sprites-cli = {
+      url = "github:jamiebrynes7/sprite-cli-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, ... }@inputs:
@@ -32,6 +36,7 @@
       defaultOverlays = [
         inputs.alacritty-themes.overlays.default
         inputs.claude-code.overlays.default
+        inputs.sprites-cli.overlays.default
       ];
 
       nixOsPkgs = { overlays ? [ ], system }:

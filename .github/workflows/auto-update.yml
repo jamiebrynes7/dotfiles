@@ -23,7 +23,7 @@ jobs:
 
       - name: Run update script
         run: |
-          nix flake update
+          nix flake update claude-code sprites-cli
 
       - name: Check for changes
         id: check

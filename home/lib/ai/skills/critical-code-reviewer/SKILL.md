@@ -54,16 +54,30 @@ git diff $(git merge-base <default-branch> HEAD)..HEAD
 
 ### A Github PR reference
 
-Use when the user provides a PR number (`123`, `#123`) or a full GitHub PR URL (`https://github.com/owner/repo/pull/123`). Extract the PR number and fetch the diff directly without checking out the branch:
+Use when the user provides a PR number (`123`, `#123`) or a full GitHub PR URL (`https://github.com/owner/repo/pull/123`). Extract the PR number and, if present, the `owner/repo`.
+
+**Step 1 — Fetch the diff** (used for the review itself):
 
 ```bash
 gh pr diff <PR_NUMBER>
+# or, for a different repo:
+gh pr diff <PR_NUMBER> --repo <owner/repo>
 ```
 
-If the PR is from a different repository, pass the repo flag:
+**Step 2 — Checkout a local copy** for exploring full file context with Read/Glob/Grep:
 
 ```bash
-gh pr diff <PR_NUMBER> --repo <owner/repo>
+CHECKOUT_DIR=$(bash <path-to-skill>/scripts/pr-checkout.sh setup <PR_NUMBER>)
+# or, for a different repo:
+CHECKOUT_DIR=$(bash <path-to-skill>/scripts/pr-checkout.sh setup <PR_NUMBER> --repo <owner/repo>)
+```
+
+The script prints the checkout directory path to stdout. Use this directory with Read, Glob, and Grep tools to investigate surrounding code, related files, and broader context during your review.
+
+**Step 3 — Clean up** when the review is complete:
+
+```bash
+bash <path-to-skill>/scripts/pr-checkout.sh cleanup "$CHECKOUT_DIR"
 ```
 
 ---

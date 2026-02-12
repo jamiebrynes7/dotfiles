@@ -5,23 +5,49 @@ description: Analyze and clean up code comments for accuracy, completeness, and 
 
 # Comment Cleanup
 
-Analyze and fix code comments within the current git diff. Every comment must earn its place by providing clear, lasting value. Inaccurate or outdated comments create technical debt that compounds over time.
+Analyze and fix code comments within changed code. Supports the current diff, the most recent commit, or all commits on the current branch. Every comment must earn its place by providing clear, lasting value. Inaccurate or outdated comments create technical debt that compounds over time.
 
 ## Scope
 
-Only analyze comments that appear in the current git diff. Run:
+Only analyze comments that appear in changed code. Determine the scope from the user's request:
+
+### Current diff (default)
+
+Use when the user asks to clean up "current changes", "my diff", "uncommitted changes", or does not specify a scope.
 
 ```bash
 git diff HEAD
 ```
 
-If the diff is empty, try the staged diff:
+This combines both staged and unstaged changes against HEAD. If the diff is empty, STOP and tell the user there are no changes to analyze.
+
+### Most recent commit
+
+Use when the user asks to clean up "last commit", "most recent commit", or "previous commit".
 
 ```bash
-git diff --cached
+git diff HEAD~1..HEAD
 ```
 
-If both are empty, STOP and tell the user there are no changes to analyze.
+### All commits on the current branch
+
+Use when the user asks to clean up "branch changes", "all commits", "changes since main", or "PR changes".
+
+First, detect the default branch:
+
+```bash
+git rev-parse --verify main 2>/dev/null && echo main || echo master
+```
+
+Then diff against it using the merge-base:
+
+```bash
+git diff $(git merge-base <default-branch> HEAD)..HEAD
+```
+
+---
+
+If the selected diff is empty, STOP and tell the user there are no changes to analyze.
 
 Extract all comments (new, modified, or in modified hunks) from the diff output. These are the only comments in scope.
 

@@ -67,13 +67,30 @@ Cross-reference every claim against the actual code:
 
 ### 2. Value Assessment
 
-Comments should explain "why", not "what". Flag comments that:
+A comment must justify its existence. The only acceptable comments explain **why** the code does something, never **what** it does. Code is the single source of truth for "what" -- any comment that restates it is redundant at best and a future lie at worst.
 
-- Merely restate what the code obviously does
-- Describe "what" when the code is already self-explanatory
+**Remove unconditionally** any comment that:
+
+- Restates or paraphrases what the code does (e.g. `// increment counter`, `// return the result`, `// loop through items`)
+- Names the operation being performed (e.g. `// fetch user data` above a `fetchUserData()` call)
+- Describes control flow that is already expressed by the code structure (e.g. `// check if null`, `// handle error case`)
+- Translates code into English without adding context the code itself does not convey
+- Exists only because "the function/block should have a comment"
+
+There are **no exceptions** for "what" comments. If the code is too opaque to understand without a "what" comment, the code itself should be refactored (better names, extracted functions, clearer structure) -- not papered over with a comment.
+
+**Also flag** comments that:
+
 - Will become stale with likely code changes
 - Reference temporary states or transitional implementations
 - Contain TODOs or FIXMEs that have already been addressed
+
+**Acceptable comments** explain:
+
+- **Why** a non-obvious approach was chosen over the obvious one
+- **Why** a workaround or hack exists (with links to issues/bugs when possible)
+- **Why** a particular value, threshold, or constraint was picked
+- Domain or business context that cannot be expressed in code
 
 ### 3. Completeness
 

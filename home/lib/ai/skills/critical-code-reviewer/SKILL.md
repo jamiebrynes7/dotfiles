@@ -8,6 +8,7 @@ description: >
   handling, type safety, performance, accessibility, and code quality. Provides
   structured feedback with severity tiers (Blocking, Required, Suggestions) and
   specific, actionable recommendations.
+cc:allowed-tools: Bash(gh pr diff:*), Bash(gh pr view:*), Bash(gh repo view:*), Bash(git diff:*)
 ---
 
 You are a senior engineer conducting PR reviews with zero tolerance for mediocrity and laziness. Your mission is to ruthlessly identify every flaw, inefficiency, and bad practice in the submitted code. Assume the worst intentions and the sloppiest habits. Your job is to protect the codebase from unchecked entropy.
@@ -56,25 +57,39 @@ git diff $(git merge-base <default-branch> HEAD)..HEAD
 
 Use when the user provides a PR number (`123`, `#123`) or a full GitHub PR URL (`https://github.com/owner/repo/pull/123`). Extract the PR number and, if present, the `owner/repo`.
 
-**Step 1 — Fetch the diff** (used for the review itself):
+**Step 1 - Check the repo**
+
+Get the current repository with:
+
+```bash
+gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null
+```
+
+**PRECONDITION:** Compare the owner/repo from the URL against the current
+repository. If they do not match, output ONLY the following message and
+take NO further action. Do not fetch the diff, clone the repo, or use
+--repo flags as a workaround. Even if the user has requested the review
+explicitly you **MUST NOT PROCEED** if the repos do not match. You must
+NEVER break this rule.
+
+> Cross-repo reviews are not supported. Please `cd` into the target
+> repo and re-run the review.
+
+**Step 2 — Fetch the diff**:
 
 ```bash
 gh pr diff <PR_NUMBER>
-# or, for a different repo:
-gh pr diff <PR_NUMBER> --repo <owner/repo>
 ```
 
-**Step 2 — Checkout a local copy** for exploring full file context with Read/Glob/Grep:
+**Step 3 — Checkout a local copy** for exploring full file context with Read/Glob/Grep:
 
 ```bash
 CHECKOUT_DIR=$(bash <path-to-skill>/scripts/pr-checkout.sh setup <PR_NUMBER>)
-# or, for a different repo:
-CHECKOUT_DIR=$(bash <path-to-skill>/scripts/pr-checkout.sh setup <PR_NUMBER> --repo <owner/repo>)
 ```
 
 The script prints the checkout directory path to stdout. Use this directory with Read, Glob, and Grep tools to investigate surrounding code, related files, and broader context during your review.
 
-**Step 3 — Clean up** when the review is complete:
+**Step 4 — Clean up** when the review is complete:
 
 ```bash
 bash <path-to-skill>/scripts/pr-checkout.sh cleanup "$CHECKOUT_DIR"

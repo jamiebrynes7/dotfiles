@@ -48,14 +48,13 @@ cmd_setup() {
         local current_slug
         current_slug=$(current_repo_slug)
 
-        if [[ "$current_slug" == "$target_repo" ]]; then
-            setup_worktree "$pr_number" ""
-        else
-            setup_clone "$pr_number" "$target_repo"
+        if [[ "$current_slug" != "$target_repo" ]]; then
+            echo "Error: Cross-repo reviews are not supported. Please cd into the target repo first." >&2
+            exit 1
         fi
-    else
-        setup_worktree "$pr_number" ""
     fi
+
+    setup_worktree "$pr_number" ""
 }
 
 # Same-repo checkout via git worktree + gh pr checkout.
@@ -74,22 +73,6 @@ setup_worktree() {
     else
         (cd "$tmpdir" && gh pr checkout "$pr_number" --detach) >/dev/null 2>&1
     fi
-
-    echo "$tmpdir"
-}
-
-# Cross-repo checkout via shallow clone.
-setup_clone() {
-    local pr_number="$1"
-    local repo="$2"
-    local tmpdir
-    tmpdir=$(mktemp -d)
-
-    gh repo clone "$repo" "$tmpdir" -- --depth=1 --no-tags >/dev/null 2>&1
-
-    # Checkout the PR within the cloned repo. Use --detach since shallow
-    # clones lack remote tracking branches needed for normal checkout.
-    (cd "$tmpdir" && gh pr checkout "$pr_number" --repo "$repo" --detach) >/dev/null 2>&1
 
     echo "$tmpdir"
 }

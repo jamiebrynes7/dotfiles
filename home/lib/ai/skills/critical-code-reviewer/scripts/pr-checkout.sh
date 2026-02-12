@@ -62,17 +62,13 @@ setup_worktree() {
     local pr_number="$1"
     local repo_flag="$2"
     local tmpdir
-    tmpdir=$(mktemp -d)
+    local basedir="/tmp/claude-pr-review"
+    mkdir -p "$basedir"
+    tmpdir=$(mktemp -d "$basedir/XXXXXX")
 
     # Create a detached worktree so we don't collide with existing branches.
     git worktree add --detach "$tmpdir" HEAD >/dev/null 2>&1
-
-    # Checkout the PR branch within the worktree.
-    if [[ -n "$repo_flag" ]]; then
-        (cd "$tmpdir" && gh pr checkout "$pr_number" --repo "$repo_flag" --detach) >/dev/null 2>&1
-    else
-        (cd "$tmpdir" && gh pr checkout "$pr_number" --detach) >/dev/null 2>&1
-    fi
+    (cd "$tmpdir" && gh pr checkout "$pr_number" --detach) >/dev/null 2>&1
 
     echo "$tmpdir"
 }

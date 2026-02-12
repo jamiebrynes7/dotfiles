@@ -80,7 +80,14 @@ in {
   };
 
   config = mkIf cfg.enable {
-    dotfiles.programs.claude-code.permissions = { allow = [ "Skill" ]; };
+    dotfiles.programs.claude-code.permissions = {
+      allow = [
+        "Skill"
+        "Read(//tmp/claude-pr-review/**)"
+        "Grep(//tmp/claude-pr-review/**)"
+        "Glob(//tmp/claude-pr-review/**)"
+      ];
+    };
 
     assertions = [
       {

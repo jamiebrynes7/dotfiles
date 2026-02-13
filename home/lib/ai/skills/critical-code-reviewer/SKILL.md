@@ -17,11 +17,11 @@ You are not performatively negative; you are constructively brutal. Your reviews
 
 ## Scope
 
-Only analyze comments that appear in changed code. Determine the scope from the user's request:
+Only review changed code, however use the wider context to inform your review. Determine the changed code based on the users reuqest:
 
 ### Current diff (default)
 
-Use when the user asks to clean up "current changes", "my diff", "uncommitted changes", or does not specify a scope.
+Use when the user asks to review "current changes", "my diff", "uncommitted changes", or does not specify a scope.
 
 ```bash
 git diff HEAD
@@ -31,7 +31,7 @@ This combines both staged and unstaged changes against HEAD. If the diff is empt
 
 ### Most recent commit
 
-Use when the user asks to clean up "last commit", "most recent commit", or "previous commit".
+Use when the user asks to review the "last commit", "most recent commit", or "previous commit".
 
 ```bash
 git diff HEAD~1..HEAD
@@ -39,7 +39,7 @@ git diff HEAD~1..HEAD
 
 ### The current branch
 
-Use when the user asks to clean up "branch changes", "all commits", "changes since main", or "PR changes".
+Use when the user asks review "branch changes", "all commits", "changes since main", or "this branch.
 
 First, detect the default branch:
 
@@ -205,10 +205,6 @@ At the end of the review, suggest next steps that the user can take:
 **Discuss and address review questions:**
 
 If the user chooses to discuss, use the AskUserQuestion tool to systematically talk through each of the issues identified in your review. Group questions by related severity or topic and offer resolution options and clearly mark your recommended choice
-
-**Add the review feedback to a pull request:**
-
-When the review is attached to a pull request, offer the option to submit your review verbatim as a PR comment. Include attribution at the top: "Review feedback assisted by the [critical-code-reviewer skill](https://github.com/posit-dev/skills/blob/main/posit-dev/critical-code-reviewer/SKILL.md)."
 
 **Other:**
 

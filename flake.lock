@@ -462,11 +462,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1771356273,
-        "narHash": "sha256-2TlaJVm2zx2Wzwryl/SZ6R61cutOOYd+UZPvXnXLFXI=",
+        "lastModified": 1771384158,
+        "narHash": "sha256-Tu+s7gsGxGtiTWx7rBJ9spH97FIwi5gCmxwD2kvJ9GE=",
         "owner": "jamiebrynes7",
         "repo": "sprite-cli-nix",
-        "rev": "a196429f4c2f6b66e4c69a44744525deb58772eb",
+        "rev": "860ec4c02e7f461289a6727d2027f2ae57f5019b",
         "type": "github"
       },
       "original": {

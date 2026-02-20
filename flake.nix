@@ -162,6 +162,10 @@
           path = ./templates/systems/home-manager;
           description = "A template for a home-manager system";
         };
+        "project/go" = {
+          path = ./templates/projects/go;
+          description = "A template for a Go project";
+        };
       };
     };
 }

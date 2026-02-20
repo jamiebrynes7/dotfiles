@@ -1,0 +1,2 @@
+# Prevent the lock file for templates from being committed
+**/*/flake.lock

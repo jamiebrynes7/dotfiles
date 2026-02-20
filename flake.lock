@@ -79,11 +79,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1771452452,
-        "narHash": "sha256-JYIK6+QKxnmd+Ko08mWtNSiKGgna++KxR/ZeR9msREo=",
+        "lastModified": 1771546002,
+        "narHash": "sha256-0MKKu9IGaFCwWtaWtGryST33a3piMSMtV85cfG+tytw=",
         "owner": "jamiebrynes7",
         "repo": "claude-code-native-nix",
-        "rev": "f053d7158df3a17ddd3b8e3e0e1cd9b4d40c98f5",
+        "rev": "29bfa555e19e71ee971a7b455382072ae7b847d5",
         "type": "github"
       },
       "original": {
@@ -462,11 +462,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1771470477,
-        "narHash": "sha256-G1wiNs/lsIv1x8Oy7sUUq0PuLTwHpYT4c23dlb5NFp0=",
+        "lastModified": 1771535591,
+        "narHash": "sha256-MtuNkza2Xz3OfT2PptsXtrZ1T5KDiqCxhysaoT78uAg=",
         "owner": "jamiebrynes7",
         "repo": "sprite-cli-nix",
-        "rev": "1b2349682fd1619539c3b036ca52f1516410d809",
+        "rev": "8e9ce32b79686a07b2944be09c445afa8e6d0535",
         "type": "github"
       },
       "original": {

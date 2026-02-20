@@ -149,17 +149,17 @@
       lib = { inherit mkNixosSystem mkDarwin mkHomeManagerSystem mkShells; };
       devShells = mkShells { };
       templates = {
-        darwin = {
-          path = ./templates/darwin;
+        "system/darwin" = {
+          path = ./templates/systems/darwin;
           description =
             "A template for a Darwin system managed with nix-darwin";
         };
-        nixos = {
-          path = ./templates/nixos;
+        "system/nixos" = {
+          path = ./templates/systems/nixos;
           description = "A template for a NixOS system";
         };
-        home-manager = {
-          path = ./templates/home-manager;
+        "system/home-manager" = {
+          path = ./templates/systems/home-manager;
           description = "A template for a home-manager system";
         };
       };

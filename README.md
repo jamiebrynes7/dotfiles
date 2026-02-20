@@ -24,13 +24,13 @@ This repository exposes multiple templates that you can use as starting points f
 For macOS/Darwin systems:
 
 ```bash
-nix flake init -t github:jamiebrynes7/dotfiles#darwin
+nix flake init -t github:jamiebrynes7/dotfiles#system/darwin
 ```
 
 For NixOS systems:
 
 ```bash
-nix flake init -t github:jamiebrynes7/dotfiles#nixos
+nix flake init -t github:jamiebrynes7/dotfiles#system/nixos
 ```
 
 These commands will create the necessary configuration files in your current directory, which you can then customize for your specific needs.

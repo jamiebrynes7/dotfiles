@@ -33,8 +33,9 @@ in {
     };
 
     initContent = concatLines [
-      (optionalString enableBrewIntegration
-        ''eval "$(/opt/homebrew/bin/brew shellenv)"'')
+      (optionalString enableBrewIntegration ''
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+      '')
       (optionalString (cfg.extra != null) "source ${cfg.extra}")
     ];
   };

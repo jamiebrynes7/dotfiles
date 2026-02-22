@@ -118,7 +118,9 @@ in {
       '';
 
     # Add to PATH
-    home.sessionPath = [ "$HOME/.local/bin" ];
+    programs.zsh.envExtra = ''
+      export PATH="$HOME/.local/bin:$PATH"
+    '';
 
     # Preserve config during switches
     home.activation.preserveClaudeConfig =

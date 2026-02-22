@@ -87,6 +87,9 @@ in {
         "Grep(//tmp/claude-pr-review/**)"
         "Glob(//tmp/claude-pr-review/**)"
       ];
+      deny = [
+        "Read(**/.env.local)"
+      ];
     };
 
     assertions = [

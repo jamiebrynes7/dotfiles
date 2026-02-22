@@ -24,6 +24,8 @@
 
                 nil
                 nixfmt-classic
+
+                just
               ];
             }];
           };

@@ -1,0 +1,19 @@
+default:
+    @just --list
+
+build:
+    go build ./...
+
+# Run all tests
+test:
+    go test ./...
+
+# Lint all Go files
+lint:
+    golangci-lint run ./...
+
+# Format all Go files
+fmt:
+    go fmt ./...
+
+check: fmt lint test build

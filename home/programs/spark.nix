@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 with lib;
 let
-  cfg = config.dotfiles.programs."df-template";
+  cfg = config.dotfiles.programs.spark;
   ghqEnabled = config.dotfiles.programs.ghq.enable;
 
   dirPrompt = if ghqEnabled then ''
@@ -38,7 +38,7 @@ let
     actual_dir="$dir"
   '';
 
-  script = pkgs.writeShellScriptBin "df-template" ''
+  script = pkgs.writeShellScriptBin "spark" ''
     set -euo pipefail
 
     printf "\e[2mFetching available templates...\e[0m\n" >&2
@@ -83,8 +83,8 @@ let
     printf "\e[32mDone!\e[0m\n"
   '';
 in {
-  options.dotfiles.programs."df-template" = {
-    enable = mkEnableOption "Enable df-template script";
+  options.dotfiles.programs.spark = {
+    enable = mkEnableOption "Enable spark script";
   };
 
   config = mkIf cfg.enable {

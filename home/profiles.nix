@@ -18,7 +18,7 @@ in {
       dotfiles.programs = {
         atuin.enable = true;
         bat.enable = true;
-        df-template.enable = true;
+        spark.enable = true;
         direnv.enable = true;
         git.enable = true;
         gh.enable = true;

@@ -1,0 +1,5 @@
+result
+.devenv/
+.direnv/
+node_modules/
+dist/

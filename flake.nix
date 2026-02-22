@@ -166,6 +166,10 @@
           path = ./templates/projects/go;
           description = "A template for a Go project";
         };
+        "project/typescript" = {
+          path = ./templates/projects/typescript;
+          description = "A template for a TypeScript project";
+        };
       };
     };
 }

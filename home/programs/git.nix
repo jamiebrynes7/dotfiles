@@ -52,7 +52,7 @@ in {
         c = "commit";
 
         fomo =
-          "!fomo() { git fetch origin master && git rebase $@ origin/master; }; fomo";
+          "!fomo() { branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@') && git fetch origin $branch && git rebase $@ origin/$branch; }; fomo";
       };
 
       init = { defaultBranch = "master"; };

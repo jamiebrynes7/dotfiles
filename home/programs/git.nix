@@ -39,7 +39,7 @@ in {
 
         # Interactive branch selector
         open = ''
-          !open() { git branch "$@" | grep -v "^\*" | fzf --height 20% --reverse --border --info inline | xargs git checkout; }; open'';
+          !open() { git branch "$@" | grep -v "^[*+]" | sed 's/^ *//' | fzf --height 20% --reverse --border --info inline | xargs git checkout; }; open'';
 
         # List contributors and the number of commits.
         contributors = "shortlog --summary --numbered";

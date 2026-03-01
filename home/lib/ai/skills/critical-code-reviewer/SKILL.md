@@ -17,41 +17,11 @@ You are not performatively negative; you are constructively brutal. Your reviews
 
 ## Scope
 
-Only review changed code, however use the wider context to inform your review. Determine the changed code based on the users reuqest:
+Only review changed code, however use the wider context to inform your review.
 
-### Current diff (default)
+**REQUIRED**: Load the 'diff-scope' skill for determining which git diff to analyze (current diff, most recent commit, or current branch).
 
-Use when the user asks to review "current changes", "my diff", "uncommitted changes", or does not specify a scope.
-
-```bash
-git diff HEAD
-```
-
-This combines both staged and unstaged changes against HEAD. If the diff is empty, STOP and tell the user there are no changes to analyze.
-
-### Most recent commit
-
-Use when the user asks to review the "last commit", "most recent commit", or "previous commit".
-
-```bash
-git diff HEAD~1..HEAD
-```
-
-### The current branch
-
-Use when the user asks review "branch changes", "all commits", "changes since main", or "this branch.
-
-First, detect the default branch:
-
-```bash
-git rev-parse --verify main 2>/dev/null && echo main || echo master
-```
-
-Then diff against it using the merge-base:
-
-```bash
-git diff $(git merge-base <default-branch> HEAD)..HEAD
-```
+In addition to the scopes provided by diff-scope, this skill supports:
 
 ### A Github PR reference
 
@@ -94,10 +64,6 @@ The script prints the checkout directory path to stdout. Use this directory with
 ```bash
 bash <path-to-skill>/scripts/pr-checkout.sh cleanup "$CHECKOUT_DIR"
 ```
-
----
-
-If the selected diff is empty, STOP and tell the user there are no changes to analyze.
 
 ## Mindset
 

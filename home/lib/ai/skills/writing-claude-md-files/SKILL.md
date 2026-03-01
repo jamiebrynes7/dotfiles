@@ -6,7 +6,7 @@ cc:user-invocable: false
 
 # Writing CLAUDE.md Files
 
-**REQUIRED**: Load the writing-claude-directives' skill for foundational guidance on token efficiency, compliance techniques, and directive structure.
+**REQUIRED**: Load the writing-claude-directives skill for foundational guidance on token efficiency, compliance techniques, and directive structure.
 
 ## Core Principle
 

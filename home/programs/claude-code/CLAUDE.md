@@ -9,25 +9,6 @@
 3. **Implement** - Build with tests and error handling
 4. **Validate** - Compile and run tests
 
-## Code Organization
-
-**Keep functions small and focused:**
-
-- If you need comments to explain sections, split into functions
-- Group related functionality into clear packages
-- Prefer many small files over few large ones
-
-**Comments**
-
-- Comments should almost always be the "why", not the "what".
-- Only describe the "what" when it is non-trivial or unexpected.
-
-**Prefer explicit over implicit:**
-
-- Clear function names over clever abstractions
-- Obvious data flow over hidden magic
-- Direct dependencies over service locators
-
 ## Problem Solving
 
 - **When stuck:** Stop. The simple solution is usually correct.

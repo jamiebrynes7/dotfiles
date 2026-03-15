@@ -1,3 +1,1 @@
-{ ... }: {
-  imports = [ ./skill-reinforcement.nix ];
-}
+{ ... }: { imports = [ ./plannotator.nix ./skill-reinforcement.nix ]; }

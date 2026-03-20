@@ -17,7 +17,7 @@ No justfile at the repo root. Common operations:
 
 - `nix flake check` — validate the flake (runs all checks)
 - `nix flake show` — list outputs (systems, templates, lib)
-- `nixfmt-classic <file>` — format Nix files (available in the devShell)
+- `nixfmt <file>` — format Nix files (available in the devShell)
 
 Host-specific build/switch commands live in downstream system repos created from `templates/systems/`.
 

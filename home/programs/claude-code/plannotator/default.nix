@@ -28,16 +28,19 @@ in {
   config = lib.mkIf cfg.enable {
     home.packages = [ plannotatorWrapper ];
 
-    dotfiles.programs.claude-code.hooks = {
-      plannotator-review = {
-        enable = true;
-        event = "PermissionRequest";
-        matcher = "ExitPlanMode";
-        hooks = [{
-          type = "command";
-          command = "${plannotatorWrapper}/bin/plannotator";
-          timeout = 345600;
-        }];
+    dotfiles.programs.claude-code = {
+      skillsDirs = [ ./skills ];
+      hooks = {
+        plannotator-review = {
+          enable = true;
+          event = "PermissionRequest";
+          matcher = "ExitPlanMode";
+          hooks = [{
+            type = "command";
+            command = "${plannotatorWrapper}/bin/plannotator";
+            timeout = 345600;
+          }];
+        };
       };
     };
   };

@@ -15,6 +15,7 @@ stdenv.mkDerivation {
   };
 
   dontUnpack = true;
+  dontStrip = true;
 
   installPhase = ''
     install -Dm755 $src $out/bin/plannotator

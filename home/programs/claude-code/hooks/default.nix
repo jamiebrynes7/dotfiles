@@ -1,1 +1,1 @@
-{ ... }: { imports = [ ./skill-reinforcement.nix ]; }
+{ ... }: { imports = [ ./debug.nix ./skill-reinforcement.nix ]; }

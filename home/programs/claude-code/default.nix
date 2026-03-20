@@ -29,7 +29,7 @@ let
     permissions = cfg.permissions;
   });
 in {
-  imports = [ ./hooks ];
+  imports = [ ./hooks ./plannotator ];
 
   options.dotfiles.programs.claude-code = {
     enable = mkEnableOption "Enable claude-code";
@@ -87,9 +87,7 @@ in {
         "Grep(//tmp/claude-pr-review/**)"
         "Glob(//tmp/claude-pr-review/**)"
       ];
-      deny = [
-        "Read(**/.env.local)"
-      ];
+      deny = [ "Read(**/.env.local)" ];
     };
 
     assertions = [

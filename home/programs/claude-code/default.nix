@@ -12,7 +12,7 @@ let
   skills = aiSkills.mkSkillFiles {
     variant = "cc";
     targetDir = ".claude/skills";
-    extraSkillsDir = cfg.skillsDir;
+    skillsDirs = cfg.skillsDirs;
   };
 
   claudeWrapper = pkgs.writeShellScript "claude-wrapper" ''
@@ -46,11 +46,11 @@ in {
       description =
         "Path to a directory of additional command files to symlink into ~/.claude/commands.";
     };
-    skillsDir = mkOption {
-      type = types.nullOr types.path;
-      default = null;
+    skillsDirs = mkOption {
+      type = types.listOf types.path;
+      default = [ ];
       description =
-        "Path to a directory of additional skill directories to symlink into ~/.claude/skills.";
+        "List of paths to skill directories to symlink into ~/.claude/skills.";
     };
     hooks = mkOption {
       type = types.attrsOf hookTypes.hookType;
@@ -81,6 +81,8 @@ in {
   };
 
   config = mkIf cfg.enable {
+    dotfiles.programs.claude-code.skillsDirs = [ aiSkills.builtinSkillsDir ];
+
     dotfiles.programs.claude-code.permissions = {
       allow = [
         "Skill"

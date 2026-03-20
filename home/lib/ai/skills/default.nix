@@ -2,47 +2,45 @@
 # Used by claude-code and cursor modules.
 { lib, pkgs }:
 let
-  skillsDir = ./.;
-
   inherit (import ../tools { inherit pkgs; }) processFrontmatter;
 
   # Read skill subdirectories from a directory, returning an attrset of name -> path.
   # A valid skill is a subdirectory containing a SKILL.md file.
   readSkillDir = dir:
-    let
-      entries = builtins.readDir dir;
-    in
-    lib.mapAttrs (name: _: dir + "/${name}")
-      (lib.filterAttrs
-        (name: type:
-          type == "directory"
-          && builtins.pathExists (dir + "/${name}/SKILL.md"))
-        entries);
+    let entries = builtins.readDir dir;
+    in lib.mapAttrs (name: _: dir + "/${name}") (lib.filterAttrs (name: type:
+      type == "directory" && builtins.pathExists (dir + "/${name}/SKILL.md"))
+      entries);
+in {
+  # Path to the built-in skills directory, for consumers to include in skillsDirs.
+  builtinSkillsDir = ./.;
 
-  localSkills = readSkillDir skillsDir;
-in
-{
   # Build skill files for home.file, checking for conflicts.
   #
   # Arguments:
   #   variant: Target variant ("cc" or "cursor") for frontmatter filtering
   #   targetDir: Target directory relative to home (e.g., ".claude/skills")
-  #   extraSkillsDir: Optional path to additional skill directories (null or path)
+  #   skillsDirs: List of paths to skill directories
   #
   # Returns: {
   #   files: Attribute set suitable for home.file
   #   conflicts: List of conflicting skill names (for assertions)
   # }
-  mkSkillFiles = { variant, targetDir, extraSkillsDir }:
+  mkSkillFiles = { variant, targetDir, skillsDirs }:
     let
-      extraSkills =
-        if extraSkillsDir != null
-        then readSkillDir extraSkillsDir
-        else { };
-
-      localNames = builtins.attrNames localSkills;
-      extraNames = builtins.attrNames extraSkills;
-      conflicts = builtins.filter (name: builtins.elem name localNames) extraNames;
+      merged = builtins.foldl' (acc: dir:
+        let
+          dirSkills = readSkillDir dir;
+          dirNames = builtins.attrNames dirSkills;
+          newConflicts =
+            builtins.filter (name: builtins.hasAttr name acc.skills) dirNames;
+        in {
+          skills = acc.skills // dirSkills;
+          conflicts = acc.conflicts ++ newConflicts;
+        }) {
+          skills = { };
+          conflicts = [ ];
+        } skillsDirs;
 
       # Process a single skill directory: copy all files, then overwrite SKILL.md
       # with the variant-filtered version.
@@ -54,18 +52,13 @@ in
           ${processFrontmatter}/bin/process-frontmatter ${variant} ${path}/SKILL.md > $out/SKILL.md
         '';
 
-      allSkills = localSkills // extraSkills;
-
-      skillFiles = lib.mapAttrs'
-        (name: path:
-          lib.nameValuePair "${targetDir}/${name}" {
-            source = processSkill name path;
-            recursive = true;
-          })
-        allSkills;
-    in
-    {
+      skillFiles = lib.mapAttrs' (name: path:
+        lib.nameValuePair "${targetDir}/${name}" {
+          source = processSkill name path;
+          recursive = true;
+        }) merged.skills;
+    in {
       files = skillFiles;
-      inherit conflicts;
+      inherit (merged) conflicts;
     };
 }

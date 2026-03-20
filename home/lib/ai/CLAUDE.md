@@ -14,22 +14,24 @@ Provide shared slash-commands and skills that work across AI assistants. A singl
 commands/          # Slash-command .md files (e.g. /commit, /review)
   default.nix      # mkCommandFiles { variant, targetDir, extraCommandsDir } -> { files, conflicts }
 skills/            # Skill subdirectories, each containing SKILL.md + optional supporting files
-  default.nix      # mkSkillFiles { variant, targetDir, extraSkillsDir } -> { files, conflicts }
+  default.nix      # mkSkillFiles { variant, targetDir, skillsDirs } -> { files, conflicts }
 tools/
   process-frontmatter/  # Python script: filters YAML frontmatter by variant
 ```
 
 ## Contracts
 
-- `mkCommandFiles` and `mkSkillFiles` each accept `{ variant, targetDir, extraCommandsDir/extraSkillsDir }`.
-- Both return `{ files, conflicts }` where `files` is an attrset for `home.file` and `conflicts` is a list of colliding names.
-- Consumers (e.g. `home/programs/claude-code/default.nix`, `home/programs/cursor.nix`) use NixOS assertions to fail evaluation when conflicts are non-empty.
+- `mkCommandFiles` accepts `{ variant, targetDir, extraCommandsDir }` where `extraCommandsDir` is a nullable path.
+- `mkSkillFiles` accepts `{ variant, targetDir, skillsDirs }` where `skillsDirs` is a list of paths. The built-in skills directory is exported as `builtinSkillsDir` and must be included by consumers.
+- Both return `{ files, conflicts }` where `files` is an attrset for `home.file` and `conflicts` is a list of colliding names (detected across all provided directories).
+- Consumers (e.g. `home/programs/claude-code/default.nix`, `home/programs/cursor/default.nix`) use NixOS assertions to fail evaluation when conflicts are non-empty.
 
 ## Key Decisions
 
 - **Single-source with variant filtering** — one file per command/skill, not one per assistant.
-- **Extra directories for overrides** — each consumer module can pass an `extraCommandsDir`/`extraSkillsDir` for assistant-specific additions.
-- **Conflict detection via Nix assertions** — catches name collisions between built-in and extra files at eval time, not at activation.
+- **Extra directories for overrides** — each consumer module can pass an `extraCommandsDir` for commands or append to `skillsDirs` for skills.
+- **Skills are directory-list-based** — `mkSkillFiles` takes a flat list of skill directories (including the built-in one). Sub-modules can append their own skill directories via the NixOS module system.
+- **Conflict detection via Nix assertions** — catches name collisions across all skill/command directories at eval time, not at activation.
 
 ## Invariants
 

@@ -2,12 +2,6 @@
 with lib;
 let
   cfg = config.dotfiles.programs.claude-code;
-  aiCommands = import ../../lib/ai/commands { inherit lib pkgs; };
-  commands = aiCommands.mkCommandFiles {
-    variant = "cc";
-    targetDir = ".claude/commands";
-    extraCommandsDir = cfg.commandsDir;
-  };
   aiSkills = import ../../lib/ai/skills { inherit lib pkgs; };
   skills = aiSkills.mkSkillFiles {
     variant = "cc";
@@ -39,12 +33,6 @@ in {
       default = "";
       description =
         "Shell lines to run before execing claude-code (e.g. env tweaks).";
-    };
-    commandsDir = mkOption {
-      type = types.nullOr types.path;
-      default = null;
-      description =
-        "Path to a directory of additional command files to symlink into ~/.claude/commands.";
     };
     skillsDirs = mkOption {
       type = types.listOf types.path;
@@ -93,27 +81,18 @@ in {
       deny = [ "Read(**/.env.local)" ];
     };
 
-    assertions = [
-      {
-        assertion = commands.conflicts == [ ];
-        message =
-          "claude-code: command name conflicts between built-in commands and provided commands: ${
-            builtins.concatStringsSep ", " commands.conflicts
-          }";
-      }
-      {
-        assertion = skills.conflicts == [ ];
-        message =
-          "claude-code: skill name conflicts between built-in skills and provided skills: ${
-            builtins.concatStringsSep ", " skills.conflicts
-          }";
-      }
-    ];
+    assertions = [{
+      assertion = skills.conflicts == [ ];
+      message =
+        "claude-code: skill name conflicts between built-in skills and provided skills: ${
+          builtins.concatStringsSep ", " skills.conflicts
+        }";
+    }];
 
     home.file = {
       ".claude/CLAUDE.md".source = ./CLAUDE.md;
       ".claude/settings.json".source = settingsJson;
-    } // commands.files // skills.files;
+    } // skills.files;
 
     home.activation.claudeStableLink =
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''

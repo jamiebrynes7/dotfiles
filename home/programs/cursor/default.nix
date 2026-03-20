@@ -2,12 +2,6 @@
 with lib;
 let
   cfg = config.dotfiles.programs.cursor;
-  aiCommands = import ../../lib/ai/commands { inherit lib pkgs; };
-  commands = aiCommands.mkCommandFiles {
-    variant = "cursor";
-    targetDir = ".cursor/commands";
-    extraCommandsDir = cfg.commandsDir;
-  };
   aiSkills = import ../../lib/ai/skills { inherit lib pkgs; };
   skills = aiSkills.mkSkillFiles {
     variant = "cursor";
@@ -32,12 +26,6 @@ let
 in {
   options.dotfiles.programs.cursor = {
     enable = mkEnableOption "Enable cursor";
-    commandsDir = mkOption {
-      type = types.nullOr types.path;
-      default = null;
-      description =
-        "Path to a directory of additional command files to symlink into ~/.cursor/commands.";
-    };
     skillsDirs = mkOption {
       type = types.listOf types.path;
       default = [ ];
@@ -54,24 +42,15 @@ in {
   config = mkIf cfg.enable {
     dotfiles.programs.cursor.skillsDirs = [ aiSkills.builtinSkillsDir ];
 
-    assertions = [
-      {
-        assertion = commands.conflicts == [ ];
-        message =
-          "cursor: command name conflicts between built-in commands and provided commands: ${
-            builtins.concatStringsSep ", " commands.conflicts
-          }";
-      }
-      {
-        assertion = skills.conflicts == [ ];
-        message =
-          "cursor: skill name conflicts between built-in skills and provided skills: ${
-            builtins.concatStringsSep ", " skills.conflicts
-          }";
-      }
-    ] ++ mcpAssertions;
+    assertions = [{
+      assertion = skills.conflicts == [ ];
+      message =
+        "cursor: skill name conflicts between built-in skills and provided skills: ${
+          builtins.concatStringsSep ", " skills.conflicts
+        }";
+    }] ++ mcpAssertions;
 
-    home.file = commands.files // skills.files
+    home.file = skills.files
       // (optionalAttrs hasMcpServers { ".cursor/mcp.json".source = mcpJson; });
   };
 }

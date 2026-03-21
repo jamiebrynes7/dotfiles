@@ -20,7 +20,6 @@
     };
 
     # Tools
-    devenv.url = "github:cachix/devenv";
     claude-code = {
       url = "github:jamiebrynes7/claude-code-native-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -119,30 +118,15 @@
           ];
         };
 
-      baseShellPkgs = { pkgs, ... }: {
-        packages = with pkgs; [ just nil nixfmt-classic ];
-      };
+      baseShellPkgs = pkgs: with pkgs; [ just nil nixfmt-classic ];
 
-      mkDarwinShell = { modules }:
-        let pkgs = nixDarwinPkgs { };
-        in inputs.devenv.lib.mkShell {
-          inherit pkgs inputs;
-          modules = [ baseShellPkgs ] ++ modules;
-        };
-
-      mkLinuxShell = { system, modules }:
-        let pkgs = nixOsPkgs { inherit system; };
-        in inputs.devenv.lib.mkShell {
-          inherit pkgs inputs;
-          modules = [ baseShellPkgs ] ++ modules;
-        };
-
-      mkShells = { modules ? [ ] }: {
-        aarch64-darwin.default = mkDarwinShell { inherit modules; };
-        x86_64-linux.default = mkLinuxShell {
-          inherit modules;
-          system = "x86_64-linux";
-        };
+      mkShells = { extraPackages ? [ ] }: {
+        aarch64-darwin.default =
+          let pkgs = nixDarwinPkgs { };
+          in pkgs.mkShell { packages = baseShellPkgs pkgs ++ extraPackages; };
+        x86_64-linux.default =
+          let pkgs = nixOsPkgs { system = "x86_64-linux"; };
+          in pkgs.mkShell { packages = baseShellPkgs pkgs ++ extraPackages; };
       };
 
     in {

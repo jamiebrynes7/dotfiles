@@ -9,7 +9,7 @@ Freshness: 2026-02-28
 - **Nix flakes** — all inputs pinned in `flake.nix`
 - **nix-darwin** — macOS system configuration (`darwin/`)
 - **home-manager** — user-level dotfiles and programs (`home/`)
-- **devenv + direnv** — development shells for this repo and project templates
+- **direnv** — development shells for this repo and project templates
 
 ## Commands
 

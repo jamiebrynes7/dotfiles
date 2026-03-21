@@ -1,0 +1,13 @@
+[cship]
+lines = [
+    "$cship.model  $cship.context_window.used_percentage",
+    "$cship.usage_limits",
+]
+
+[cship.context_window.used_percentage]
+symbol = "󰍛"
+format = "[$symbol $value%]($style)"
+warn_threshold = 50.0
+warn_style = "yellow"
+critical_threshold = 70.0
+critical_style = "bold red"

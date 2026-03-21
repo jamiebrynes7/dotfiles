@@ -18,13 +18,15 @@ let
   hookTypes = import ./hooks/types.nix { inherit lib; };
   mergedHooks = hookTypes.mergeHooks cfg.hooks;
 
-  settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON {
+  settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON ({
     alwaysThinkingEnabled = true;
     hooks = mergedHooks;
     permissions = cfg.permissions;
-  });
+  } // lib.optionalAttrs (cfg.statusLine != null) {
+    statusLine = cfg.statusLine;
+  }));
 in {
-  imports = [ ./hooks ./plannotator ];
+  imports = [ ./hooks ./plannotator ./cship ];
 
   options.dotfiles.programs.claude-code = {
     enable = mkEnableOption "Enable claude-code";
@@ -44,6 +46,11 @@ in {
       type = types.attrsOf hookTypes.hookType;
       default = { };
       description = "Named hook definitions for Claude Code";
+    };
+    statusLine = mkOption {
+      type = types.nullOr (types.attrsOf types.str);
+      default = null;
+      description = "Status line configuration for Claude Code.";
     };
     permissions = mkOption {
       type = types.submodule {

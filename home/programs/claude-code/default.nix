@@ -81,9 +81,34 @@ in {
     dotfiles.programs.claude-code.permissions = {
       allow = [
         "Skill"
+
+        # PR review skill
         "Read(//tmp/claude-pr-review/**)"
         "Grep(//tmp/claude-pr-review/**)"
         "Glob(//tmp/claude-pr-review/**)"
+
+        # Git read-only
+        "Bash(git log *)"
+        "Bash(git diff *)"
+        "Bash(git status *)"
+        "Bash(git show *)"
+        "Bash(git rev-parse *)"
+
+        # Common read-only shell commands
+        "Bash(find *)"
+        "Bash(grep *)"
+        "Bash(head *)"
+        "Bash(ls *)"
+        "Bash(tail *)"
+        "Bash(wc *)"
+        "Bash(which *)"
+        "Bash(cat *)"
+        "Bash(diff *)"
+
+        # Text processing
+        "Bash(jq *)"
+        "Bash(sort *)"
+        "Bash(uniq *)"
       ];
       deny = [ "Read(**/.env.local)" ];
     };

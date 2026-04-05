@@ -27,6 +27,9 @@ in {
         remapCapsLockToEscape = true;
       };
 
+      # Disable menu bar action icons (macOS Tahoe).
+      defaults.CustomUserPreferences.NSGlobalDomain.NSMenuEnableActionImages = false;
+
       # Disable hot corners
       defaults.dock = {
         wvous-tl-corner = 1;

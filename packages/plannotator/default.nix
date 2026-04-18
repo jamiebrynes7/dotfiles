@@ -1,4 +1,4 @@
-{ lib, stdenv, fetchurl, makeWrapper }:
+{ lib, stdenv, fetchurl, makeWrapper, autoPatchelfHook }:
 
 let
   release = builtins.fromJSON (builtins.readFile ./hashes.json);
@@ -14,7 +14,10 @@ in stdenv.mkDerivation {
     hash = platform.hash;
   };
 
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ makeWrapper ]
+    ++ lib.optionals stdenv.isLinux [ autoPatchelfHook ];
+
+  buildInputs = lib.optionals stdenv.isLinux [ stdenv.cc.cc.lib ];
 
   dontUnpack = true;
   dontStrip = true;

@@ -149,6 +149,7 @@
         aarch64-darwin = mkPackages (nixDarwinPkgs { });
         x86_64-linux = mkPackages (nixOsPkgs { system = "x86_64-linux"; });
       };
+      checks = self.packages;
       templates = {
         "system/darwin" = {
           path = ./templates/systems/darwin;

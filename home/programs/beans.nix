@@ -5,30 +5,34 @@ let
 in {
   options.dotfiles.programs.beans = {
     enable = lib.mkEnableOption "Enable beans";
-    claudeCodeHooks = lib.mkEnableOption
-      "Register beans prime as Claude Code SessionStart/PreCompact hooks";
+    enableClaudeCodeIntegration = lib.mkEnableOption
+      "Wire beans into Claude Code: SessionStart/PreCompact prime hooks plus Bash(beans *) in the permission allowlist";
   };
 
   config = lib.mkIf cfg.enable {
     home.packages = [ beans ];
 
-    dotfiles.programs.claude-code.hooks = lib.mkIf cfg.claudeCodeHooks {
-      beans-prime-session-start = {
-        enable = true;
-        event = "SessionStart";
-        hooks = [{
-          type = "command";
-          command = "${beans}/bin/beans prime";
-        }];
+    dotfiles.programs.claude-code.permissions.allow =
+      lib.mkIf cfg.enableClaudeCodeIntegration [ "Bash(beans *)" ];
+
+    dotfiles.programs.claude-code.hooks =
+      lib.mkIf cfg.enableClaudeCodeIntegration {
+        beans-prime-session-start = {
+          enable = true;
+          event = "SessionStart";
+          hooks = [{
+            type = "command";
+            command = "${beans}/bin/beans prime";
+          }];
+        };
+        beans-prime-pre-compact = {
+          enable = true;
+          event = "PreCompact";
+          hooks = [{
+            type = "command";
+            command = "${beans}/bin/beans prime";
+          }];
+        };
       };
-      beans-prime-pre-compact = {
-        enable = true;
-        event = "PreCompact";
-        hooks = [{
-          type = "command";
-          command = "${beans}/bin/beans prime";
-        }];
-      };
-    };
   };
 }

@@ -10,7 +10,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  check-and-update:
+  update-flake-inputs:
     runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App token
@@ -29,19 +29,17 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v21
 
-      - name: Run update script
-        run: |
-          nix flake update claude-code sprites-cli
+      - name: Update flake inputs
+        run: nix flake update claude-code sprites-cli
 
       - name: Check for changes
         id: check
         run: |
-          if git diff --quiet version.json; then
-            echo "update_needed=false" >> $GITHUB_OUTPUT
+          if git diff --quiet -- flake.lock; then
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "update_needed=true" >> $GITHUB_OUTPUT
-            DATE=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
-            echo "timestamp=$DATE" >> $GITHUB_OUTPUT
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+            echo "timestamp=$(date -u +%Y-%m-%dT%H-%M-%SZ)" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create Pull Request
@@ -50,11 +48,68 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ steps.app-token.outputs.token }}
-          commit-message: "chore: update flake dependencies"
-          title: "chore: update flake dependencies"
+          commit-message: "flake.lock: update inputs"
+          title: "flake.lock: update inputs"
           body: |
-            This PR updates the flake dependencies to the latest versions.
-          branch: update-dependencies-${{ steps.check.outputs.timestamp }}
+            Updates pinned flake inputs (claude-code, sprites-cli).
+          branch: update-flake-inputs-${{ steps.check.outputs.timestamp }}
+          delete-branch: true
+
+      - name: Merge Pull Request
+        if: steps.check.outputs.update_needed == 'true' && steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --rebase --delete-branch
+
+  update-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.POPPET_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.POPPET_BOT_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v21
+
+      - name: Update packages
+        run: |
+          for script in packages/*/update.sh; do
+            echo "::group::$script"
+            bash "$script"
+            echo "::endgroup::"
+          done
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet -- packages/; then
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+            echo "timestamp=$(date -u +%Y-%m-%dT%H-%M-%SZ)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.check.outputs.update_needed == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: "packages: update versions"
+          title: "packages: update versions"
+          body: |
+            Updates `hashes.json` for each package under `packages/` to its latest GitHub release.
+          branch: update-packages-${{ steps.check.outputs.timestamp }}
           delete-branch: true
 
       - name: Merge Pull Request

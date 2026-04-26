@@ -129,9 +129,26 @@
           in pkgs.mkShell { packages = baseShellPkgs pkgs ++ extraPackages; };
       };
 
+      discoverPackages = dir:
+        let entries = builtins.readDir dir;
+        in builtins.listToAttrs (builtins.map (name: {
+          inherit name;
+          value = dir + "/${name}";
+        }) (builtins.filter (name: entries.${name} == "directory")
+          (builtins.attrNames entries)));
+
+      packagePaths = discoverPackages ./packages;
+
+      mkPackages = pkgs:
+        builtins.mapAttrs (_: path: pkgs.callPackage path { }) packagePaths;
+
     in {
       lib = { inherit mkNixosSystem mkDarwin mkHomeManagerSystem mkShells; };
       devShells = mkShells { };
+      packages = {
+        aarch64-darwin = mkPackages (nixDarwinPkgs { });
+        x86_64-linux = mkPackages (nixOsPkgs { system = "x86_64-linux"; });
+      };
       templates = {
         "system/darwin" = {
           path = ./templates/systems/darwin;

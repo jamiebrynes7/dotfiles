@@ -13,9 +13,17 @@ jobs:
   check-and-update:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.POPPET_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.POPPET_BOT_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
 
       - name: Install Nix
@@ -41,7 +49,7 @@ jobs:
         id: create-pr
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: "chore: update flake dependencies"
           title: "chore: update flake dependencies"
           body: |
@@ -52,6 +60,6 @@ jobs:
       - name: Merge Pull Request
         if: steps.check.outputs.update_needed == 'true' && steps.create-pr.outputs.pull-request-number
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --rebase --delete-branch

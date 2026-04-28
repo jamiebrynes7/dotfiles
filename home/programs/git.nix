@@ -14,6 +14,8 @@ in {
   config.programs.git = mkIf cfg.enable {
     enable = true;
 
+    ignores = [ ".DS_Store" ];
+
     settings = {
       user = {
         name = "Jamie Brynes";

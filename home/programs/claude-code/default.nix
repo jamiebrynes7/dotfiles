@@ -126,6 +126,8 @@ in {
       ".claude/settings.json".source = settingsJson;
     } // skills.files;
 
+    programs.git.ignores = [ "**/.claude/settings.local.json" ];
+
     home.activation.claudeStableLink =
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         mkdir -p $HOME/.local/bin

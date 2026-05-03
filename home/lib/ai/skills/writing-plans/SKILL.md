@@ -26,6 +26,8 @@ if command -v beans >/dev/null 2>&1; then mode=beans; else mode=markdown; fi
 - **beans mode** — produce an epic → feature → task hierarchy in beans. The bean bodies hold the bite-sized TDD step lists. This is the default whenever beans is available.
 - **markdown mode** — write a single markdown plan file at `docs/specs/plans/YYYY-MM-DD-<feature>.md`. Used only when beans is not on `$PATH`.
 
+**Trust the detection — the first bean you create is the epic.** Do not create probe, scratch, or "test" beans to inspect the CLI's output format or confirm it works. Every bean is a durable artifact: it lands in the project's `.beans/` registry, shows up in `beans list`, and has to be scrapped or archived afterwards. The `beans create` invocations in the Beans Mode section below are correct as written; if one fails, debug from the error message rather than experimenting with throwaway beans. If you need a non-destructive sanity check that beans is wired up (config readable, registry intact), run `beans check` — it never creates or modifies beans.
+
 The Scope Check, File Structure, Bite-Sized Task Granularity, No Placeholders, and Self-Review sections below apply to both modes — only the final emission differs.
 
 ## Scope Check

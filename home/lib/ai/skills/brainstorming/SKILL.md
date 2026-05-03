@@ -47,15 +47,14 @@ Complete these in order:
 
 **Exploring approaches:**
 
-- Propose 2–3 different approaches with trade-offs.
-- Lead with your recommended option and explain why.
-- Write the options to a file (see Plannotator integration) — the user reviews them there, not in chat.
+- Compose 2–3 different approaches with trade-offs, leading with your recommended option and explaining why.
+- Write the options to a file and invoke the plannotator options review — see [Plannotator integration](#plannotator-integration) for the file template and exact command. Plannotator is the review surface for this step; file-anchored annotations capture structured feedback that inline chat replies lose.
 
 **Presenting the design:**
 
 - Once you understand what you're building, present the design.
 - Scale each section to its complexity: a few sentences if straightforward, up to 200–300 words if nuanced.
-- Ask after each section whether it looks right so far.
+- After each section, ask whether it looks right and wait for the user to confirm before moving on. This conversational pattern is specific to the design walkthrough — options and the final spec both go through plannotator, not chat.
 - Cover: architecture, components, data flow, error handling, testing.
 - Be ready to go back and clarify if something doesn't make sense.
 

@@ -1,10 +1,11 @@
 ---
 # dotfiles-wj32
 title: 'Supervisor: child handle registry + `trigger_eviction`'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:45:52Z
-updated_at: 2026-05-03T14:45:52Z
+updated_at: 2026-05-09T14:12:57Z
 parent: dotfiles-pmk6
 ---
 
@@ -13,7 +14,7 @@ parent: dotfiles-pmk6
 
 The supervisor must keep child handles alive after spawn so `evict` (and `handle_stop`) have something to SIGTERM/SIGKILL. Without this, the child handle in `start_project` is dropped at function exit, leaving no way to signal the child later.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `mod tests` in `packages/beans-daemon/src/supervisor.rs`:
 ```rust
@@ -61,12 +62,12 @@ Append to `mod tests` in `packages/beans-daemon/src/supervisor.rs`:
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test supervisor::tests::trigger_eviction`
 Expected: FAIL — `Supervisor::insert_child` and `Supervisor::trigger_eviction` don't exist.
 
-- [ ] **Step 3: Add the child handle map and methods**
+- [x] **Step 3: Add the child handle map and methods**
 
 Add a field to `Supervisor`:
 ```rust
@@ -140,14 +141,24 @@ Add `trigger_eviction` — pulls the child handle, transitions registry to `Evic
 
 (Note: `trigger_eviction` requires `&Arc<Self>`. Callers (the `Daemon` struct in F5) hold `Arc<Supervisor<S>>`, so they can call `supervisor.trigger_eviction(...)` directly.)
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test supervisor::`
 Expected: all tests pass (including pre-existing ones — you may need to update test-site `Supervisor` constructions to include the `children` field).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 git add packages/beans-daemon/src/supervisor.rs
 git commit -m 'packages/beans-daemon: supervisor child handle registry + trigger_eviction'
 ```
+
+## Summary of Changes
+
+- Added `children: Arc<Mutex<HashMap<PathBuf, Box<dyn ChildHandle>>>>` to `Supervisor`.
+- Modified `start_project` to insert the child handle into `children` after spawn; on health-check timeout, removes + SIGKILLs.
+- Added `Supervisor::insert_child` (`&self`, async).
+- Added `Supervisor::trigger_eviction` (`self: &Arc<Self>`, sync; spawns background task that pulls handle, transitions registry to `Evicting`, then runs `evict`). Falls through to `registry.remove` + WARN log when no handle is stored.
+- Updated existing `start_project_marks_healthy_when_child_responds` test to include the new `children` field.
+- **Bean spec fixes (corrected as I implemented):** the trigger_eviction test had `let sup = Supervisor {...}` (must be `Arc::new(...)` because `&Arc<Self>` receiver) and `sup.trigger_eviction(...).await` (sync, no `.await`).
+- `cargo test supervisor::` → 3 passed.

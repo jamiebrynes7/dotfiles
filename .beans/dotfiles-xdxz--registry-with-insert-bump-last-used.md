@@ -1,17 +1,18 @@
 ---
 # dotfiles-xdxz
 title: '`Registry` with insert + bump_last_used'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:34:36Z
-updated_at: 2026-05-03T14:34:36Z
+updated_at: 2026-05-09T13:50:40Z
 parent: dotfiles-yejq
 ---
 
 **Files:**
 - Modify: `packages/beans-daemon/src/registry.rs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `packages/beans-daemon/src/registry.rs`:
 ```rust
@@ -93,14 +94,21 @@ mod registry_tests {
 }
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `cargo test registry::`
 Expected: all 5 tests pass (the existing `tests::counts_toward_cap_for_active_states` plus the new 4).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add packages/beans-daemon/src/registry.rs
 git commit -m "packages/beans-daemon: Registry insert + bump_last_used"
 ```
+
+## Summary of Changes
+
+- Added `Registry` struct (HashMap-backed by `PathBuf` key) with `new`, `get`, `insert_spawning`, `bump_last_used`.
+- `insert_spawning` errors on duplicate keys; `bump_last_used` is a no-op for missing keys (per spec).
+- Took the `&Path` flavour for `get` and `bump_last_used` parameters rather than `&PathBuf` — strictly more general, satisfies `clippy::ptr_arg`, and tests still pass via deref coercion.
+- 4 new tests under `registry_tests`; combined `cargo test registry::` runs 5 passing tests.

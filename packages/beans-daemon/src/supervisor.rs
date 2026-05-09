@@ -60,11 +60,46 @@ impl<S: ChildSpawner + 'static> Supervisor<S> {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     }
+
+    /// Background task: SIGTERM → wait → SIGKILL → wait → drop entry.
+    /// Logs WARN on reap timeout (orphaned process).
+    pub async fn evict(
+        registry: Arc<Mutex<Registry>>,
+        key: std::path::PathBuf,
+        mut child: Box<dyn ChildHandle>,
+        sigterm_grace: Duration,
+        sigkill_grace: Duration,
+    ) {
+        let pid = child.pid();
+        tracing::info!(?key, pid, "evicting project");
+
+        let _ = child.send_sigterm().await;
+        if tokio::time::timeout(sigterm_grace, child.wait()).await.is_ok() {
+            registry.lock().await.remove(&key);
+            tracing::info!(?key, pid, "evicted (clean SIGTERM exit)");
+            return;
+        }
+
+        let _ = child.send_sigkill().await;
+        if tokio::time::timeout(sigkill_grace, child.wait()).await.is_ok() {
+            registry.lock().await.remove(&key);
+            tracing::info!(?key, pid, "evicted (SIGKILL)");
+            return;
+        }
+
+        registry.lock().await.remove(&key);
+        tracing::warn!(
+            ?key,
+            pid,
+            "eviction reap timed out; orphaning process — bounded RAM cost until reboot"
+        );
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     /// Mock spawner that immediately starts an in-process axum responding 200.
     struct ImmediateHealthySpawner;
@@ -121,5 +156,73 @@ mod tests {
         assert!(matches!(p.state, ProjectState::Healthy { .. }));
     }
 
-    use std::path::PathBuf;
+    /// Child that exits cleanly on SIGTERM after a configurable delay.
+    struct DelayedExitChild {
+        pid: u32,
+        sigterm_to_exit: Duration,
+        notify: Arc<tokio::sync::Notify>,
+    }
+    #[async_trait]
+    impl ChildHandle for DelayedExitChild {
+        fn pid(&self) -> u32 {
+            self.pid
+        }
+        async fn wait(&mut self) -> std::io::Result<String> {
+            self.notify.notified().await;
+            Ok("exited".into())
+        }
+        async fn send_sigterm(&mut self) -> std::io::Result<()> {
+            let n = self.notify.clone();
+            let d = self.sigterm_to_exit;
+            tokio::spawn(async move {
+                tokio::time::sleep(d).await;
+                n.notify_one();
+            });
+            Ok(())
+        }
+        async fn send_sigkill(&mut self) -> std::io::Result<()> {
+            self.notify.notify_one();
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn evict_terminates_quickly_on_sigterm() {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        let now = Instant::now();
+        registry
+            .lock()
+            .await
+            .insert_spawning("/tmp/p".into(), "p".into(), now)
+            .unwrap();
+        registry
+            .lock()
+            .await
+            .transition_state(
+                &PathBuf::from("/tmp/p"),
+                ProjectState::Healthy {
+                    port: 1,
+                    pid: 999,
+                    spawned_at: now,
+                },
+            )
+            .unwrap();
+
+        let child: Box<dyn ChildHandle> = Box::new(DelayedExitChild {
+            pid: 999,
+            sigterm_to_exit: Duration::from_millis(100),
+            notify: Arc::new(tokio::sync::Notify::new()),
+        });
+
+        Supervisor::<ImmediateHealthySpawner>::evict(
+            registry.clone(),
+            "/tmp/p".into(),
+            child,
+            Duration::from_secs(2),
+            Duration::from_secs(2),
+        )
+        .await;
+
+        assert!(registry.lock().await.get(&PathBuf::from("/tmp/p")).is_none());
+    }
 }

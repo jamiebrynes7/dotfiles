@@ -1,10 +1,11 @@
 ---
 # dotfiles-v74e
 title: 'Supervisor: eviction kill (SIGTERM → SIGKILL → orphan log)'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:36:26Z
-updated_at: 2026-05-03T14:36:26Z
+updated_at: 2026-05-09T14:10:23Z
 parent: dotfiles-pmk6
 ---
 
@@ -13,7 +14,7 @@ parent: dotfiles-pmk6
 
 Per spec §3 + failure modes: eviction marks state `Evicting`, sends SIGTERM, waits up to 5s, sends SIGKILL on timeout, waits another 5s, drops the entry. On reap timeout: drop, log WARN with leaked pid.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `mod tests` in `packages/beans-daemon/src/supervisor.rs`:
 ```rust
@@ -70,12 +71,12 @@ Append to `mod tests` in `packages/beans-daemon/src/supervisor.rs`:
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test supervisor::tests::evict`
 Expected: FAIL — `Supervisor::evict` doesn't exist.
 
-- [ ] **Step 3: Implement `evict` (associated fn so it can be spawned without holding `&self`)**
+- [x] **Step 3: Implement `evict` (associated fn so it can be spawned without holding `&self`)**
 
 Add to `packages/beans-daemon/src/supervisor.rs`:
 ```rust
@@ -112,14 +113,21 @@ impl<S: ChildSpawner + 'static> Supervisor<S> {
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test supervisor::`
 Expected: all tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/supervisor.rs
 git commit -m "packages/beans-daemon: supervisor eviction with SIGTERM/SIGKILL/orphan handling"
 ```
+
+## Summary of Changes
+
+- Added `Supervisor::evict` (associated fn): SIGTERM → wait `sigterm_grace` → SIGKILL → wait `sigkill_grace` → drop registry entry. WARN-logs on reap timeout (orphan).
+- Added `DelayedExitChild` test helper + `evict_terminates_quickly_on_sigterm` test.
+- Moved `use std::path::PathBuf` to top of test module (was at bottom).
+- `cargo test supervisor::` → 2 passed.

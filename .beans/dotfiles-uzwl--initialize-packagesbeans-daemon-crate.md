@@ -1,11 +1,11 @@
 ---
 # dotfiles-uzwl
 title: Initialize `packages/beans-daemon` crate
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-03T14:33:07Z
-updated_at: 2026-05-03T14:55:43Z
+updated_at: 2026-05-09T13:28:27Z
 parent: dotfiles-m592
 blocked_by:
     - dotfiles-g2br
@@ -16,7 +16,7 @@ blocked_by:
 - Create: `packages/beans-daemon/src/main.rs`
 - Create: `packages/beans-daemon/.gitignore` (just `target/`)
 
-- [ ] **Step 1: Create the crate skeleton**
+- [x] **Step 1: Create the crate skeleton**
 
 `packages/beans-daemon/Cargo.toml`:
 ```toml
@@ -61,19 +61,36 @@ fn main() {
 target/
 ```
 
-- [ ] **Step 2: Build the crate**
+- [x] **Step 2: Build the crate**
 
 Run: `cd packages/beans-daemon && cargo build`
 Expected: compiles cleanly, produces `target/debug/beansd`. Cargo will create `Cargo.lock`.
 
-- [ ] **Step 3: Run the binary**
+- [x] **Step 3: Run the binary**
 
 Run: `./target/debug/beansd`
 Expected output: `beansd 0.1.0`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/beans-daemon/Cargo.toml packages/beans-daemon/Cargo.lock packages/beans-daemon/src/main.rs packages/beans-daemon/.gitignore
 git commit -m "packages/beans-daemon: initial crate scaffold"
 ```
+
+## Summary of Changes
+
+Scaffolded the `beans-daemon` Rust crate per the spec, plus added `packages/beans-daemon/default.nix` so the auto-discovering `dotfilesOverlay` (set up in `dotfiles-g2br`) has something to `callPackage`. Without it, `nix flake check` would have broken on this commit — the bean body originally only listed `Cargo.toml` / `src/main.rs` / `.gitignore`, so this is a small deviation from the written plan, agreed with the user before implementing.
+
+**Files created:**
+- `packages/beans-daemon/Cargo.toml` — exact dependency set from the spec.
+- `packages/beans-daemon/src/main.rs` — `println!("beansd 0.1.0")` placeholder.
+- `packages/beans-daemon/.gitignore` — `target/` only.
+- `packages/beans-daemon/Cargo.lock` — produced by the first `cargo build`.
+- `packages/beans-daemon/default.nix` — `rustPlatform.buildRustPackage` derivation. Takes `rustPlatform` as a callPackage arg (the overlay's `packageArgs` already routes the pinned platform here by name); uses `lib.cleanSource ./.` for `src` and `cargoLock = { lockFile = ./Cargo.lock; }`.
+
+**Verified:**
+- `nix develop -c cargo build` in the crate compiles cleanly (~15s on a warm cache).
+- `./target/debug/beansd` prints `beansd 0.1.0`.
+- `nix flake check` passes; `checks.aarch64-darwin.beans-daemon` and `packages.aarch64-darwin.beans-daemon` both evaluate to `/nix/store/2pm5p7hda76vqd0ylab3zp2m66a1v686-beans-daemon-0.1.0.drv`.
+- `nix build .#beans-daemon` succeeds; `./result/bin/beansd` prints `beansd 0.1.0`.

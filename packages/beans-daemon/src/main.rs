@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod logging;
+mod project_key;
 mod registry;
 
 use clap::Parser;

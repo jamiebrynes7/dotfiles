@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod logging;
+mod port_alloc;
 mod project_key;
 mod registry;
 mod spawner;

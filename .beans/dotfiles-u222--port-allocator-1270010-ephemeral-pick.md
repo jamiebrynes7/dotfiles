@@ -1,10 +1,11 @@
 ---
 # dotfiles-u222
 title: Port allocator (`127.0.0.1:0` ephemeral pick)
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:36:25Z
-updated_at: 2026-05-03T14:36:25Z
+updated_at: 2026-05-09T14:04:24Z
 parent: dotfiles-pmk6
 ---
 
@@ -14,7 +15,7 @@ parent: dotfiles-pmk6
 
 The race window between bind/release and the child re-binding is accepted (spec §5). On child startup failure the supervisor will retry with a fresh port.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `packages/beans-daemon/src/port_alloc.rs`:
 ```rust
@@ -51,23 +52,29 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test port_alloc::`
 Expected: FAIL — module not declared.
 
-- [ ] **Step 3: Wire into main.rs**
+- [x] **Step 3: Wire into main.rs**
 
 Add `mod port_alloc;` to `packages/beans-daemon/src/main.rs`.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test port_alloc::`
 Expected: 2 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/port_alloc.rs packages/beans-daemon/src/main.rs
 git commit -m "packages/beans-daemon: ephemeral loopback port picker"
 ```
+
+## Summary of Changes
+
+- Created `packages/beans-daemon/src/port_alloc.rs` with `pick_loopback_port()` (binds `127.0.0.1:0`, reads the assigned port, drops the listener).
+- Wired `mod port_alloc;` into `packages/beans-daemon/src/main.rs`.
+- `cargo test port_alloc::` → 2 passed (`picks_a_nonzero_port`, `returns_distinct_ports_across_calls`).

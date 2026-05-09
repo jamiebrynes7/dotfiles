@@ -223,6 +223,7 @@ dependencies = [
  "anyhow",
  "askama",
  "assert_matches",
+ "async-trait",
  "axum",
  "clap",
  "nix",

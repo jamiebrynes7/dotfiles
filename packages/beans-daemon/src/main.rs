@@ -3,6 +3,7 @@ mod config;
 mod logging;
 mod project_key;
 mod registry;
+mod spawner;
 
 use clap::Parser;
 

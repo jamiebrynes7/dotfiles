@@ -1,17 +1,18 @@
 ---
 # dotfiles-btt9
 title: Validate `beans_serve_path` points to an executable
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:33:45Z
-updated_at: 2026-05-03T14:33:45Z
+updated_at: 2026-05-09T13:46:08Z
 parent: dotfiles-rlzx
 ---
 
 **Files:**
 - Modify: `packages/beans-daemon/src/config.rs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to the existing `mod load_tests` block:
 ```rust
@@ -65,12 +66,12 @@ Append to the existing `mod load_tests` block:
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test config::load_tests::validate`
 Expected: FAIL — `Config::validate` doesn't exist.
 
-- [ ] **Step 3: Implement `validate`**
+- [x] **Step 3: Implement `validate`**
 
 Add to the `impl Config` block in `packages/beans-daemon/src/config.rs`:
 ```rust
@@ -91,14 +92,20 @@ Add to the `impl Config` block in `packages/beans-daemon/src/config.rs`:
     }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test config::`
 Expected: all tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/config.rs
 git commit -m "packages/beans-daemon: validate beans_serve_path is executable"
 ```
+
+## Summary of Changes
+
+- Added `Config::validate(&self)` to `packages/beans-daemon/src/config.rs`. Reads `metadata` once, then asserts the path is a file with any of the executable mode bits (`0o111`) set. Each error message embeds the offending path.
+- Three new tests under `config::load_tests`: passes for a 0o755 file, fails with the path embedded for a missing file, and fails with `"not executable"` for a 0o644 file. All 9 `config::` tests pass.
+- Validation is Unix-only (`std::os::unix::fs::PermissionsExt`); the daemon already targets macOS + NixOS so no platform branching is needed.

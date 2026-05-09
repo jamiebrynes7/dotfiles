@@ -20,6 +20,7 @@ let
 
   settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON ({
     alwaysThinkingEnabled = true;
+    autoMemoryEnabled = false;
     hooks = mergedHooks;
     permissions = cfg.permissions;
   } // lib.optionalAttrs (cfg.statusLine != null) {

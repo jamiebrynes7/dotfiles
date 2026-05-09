@@ -25,6 +25,8 @@ let
     permissions = cfg.permissions;
   } // lib.optionalAttrs (cfg.statusLine != null) {
     statusLine = cfg.statusLine;
+  } // lib.optionalAttrs (cfg.skillOverrides != { }) {
+    skillOverrides = cfg.skillOverrides;
   }));
 in {
   imports = [ ./hooks ./plannotator ./cship ];
@@ -74,6 +76,17 @@ in {
       };
       description = "Permissions configuration for Claude Code.";
     };
+    skillOverrides = mkOption {
+      type = types.attrsOf
+        (types.enum [ "on" "name-only" "user-invocable-only" "off" ]);
+      default = { };
+      description = ''
+        Per-skill visibility overrides written to settings.json.
+        Keys are skill names; values are one of "on", "name-only",
+        "user-invocable-only", or "off". See
+        https://code.claude.com/docs/en/skills#override-skill-visibility-from-settings.
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
@@ -112,6 +125,18 @@ in {
         "Bash(uniq *)"
       ];
       deny = [ "Read(**/.env.local)" ];
+    };
+
+    dotfiles.programs.claude-code.skillOverrides = {
+      claude-api = "off";
+      fewer-permission-prompts = "off";
+      init = "off";
+      keybindings-help = "off";
+      loop = "off";
+      review = "off";
+      schedule = "off";
+      security-review = "off";
+      update-config = "off";
     };
 
     assertions = [{

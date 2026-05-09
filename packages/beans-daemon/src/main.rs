@@ -5,6 +5,7 @@ mod port_alloc;
 mod project_key;
 mod registry;
 mod spawner;
+mod supervisor;
 
 use clap::Parser;
 

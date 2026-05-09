@@ -1,10 +1,11 @@
 ---
 # dotfiles-5q83
 title: 'Supervisor: spawn + health-check loop'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:36:26Z
-updated_at: 2026-05-03T14:36:26Z
+updated_at: 2026-05-09T14:08:46Z
 parent: dotfiles-pmk6
 ---
 
@@ -14,7 +15,7 @@ parent: dotfiles-pmk6
 
 The supervisor owns one project's lifecycle. It is given the registry handle and a spawner. On `start_project` it picks a port, calls `spawner.spawn`, polls `GET http://127.0.0.1:<port>/` until 200 or 5s timeout, then transitions the registry entry to `Healthy` or `Dead`.
 
-- [ ] **Step 1: Write the failing test (with mock spawner)**
+- [x] **Step 1: Write the failing test (with mock spawner)**
 
 Create `packages/beans-daemon/src/supervisor.rs`:
 ```rust
@@ -128,23 +129,31 @@ Add to `Cargo.toml` `[dependencies]`:
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test supervisor::`
 Expected: FAIL — `mod supervisor` not declared.
 
-- [ ] **Step 3: Wire it up**
+- [x] **Step 3: Wire it up**
 
 Add `mod supervisor;` and the `reqwest` dep.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test supervisor::start_project_marks_healthy_when_child_responds`
 Expected: PASS within ~2 s.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/supervisor.rs packages/beans-daemon/src/main.rs packages/beans-daemon/Cargo.toml packages/beans-daemon/Cargo.lock
 git commit -m "packages/beans-daemon: supervisor spawn + health check"
 ```
+
+## Summary of Changes
+
+- Created `packages/beans-daemon/src/supervisor.rs` with `Supervisor<S: ChildSpawner>` and async `start_project` (picks port → spawn → poll-health → transition Healthy/Dead).
+- Wired `mod supervisor;` into `packages/beans-daemon/src/main.rs`.
+- Added `reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }` to `Cargo.toml`.
+- Added test module with `ImmediateHealthySpawner` (binds an in-process axum 200-OK responder) + `MockChild`.
+- `cargo test` → 30 passed (including new `supervisor::tests::start_project_marks_healthy_when_child_responds`).

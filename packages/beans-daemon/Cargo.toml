@@ -21,6 +21,7 @@ tokio-util = { version = "0.7", features = ["codec"] }
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+xdg = "2"
 
 [dev-dependencies]
 assert_matches = "1"

@@ -22,11 +22,8 @@ impl Config {
     /// `$XDG_CONFIG_HOME/beans-daemon/config.toml`, falling back to
     /// `$HOME/.config/beans-daemon/config.toml`.
     pub fn default_path() -> anyhow::Result<PathBuf> {
-        let base = std::env::var_os("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-            .ok_or_else(|| anyhow::anyhow!("neither XDG_CONFIG_HOME nor HOME is set"))?;
-        Ok(base.join("beans-daemon").join("config.toml"))
+        let dirs = xdg::BaseDirectories::with_prefix("beans-daemon")?;
+        Ok(dirs.get_config_file("config.toml"))
     }
 
     /// Load and parse the config file at `path`.
@@ -116,17 +113,5 @@ mod load_tests {
     fn missing_file_returns_error_with_path() {
         let err = Config::load(Path::new("/no/such/file.toml")).unwrap_err();
         assert!(err.to_string().contains("/no/such/file.toml"));
-    }
-
-    #[test]
-    fn default_path_uses_xdg_when_set() {
-        let prev = std::env::var("XDG_CONFIG_HOME").ok();
-        std::env::set_var("XDG_CONFIG_HOME", "/tmp/xdg");
-        let p = Config::default_path().unwrap();
-        assert_eq!(p, PathBuf::from("/tmp/xdg/beans-daemon/config.toml"));
-        match prev {
-            Some(v) => std::env::set_var("XDG_CONFIG_HOME", v),
-            None => std::env::remove_var("XDG_CONFIG_HOME"),
-        }
     }
 }

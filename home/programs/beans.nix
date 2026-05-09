@@ -1,7 +1,5 @@
 { config, lib, pkgs, ... }:
-let
-  beans = pkgs.callPackage ../../packages/beans { };
-  cfg = config.dotfiles.programs.beans;
+let cfg = config.dotfiles.programs.beans;
 in {
   options.dotfiles.programs.beans = {
     enable = lib.mkEnableOption "Enable beans";
@@ -10,7 +8,7 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = [ beans ];
+    home.packages = [ pkgs.dotfiles.beans ];
 
     dotfiles.programs.claude-code.permissions.allow =
       lib.mkIf cfg.enableClaudeCodeIntegration [ "Bash(beans *)" ];
@@ -22,7 +20,7 @@ in {
           event = "SessionStart";
           hooks = [{
             type = "command";
-            command = "${beans}/bin/beans prime";
+            command = "${pkgs.dotfiles.beans}/bin/beans prime";
           }];
         };
         beans-prime-pre-compact = {
@@ -30,7 +28,7 @@ in {
           event = "PreCompact";
           hooks = [{
             type = "command";
-            command = "${beans}/bin/beans prime";
+            command = "${pkgs.dotfiles.beans}/bin/beans prime";
           }];
         };
       };

@@ -18,6 +18,10 @@
       url = "github:alexghr/alacritty-theme.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     # Tools
     claude-code = {
@@ -32,10 +36,42 @@
 
   outputs = { self, nixpkgs, ... }@inputs:
     let
+      discoverPackages = dir:
+        let entries = builtins.readDir dir;
+        in builtins.listToAttrs (builtins.map (name: {
+          inherit name;
+          value = dir + "/${name}";
+        }) (builtins.filter (name: entries.${name} == "directory")
+          (builtins.attrNames entries)));
+
+      packagePaths = discoverPackages ./packages;
+
+      # rust-overlay is applied to `prev` here so `rust-bin.*` doesn't leak
+      # into consumer pkgs via `defaultOverlays`.
+      dotfilesOverlay = final: prev:
+        let
+          rustyPkgs =
+            prev.appendOverlays [ inputs.rust-overlay.overlays.default ];
+          rustToolchain = rustyPkgs.rust-bin.stable.latest.default.override {
+            extensions = [ "rust-src" "rust-analyzer" ];
+          };
+          rustPlatform = final.makeRustPlatform {
+            cargo = rustToolchain;
+            rustc = rustToolchain;
+          };
+          packageArgs = { beans-daemon = { inherit rustPlatform; }; };
+          packages = builtins.mapAttrs
+            (name: path: final.callPackage path (packageArgs.${name} or { }))
+            packagePaths;
+        in {
+          dotfiles = packages // { internal = { inherit rustToolchain; }; };
+        };
+
       defaultOverlays = [
         inputs.alacritty-themes.overlays.default
         inputs.claude-code.overlays.default
         inputs.sprites-cli.overlays.default
+        dotfilesOverlay
       ];
 
       nixOsPkgs = { overlays ? [ ], system }:
@@ -120,31 +156,28 @@
 
       baseShellPkgs = pkgs: with pkgs; [ just nil nixfmt-classic ];
 
-      mkShells = { extraPackages ? [ ] }: {
-        aarch64-darwin.default =
-          let pkgs = nixDarwinPkgs { };
-          in pkgs.mkShell { packages = baseShellPkgs pkgs ++ extraPackages; };
-        x86_64-linux.default =
-          let pkgs = nixOsPkgs { system = "x86_64-linux"; };
-          in pkgs.mkShell { packages = baseShellPkgs pkgs ++ extraPackages; };
-      };
+      mkShells = { extraPackages ? (_: [ ]), extraEnv ? (_: { }) }:
+        let
+          mkOne = pkgs:
+            pkgs.mkShell ({
+              packages = baseShellPkgs pkgs ++ extraPackages pkgs;
+            } // extraEnv pkgs);
+        in {
+          aarch64-darwin.default = mkOne (nixDarwinPkgs { });
+          x86_64-linux.default = mkOne (nixOsPkgs { system = "x86_64-linux"; });
+        };
 
-      discoverPackages = dir:
-        let entries = builtins.readDir dir;
-        in builtins.listToAttrs (builtins.map (name: {
-          inherit name;
-          value = dir + "/${name}";
-        }) (builtins.filter (name: entries.${name} == "directory")
-          (builtins.attrNames entries)));
-
-      packagePaths = discoverPackages ./packages;
-
-      mkPackages = pkgs:
-        builtins.mapAttrs (_: path: pkgs.callPackage path { }) packagePaths;
+      mkPackages = pkgs: builtins.removeAttrs pkgs.dotfiles [ "internal" ];
 
     in {
       lib = { inherit mkNixosSystem mkDarwin mkHomeManagerSystem mkShells; };
-      devShells = mkShells { };
+      devShells = mkShells {
+        extraPackages = pkgs: [ pkgs.dotfiles.internal.rustToolchain ];
+        extraEnv = pkgs: {
+          RUST_SRC_PATH =
+            "${pkgs.dotfiles.internal.rustToolchain}/lib/rustlib/src/rust/library";
+        };
+      };
       packages = {
         aarch64-darwin = mkPackages (nixDarwinPkgs { });
         x86_64-linux = mkPackages (nixOsPkgs { system = "x86_64-linux"; });

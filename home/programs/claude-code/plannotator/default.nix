@@ -1,13 +1,12 @@
 { config, lib, pkgs, ... }:
 let
-  plannotator = pkgs.callPackage ../../../../packages/plannotator { };
   cfg = config.dotfiles.programs.claude-code.plannotator;
 
   plannotatorWrapper = pkgs.writeShellScriptBin "plannotator" ''
     ${lib.optionalString cfg.remote "export PLANNOTATOR_REMOTE=1"}
     ${lib.optionalString (cfg.port != null)
     "export PLANNOTATOR_PORT=${toString cfg.port}"}
-    exec ${plannotator}/bin/plannotator "$@"
+    exec ${pkgs.dotfiles.plannotator}/bin/plannotator "$@"
   '';
 in {
   options.dotfiles.programs.claude-code.plannotator = {

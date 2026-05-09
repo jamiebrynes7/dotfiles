@@ -1,17 +1,18 @@
 ---
 # dotfiles-yqai
 title: Load config from disk + XDG path resolution
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:33:45Z
-updated_at: 2026-05-03T14:33:45Z
+updated_at: 2026-05-09T13:41:45Z
 parent: dotfiles-rlzx
 ---
 
 **Files:**
 - Modify: `packages/beans-daemon/src/config.rs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `packages/beans-daemon/src/config.rs`:
 ```rust
@@ -72,23 +73,35 @@ mod load_tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test config::`
 Expected: FAIL — `Config::load` and `Config::default_path` don't exist yet (these tests are the impl + tests in one block; the impl above is the same edit).
 
-- [ ] **Step 3: Confirm no implementation gap**
+- [x] **Step 3: Confirm no implementation gap**
 
 (The impl is already in the same edit as the tests above. If you split them, add the impl now.)
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test config::`
 Expected: PASS for all `load_tests::` cases plus the existing `tests::` cases.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/config.rs
 git commit -m "packages/beans-daemon: load Config from XDG path"
 ```
+
+## Summary of Changes
+
+- Added `Config::default_path()` resolving `$XDG_CONFIG_HOME/beans-daemon/config.toml` with `$HOME/.config/...` fallback; errors when neither env var is set.
+- Added `Config::load(&Path)` reading and parsing the TOML file with the file path embedded in any I/O or parse error.
+- Three new tests under `config::load_tests`: round-trip load from a tempdir, missing-file error includes the path, and XDG resolution honours `XDG_CONFIG_HOME`. Existing 4 tests still pass (7 total under `cargo test config::`).
+- Imports collapsed to `use std::path::{Path, PathBuf};`.
+
+## Deferred
+
+- The `default_path_uses_xdg_when_set` test mutates a process-wide env var. It is currently the only such test, but parallel test additions touching `XDG_CONFIG_HOME`/`HOME` will need explicit serialization (`serial_test` crate or `--test-threads=1`).
+- `std::env::set_var`/`remove_var` become `unsafe` under Rust 2024 edition; the crate is on 2021 so this is a non-issue today but worth noting for any future edition bump.

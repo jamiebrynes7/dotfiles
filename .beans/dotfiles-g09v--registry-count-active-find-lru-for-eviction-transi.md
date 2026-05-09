@@ -1,17 +1,18 @@
 ---
 # dotfiles-g09v
 title: '`Registry`: count_active, find_lru_for_eviction, transition_state'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:34:36Z
-updated_at: 2026-05-03T14:34:36Z
+updated_at: 2026-05-09T13:51:51Z
 parent: dotfiles-yejq
 ---
 
 **Files:**
 - Modify: `packages/beans-daemon/src/registry.rs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `packages/beans-daemon/src/registry.rs`:
 ```rust
@@ -103,14 +104,24 @@ mod cap_tests {
 }
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `cargo test registry::`
 Expected: all tests pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add packages/beans-daemon/src/registry.rs
 git commit -m "packages/beans-daemon: Registry count_active + find_lru_for_eviction"
 ```
+
+## Summary of Changes
+
+- Added `Registry` methods: `count_active`, `find_lru_for_eviction` (oldest active by `last_used`), `transition_state` (errors on unknown key), `remove`, and `iter`.
+- Took `&Path` (not `&PathBuf`) for `transition_state` and `remove` for the same reason as the previous task.
+- Five new tests under `cap_tests` verify: cap excludes Evicting/Dead, LRU picks oldest active, LRU skips Evicting, LRU returns `None` on empty, and `transition_state` errors on unknown keys. `cargo test registry::` runs 10 passing tests.
+
+## Notes
+
+- `find_lru_for_eviction` ties are broken by HashMap iteration order (effectively random). Real-world `Instant` ties are vanishingly rare; if deterministic tie-breaking ever matters, sort by `key` as a secondary.

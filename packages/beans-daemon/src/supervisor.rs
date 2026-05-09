@@ -59,6 +59,40 @@ impl<S: ChildSpawner + 'static> Supervisor<S> {
         self.children.lock().await.insert(key, child);
     }
 
+    /// Wrapper around `start_project` that retries up to `max_attempts` times
+    /// with `base_backoff * 4^n` delay between attempts (1s, 4s, 16s for default 1s).
+    pub async fn start_project_with_retries(
+        &self,
+        key: std::path::PathBuf,
+        max_attempts: usize,
+        base_backoff: Duration,
+    ) -> anyhow::Result<()> {
+        let mut backoff = base_backoff;
+        for attempt in 0..max_attempts {
+            self.registry.lock().await.transition_state(
+                &key,
+                ProjectState::Spawning {
+                    since: Instant::now(),
+                },
+            )?;
+            self.start_project(key.clone()).await?;
+            let healthy = matches!(
+                self.registry.lock().await.get(&key).map(|p| &p.state),
+                Some(ProjectState::Healthy { .. })
+            );
+            if healthy {
+                return Ok(());
+            }
+            if attempt + 1 < max_attempts {
+                tracing::warn!(?key, attempt = attempt + 1, ?backoff, "child startup failed; backing off");
+                tokio::time::sleep(backoff).await;
+                backoff *= 4;
+            }
+        }
+        // Final start_project already left state = Dead; nothing more to do.
+        Ok(())
+    }
+
     /// Begin eviction of `key`: pulls its child handle, transitions registry
     /// to `Evicting`, then spawns a background task running `evict`.
     /// Fire-and-forget: callers do not await completion.
@@ -351,5 +385,58 @@ mod tests {
 
         assert!(was_killed.load(Ordering::SeqCst));
         assert!(registry.lock().await.get(&PathBuf::from("/tmp/p")).is_none());
+    }
+
+    /// Mock spawner whose first 2 spawns exit immediately; the 3rd stays healthy.
+    struct FlakySpawner {
+        spawn_count: Arc<std::sync::atomic::AtomicUsize>,
+    }
+    #[async_trait]
+    impl ChildSpawner for FlakySpawner {
+        async fn spawn(&self, _dir: &Path, port: u16) -> anyhow::Result<Box<dyn ChildHandle>> {
+            let n = self
+                .spawn_count
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if n < 2 {
+                Ok(Box::new(MockChild { pid: 1 }))
+            } else {
+                let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
+                tokio::spawn(async move {
+                    use axum::routing::get;
+                    let app = axum::Router::new().route("/", get(|| async { "ok" }));
+                    axum::serve(listener, app).await.ok();
+                });
+                Ok(Box::new(MockChild { pid: 2 }))
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn start_project_with_retries_eventually_succeeds() {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        registry
+            .lock()
+            .await
+            .insert_spawning("/tmp/proj".into(), "proj".into(), Instant::now())
+            .unwrap();
+        let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let sup = Supervisor {
+            registry: registry.clone(),
+            spawner: FlakySpawner {
+                spawn_count: count.clone(),
+            },
+            health_timeout: Duration::from_millis(500),
+            children: Arc::new(Mutex::new(HashMap::new())),
+        };
+        sup.start_project_with_retries("/tmp/proj".into(), 3, Duration::from_millis(50))
+            .await
+            .unwrap();
+
+        assert_eq!(count.load(std::sync::atomic::Ordering::SeqCst), 3);
+        let r = registry.lock().await;
+        assert!(matches!(
+            r.get(&PathBuf::from("/tmp/proj")).unwrap().state,
+            ProjectState::Healthy { .. }
+        ));
     }
 }

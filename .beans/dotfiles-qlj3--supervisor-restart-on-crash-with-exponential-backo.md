@@ -1,10 +1,11 @@
 ---
 # dotfiles-qlj3
 title: 'Supervisor: restart-on-crash with exponential backoff'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:36:26Z
-updated_at: 2026-05-03T14:36:26Z
+updated_at: 2026-05-09T14:15:24Z
 parent: dotfiles-pmk6
 ---
 
@@ -13,7 +14,7 @@ parent: dotfiles-pmk6
 
 Per spec §5: when a child exits unexpectedly, restart up to 3 times within 60 s with backoff 1s/4s/16s. After exhausting retries, leave the project `Dead`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `mod tests` in `packages/beans-daemon/src/supervisor.rs`:
 ```rust
@@ -60,12 +61,12 @@ Append to `mod tests` in `packages/beans-daemon/src/supervisor.rs`:
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test supervisor::tests::start_project_with_retries`
 Expected: FAIL — `start_project_with_retries` doesn't exist.
 
-- [ ] **Step 3: Implement the retry wrapper**
+- [x] **Step 3: Implement the retry wrapper**
 
 Add to `impl<S: ChildSpawner + 'static> Supervisor<S>`:
 ```rust
@@ -100,14 +101,22 @@ Add to `impl<S: ChildSpawner + 'static> Supervisor<S>`:
     }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test supervisor::`
 Expected: all tests pass within ~5 s.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/supervisor.rs
 git commit -m "packages/beans-daemon: supervisor retry-on-crash with backoff"
 ```
+
+## Summary of Changes
+
+- Added Supervisor::start_project_with_retries (resets state to Spawning, calls start_project, retries up to max_attempts with backoff quadrupling between attempts).
+- Added FlakySpawner test helper (first 2 spawns return a no-listener MockChild; 3rd binds a real listener so health check passes) + start_project_with_retries_eventually_succeeds test.
+- cargo test supervisor:: -> 4 passed.
+
+Note on ordering: Done before dotfiles-mcs1 because mcs1 watch_for_exit calls start_project_with_retries, which is added here.

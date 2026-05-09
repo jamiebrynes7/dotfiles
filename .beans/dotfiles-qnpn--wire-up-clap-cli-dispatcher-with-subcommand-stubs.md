@@ -1,11 +1,11 @@
 ---
 # dotfiles-qnpn
 title: Wire up clap CLI dispatcher with subcommand stubs
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-03T14:33:07Z
-updated_at: 2026-05-03T14:55:54Z
+updated_at: 2026-05-09T13:32:42Z
 parent: dotfiles-m592
 blocked_by:
     - dotfiles-uzwl
@@ -16,7 +16,7 @@ blocked_by:
 - Modify: `packages/beans-daemon/src/main.rs`
 - Test: inline `#[cfg(test)] mod tests` in `cli.rs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `packages/beans-daemon/src/cli.rs`:
 ```rust
@@ -63,12 +63,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd packages/beans-daemon && cargo test --no-run 2>&1`
 Expected: FAIL — `src/cli.rs` not declared as a module yet, so `mod cli` is missing.
 
-- [ ] **Step 3: Wire `cli` module into main.rs and dispatch**
+- [x] **Step 3: Wire `cli` module into main.rs and dispatch**
 
 Replace `packages/beans-daemon/src/main.rs` with:
 ```rust
@@ -89,12 +89,12 @@ fn main() -> anyhow::Result<()> {
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test`
 Expected: 2 tests pass (`cli_definition_is_valid`, `parses_cd_subcommand`).
 
-- [ ] **Step 5: Verify --help and --version still work**
+- [x] **Step 5: Verify --help and --version still work**
 
 Run: `cargo run -- --help`
 Expected: usage text listing all 6 subcommands.
@@ -102,9 +102,16 @@ Expected: usage text listing all 6 subcommands.
 Run: `cargo run -- --version`
 Expected: `beansd 0.1.0`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/beans-daemon/src/cli.rs packages/beans-daemon/src/main.rs
 git commit -m "packages/beans-daemon: clap CLI dispatcher with subcommand stubs"
 ```
+
+## Summary of Changes
+
+- Created `packages/beans-daemon/src/cli.rs` with a `Cli` parser and `Command` enum covering the six daemon subcommands: `run`, `cd`, `ls`, `start`, `stop`, `status`.
+- Added inline tests: `cli_definition_is_valid` (debug_assert via `CommandFactory`) and `parses_cd_subcommand`.
+- Replaced `packages/beans-daemon/src/main.rs` placeholder with a clap `parse()` + match dispatcher that routes each subcommand to an `unimplemented!` stub referencing the future feature it belongs to (F7 / F8).
+- Verified `cargo test` passes (2/2) and `--help` / `--version` render correctly (`beansd 0.1.0`).

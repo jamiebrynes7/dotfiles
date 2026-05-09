@@ -93,6 +93,57 @@ impl<S: ChildSpawner + 'static> Supervisor<S> {
         Ok(())
     }
 
+    /// Spawn a task that awaits the stored child handle's `wait()`, then:
+    ///   - marks the project Dead with the exit status as the reason,
+    ///   - if `attempts_used + 1 < MAX_ATTEMPTS`, sleeps `backoff` and re-spawns
+    ///     (single attempt via `start_project_with_retries`), then watches the
+    ///     new child with incremented `attempts_used` and quadrupled backoff.
+    /// Caller invokes this once after a successful health-check transition.
+    pub fn watch_for_exit(
+        self: &Arc<Self>,
+        key: std::path::PathBuf,
+        attempts_used: usize,
+        backoff: Duration,
+    ) {
+        const MAX_ATTEMPTS: usize = 3;
+        let me = self.clone();
+        tokio::spawn(async move {
+            let mut child = match me.children.lock().await.remove(&key) {
+                Some(c) => c,
+                None => return,
+            };
+            let exit = child
+                .wait()
+                .await
+                .unwrap_or_else(|e| format!("wait error: {e}"));
+            tracing::warn!(?key, exit, attempts_used, "child exited unexpectedly");
+
+            me.registry
+                .lock()
+                .await
+                .transition_state(
+                    &key,
+                    ProjectState::Dead {
+                        reason: exit,
+                        since: Instant::now(),
+                    },
+                )
+                .ok();
+
+            if attempts_used + 1 >= MAX_ATTEMPTS {
+                return;
+            }
+            tokio::time::sleep(backoff).await;
+            if me
+                .start_project_with_retries(key.clone(), 1, Duration::from_millis(0))
+                .await
+                .is_ok()
+            {
+                me.watch_for_exit(key, attempts_used + 1, backoff * 4);
+            }
+        });
+    }
+
     /// Begin eviction of `key`: pulls its child handle, transitions registry
     /// to `Evicting`, then spawns a background task running `evict`.
     /// Fire-and-forget: callers do not await completion.
@@ -437,6 +488,74 @@ mod tests {
         assert!(matches!(
             r.get(&PathBuf::from("/tmp/proj")).unwrap().state,
             ProjectState::Healthy { .. }
+        ));
+    }
+
+    /// Child that exits "unexpectedly" after a configurable delay.
+    struct AutoExitChild {
+        notify: Arc<tokio::sync::Notify>,
+        exit_after: Duration,
+    }
+    #[async_trait]
+    impl ChildHandle for AutoExitChild {
+        fn pid(&self) -> u32 {
+            100
+        }
+        async fn wait(&mut self) -> std::io::Result<String> {
+            tokio::time::sleep(self.exit_after).await;
+            self.notify.notify_one();
+            Ok("crashed".into())
+        }
+        async fn send_sigterm(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        async fn send_sigkill(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn watch_for_exit_marks_dead_when_child_crashes() {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        registry
+            .lock()
+            .await
+            .insert_spawning("/tmp/p".into(), "p".into(), Instant::now())
+            .unwrap();
+        registry
+            .lock()
+            .await
+            .transition_state(
+                &PathBuf::from("/tmp/p"),
+                ProjectState::Healthy {
+                    port: 1,
+                    pid: 100,
+                    spawned_at: Instant::now(),
+                },
+            )
+            .unwrap();
+
+        let sup = Arc::new(Supervisor {
+            registry: registry.clone(),
+            spawner: ImmediateHealthySpawner,
+            health_timeout: Duration::from_secs(1),
+            children: Arc::new(Mutex::new(HashMap::new())),
+        });
+        let notify = Arc::new(tokio::sync::Notify::new());
+        let child: Box<dyn ChildHandle> = Box::new(AutoExitChild {
+            notify: notify.clone(),
+            exit_after: Duration::from_millis(100),
+        });
+        sup.insert_child("/tmp/p".into(), child).await;
+        // attempts_used=2 means 2+1 == MAX_ATTEMPTS, so no retry — state stays Dead.
+        sup.watch_for_exit("/tmp/p".into(), 2, Duration::from_millis(50));
+
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        let r = registry.lock().await;
+        assert!(matches!(
+            r.get(&PathBuf::from("/tmp/p")).map(|p| &p.state),
+            Some(ProjectState::Dead { .. })
         ));
     }
 }

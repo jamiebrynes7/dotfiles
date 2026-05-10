@@ -58,9 +58,26 @@ pub async fn run() -> anyhow::Result<()> {
     tracing::info!(%launcher_addr, "HTTP launcher bound");
     let http_task = tokio::spawn(async move { axum::serve(tcp, app).await });
 
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
     tokio::select! {
-        r = uds_task  => { tracing::error!(?r, "UDS server exited"); }
-        r = http_task => { tracing::error!(?r, "HTTP server exited"); }
+        _ = sigterm.recv() => { tracing::info!("SIGTERM received; shutting down"); }
+        _ = sigint.recv()  => { tracing::info!("SIGINT received; shutting down"); }
+        r = uds_task       => { tracing::error!(?r, "UDS server exited unexpectedly"); }
+        r = http_task      => { tracing::error!(?r, "HTTP server exited unexpectedly"); }
     }
+
+    // Best-effort SIGTERM to all healthy children. Service manager will reap
+    // us; each child's own shutdown handler does the rest.
+    let reg = registry.lock().await;
+    for p in reg.iter() {
+        if let crate::registry::ProjectState::Healthy { pid, .. } = &p.state {
+            let _ = nix::sys::signal::kill(
+                nix::unistd::Pid::from_raw(*pid as i32),
+                nix::sys::signal::Signal::SIGTERM,
+            );
+        }
+    }
+    drop(reg);
     Ok(())
 }

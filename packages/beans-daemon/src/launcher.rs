@@ -76,6 +76,30 @@ async fn index(
     axum::response::Html(tmpl.render().unwrap())
 }
 
+#[derive(Template)]
+#[template(path = "project_list.html")]
+struct ProjectListPartial {
+    projects: Vec<ProjectView>,
+    active_key: Option<PathBuf>,
+}
+
+#[derive(serde::Deserialize)]
+struct PartialQuery {
+    active: Option<PathBuf>,
+}
+
+async fn projects_partial(
+    axum::extract::Query(q): axum::extract::Query<PartialQuery>,
+    axum::extract::State(state): axum::extract::State<LauncherState>,
+) -> impl IntoResponse {
+    let reg = state.registry.lock().await;
+    let tmpl = ProjectListPartial {
+        projects: project_views(&reg),
+        active_key: q.active,
+    };
+    axum::response::Html(tmpl.render().unwrap())
+}
+
 async fn serve_htmx() -> impl IntoResponse {
     ([(header::CONTENT_TYPE, "application/javascript")], HTMX_JS)
 }
@@ -87,6 +111,7 @@ async fn serve_css() -> impl IntoResponse {
 pub fn router_with_state(state: LauncherState) -> Router {
     Router::new()
         .route("/", get(index))
+        .route("/partials/projects", get(projects_partial))
         .route("/static/htmx.min.js", get(serve_htmx))
         .route("/static/app.css", get(serve_css))
         .with_state(state)
@@ -157,6 +182,64 @@ mod tests {
         )
         .unwrap();
         assert!(body.contains("Select a project"));
+    }
+
+    #[tokio::test]
+    async fn partial_returns_ok_for_empty_registry() {
+        let app = router_with_state(empty_state());
+        let resp = app
+            .oneshot(
+                Request::get("/partials/projects")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn partial_lists_registered_projects() {
+        use crate::registry::ProjectState;
+        use std::time::Instant;
+
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        registry
+            .lock()
+            .await
+            .insert_spawning("/tmp/p".into(), "p".into(), Instant::now())
+            .unwrap();
+        registry
+            .lock()
+            .await
+            .transition_state(
+                std::path::Path::new("/tmp/p"),
+                ProjectState::Healthy {
+                    port: 4242,
+                    pid: 1,
+                    spawned_at: Instant::now(),
+                },
+            )
+            .unwrap();
+        let state = LauncherState { registry };
+        let app = router_with_state(state);
+        let resp = app
+            .oneshot(
+                Request::get("/partials/projects")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = String::from_utf8(
+            axum::body::to_bytes(resp.into_body(), 64 * 1024)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(body.contains("healthy"));
+        assert!(body.contains(":4242"));
     }
 
     #[tokio::test]

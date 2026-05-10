@@ -1,10 +1,11 @@
 ---
 # dotfiles-a1vr
 title: '`/partials/projects` HTMX polling fragment'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:39:41Z
-updated_at: 2026-05-03T14:39:41Z
+updated_at: 2026-05-10T13:58:50Z
 parent: dotfiles-60yo
 ---
 
@@ -13,7 +14,7 @@ parent: dotfiles-60yo
 
 The HTMX `hx-trigger="every 5s"` attribute on the project list fetches this fragment and swaps it in. It returns just the inner HTML of the list, not a full document.
 
-- [ ] **Step 1: Add the partial**
+- [x] **Step 1: Add the partial**
 
 Append to `packages/beans-daemon/src/launcher.rs`:
 ```rust
@@ -42,7 +43,7 @@ Update `router_with_state` to add the route:
         .route("/partials/projects", get(projects_partial))
 ```
 
-- [ ] **Step 2: Test it**
+- [x] **Step 2: Test it**
 
 Append to `mod tests`:
 ```rust
@@ -71,14 +72,18 @@ Append to `mod tests`:
     }
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `cargo test launcher::`
 Expected: 6 tests pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/beans-daemon/src/launcher.rs
 git commit -m "packages/beans-daemon: /partials/projects fragment for HTMX polling"
 ```
+
+## Summary of Changes
+
+Added `ProjectListPartial` askama template binding (reusing `templates/project_list.html`) and the `projects_partial` handler reading `?active=<key>` for highlight state. Wired `GET /partials/projects` into `router_with_state`. Two tests cover the empty-registry and registered-projects paths (asserts the `:4242` port and `healthy` badge appear in the HTML).

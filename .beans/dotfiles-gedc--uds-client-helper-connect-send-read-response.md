@@ -1,10 +1,11 @@
 ---
 # dotfiles-gedc
 title: UDS client helper (connect + send + read response)
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:40:19Z
-updated_at: 2026-05-03T14:40:19Z
+updated_at: 2026-05-10T13:49:59Z
 parent: dotfiles-cdo6
 ---
 
@@ -12,7 +13,7 @@ parent: dotfiles-cdo6
 - Create: `packages/beans-daemon/src/cli_client.rs`
 - Modify: `packages/beans-daemon/src/main.rs` (add `mod cli_client;`)
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 Create `packages/beans-daemon/src/cli_client.rs`:
 ```rust
@@ -43,20 +44,24 @@ pub fn send_and_close(socket: &Path, req: &Request) {
 }
 ```
 
-- [ ] **Step 2: Run \`cargo build\`**
+- [x] **Step 2: Run \`cargo build\`**
 
 Run: `cargo build`
 Expected: PASS — these are sync helpers, no test fixture needed yet.
 
 (End-to-end coverage of the client comes via the F11 smoke test; the protocol round-trip test in F5 already exercises the wire format.)
 
-- [ ] **Step 3: Wire into main.rs**
+- [x] **Step 3: Wire into main.rs**
 
 Add `mod cli_client;` to `packages/beans-daemon/src/main.rs`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/beans-daemon/src/cli_client.rs packages/beans-daemon/src/main.rs
 git commit -m "packages/beans-daemon: UDS client helper for CLI subcommands"
 ```
+
+## Summary of Changes
+
+Added `packages/beans-daemon/src/cli_client.rs` with two sync UDS helpers built on `std::os::unix::net::UnixStream`: `request()` (write line, half-close, read one response line, deserialise into `Response`) used by `ls`/`start`/`stop`/`status`, and `send_and_close()` (silent fire-and-forget) used by `cd`. Wired into `main.rs` via `mod cli_client;`. Two async tests (in-process echo server) cover the round-trip framing and the silent no-op when the socket is missing — added on top of the spec's "no fixture" expectation since the helper is the basis for every CLI subcommand.

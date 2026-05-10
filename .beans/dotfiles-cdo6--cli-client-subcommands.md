@@ -1,11 +1,11 @@
 ---
 # dotfiles-cdo6
 title: CLI client subcommands
-status: todo
+status: in-progress
 type: feature
 priority: normal
 created_at: 2026-05-03T14:31:49Z
-updated_at: 2026-05-03T14:43:17Z
+updated_at: 2026-05-10T13:48:29Z
 parent: dotfiles-nzsd
 blocked_by:
     - dotfiles-2ecf

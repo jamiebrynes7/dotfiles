@@ -28,3 +28,4 @@ xdg = "2"
 [dev-dependencies]
 assert_matches = "1"
 tempfile = "3"
+tower = { version = "0.4", features = ["util"] }

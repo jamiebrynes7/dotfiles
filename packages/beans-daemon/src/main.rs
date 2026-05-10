@@ -2,6 +2,7 @@ mod cli;
 mod cli_client;
 mod config;
 mod control;
+mod launcher;
 mod logging;
 mod port_alloc;
 mod project_key;

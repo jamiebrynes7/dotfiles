@@ -1,10 +1,11 @@
 ---
 # dotfiles-jf1c
 title: Embed static assets (htmx, app.css) + serve via axum
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:39:41Z
-updated_at: 2026-05-03T14:39:41Z
+updated_at: 2026-05-10T13:55:05Z
 parent: dotfiles-60yo
 ---
 
@@ -14,7 +15,7 @@ parent: dotfiles-60yo
 - Create: `packages/beans-daemon/static/app.css`
 - Modify: `packages/beans-daemon/src/main.rs` (add `mod launcher;`)
 
-- [ ] **Step 1: Vendor the htmx asset**
+- [x] **Step 1: Vendor the htmx asset**
 
 ```bash
 mkdir -p packages/beans-daemon/static
@@ -23,7 +24,7 @@ curl -fsSL https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js -o packages/beans-
 
 Verify the file size is around 14 KB and is non-empty.
 
-- [ ] **Step 2: Write minimal CSS**
+- [x] **Step 2: Write minimal CSS**
 
 `packages/beans-daemon/static/app.css`:
 ```css
@@ -45,7 +46,7 @@ main iframe { flex: 1; border: none; width: 100%; }
 main .empty { display: flex; align-items: center; justify-content: center; height: 100%; opacity: 0.5; }
 ```
 
-- [ ] **Step 3: Write the failing test**
+- [x] **Step 3: Write the failing test**
 
 Create `packages/beans-daemon/src/launcher.rs`:
 ```rust
@@ -98,14 +99,18 @@ Add to `Cargo.toml` `[dev-dependencies]`:
 tower = "0.4"
 ```
 
-- [ ] **Step 4: Wire into main.rs and run tests**
+- [x] **Step 4: Wire into main.rs and run tests**
 
 Add `mod launcher;`. Run: `cargo test launcher::`
 Expected: 2 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/launcher.rs packages/beans-daemon/src/main.rs packages/beans-daemon/static/ packages/beans-daemon/Cargo.toml packages/beans-daemon/Cargo.lock
 git commit -m "packages/beans-daemon: launcher static asset serving (htmx + css)"
 ```
+
+## Summary of Changes
+
+Vendored htmx 1.9.12 (`packages/beans-daemon/static/htmx.min.js`, ~48 KB — bean note said ~14 KB but the current minified bundle is larger; verified UMD wrapper). Wrote minimal dark-theme `app.css`. Created `packages/beans-daemon/src/launcher.rs` with `serve_htmx`/`serve_css` handlers (assets embedded via `include_bytes!`/`include_str!`) and a base `router()`. Added `tower = { version = "0.4", features = ["util"] }` to dev-deps for `ServiceExt::oneshot`. Wired into `main.rs` via `mod launcher;`. Two tests verify content-type and 200 status.

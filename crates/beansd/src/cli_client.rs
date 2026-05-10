@@ -1,5 +1,5 @@
-use crate::protocol::{Request, Response};
 use anyhow::Context;
+use beansd_rpc::{WireRequest as Request, WireResponse as Response};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;

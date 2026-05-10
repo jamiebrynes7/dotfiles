@@ -12,6 +12,7 @@ anyhow.workspace = true
 askama = "0.12"
 async-trait.workspace = true
 axum = { version = "0.7", features = ["macros"] }
+beansd-rpc = { path = "../beansd-rpc" }
 clap = { version = "4", features = ["derive"] }
 nix = { version = "0.29", features = ["signal"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }

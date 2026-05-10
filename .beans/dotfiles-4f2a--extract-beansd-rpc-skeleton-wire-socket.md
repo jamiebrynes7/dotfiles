@@ -1,11 +1,11 @@
 ---
 # dotfiles-4f2a
 title: Extract beansd-rpc skeleton (wire + socket)
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-10T14:55:47Z
-updated_at: 2026-05-10T14:59:40Z
+updated_at: 2026-05-10T16:08:14Z
 parent: dotfiles-qwfb
 blocked_by:
     - dotfiles-7zn7
@@ -24,7 +24,7 @@ blocked_by:
 
 Pure carve-out. No new behavior. After this task the 4 wire tests + 3 socket tests run from `beansd-rpc`; daemon test count drops by 7; total is unchanged.
 
-- [ ] **Step 1: Create the new crate's `Cargo.toml`**
+-[x][ ] **Step 1: Create the new crate's `Cargo.toml`**
 
 `crates/beansd-rpc/Cargo.toml`:
 
@@ -45,7 +45,7 @@ tracing.workspace = true
 tempfile = "3"
 ```
 
-- [ ] **Step 2: Move `protocol.rs` to `wire.rs` and rename types**
+-[x][ ] **Step 2: Move `protocol.rs` to `wire.rs` and rename types**
 
 ```bash
 mkdir -p crates/beansd-rpc/src
@@ -125,7 +125,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 3: Create `crates/beansd-rpc/src/socket.rs`**
+-[x][ ] **Step 3: Create `crates/beansd-rpc/src/socket.rs`**
 
 ```rust
 use anyhow::Context;
@@ -193,7 +193,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 4: Create `crates/beansd-rpc/src/lib.rs`**
+-[x][ ] **Step 4: Create `crates/beansd-rpc/src/lib.rs`**
 
 ```rust
 mod socket;
@@ -203,7 +203,7 @@ pub use socket::{bind_uds, default_socket_path};
 pub use wire::{WireRequest, WireResponse};
 ```
 
-- [ ] **Step 5: Strip moved code from `crates/beansd/src/control.rs`**
+-[x][ ] **Step 5: Strip moved code from `crates/beansd/src/control.rs`**
 
 In `crates/beansd/src/control.rs`, delete:
 
@@ -221,11 +221,11 @@ use beansd_rpc::{WireRequest as Request, WireResponse as Response};
 
 Remove (if present): `use crate::protocol::{Request, Response};`. The rename-on-import preserves all uses of `Request` / `Response` inside `control.rs`, minimising diff.
 
-- [ ] **Step 6: Drop `mod protocol;` from `crates/beansd/src/main.rs`**
+-[x][ ] **Step 6: Drop `mod protocol;` from `crates/beansd/src/main.rs`**
 
 In `crates/beansd/src/main.rs`, remove the line `mod protocol;`. All other `mod` declarations stay.
 
-- [ ] **Step 7: Update `crates/beansd/src/cli_client.rs` imports**
+-[x][ ] **Step 7: Update `crates/beansd/src/cli_client.rs` imports**
 
 Replace the line `use crate::protocol::{Request, Response};` with:
 
@@ -235,7 +235,7 @@ use beansd_rpc::{WireRequest as Request, WireResponse as Response};
 
 Rest of file unchanged.
 
-- [ ] **Step 8: Update `crates/beansd/src/run.rs` imports**
+-[x][ ] **Step 8: Update `crates/beansd/src/run.rs` imports**
 
 Replace the line `use crate::control::{Daemon, bind_uds, default_socket_path};` with:
 
@@ -246,7 +246,7 @@ use beansd_rpc::{bind_uds, default_socket_path};
 
 Rest of file unchanged.
 
-- [ ] **Step 9: Add `beansd-rpc` dep in `crates/beansd/Cargo.toml`**
+-[x][ ] **Step 9: Add `beansd-rpc` dep in `crates/beansd/Cargo.toml`**
 
 In the `[dependencies]` section, add (kept alphabetical):
 
@@ -254,7 +254,7 @@ In the `[dependencies]` section, add (kept alphabetical):
 beansd-rpc = { path = "../beansd-rpc" }
 ```
 
-- [ ] **Step 10: Run the full workspace test suite**
+-[x][ ] **Step 10: Run the full workspace test suite**
 
 ```bash
 nix develop --command cargo test --manifest-path Cargo.toml --workspace
@@ -262,9 +262,19 @@ nix develop --command cargo test --manifest-path Cargo.toml --workspace
 
 Expected: 61 tests still pass. The 7 moved tests now report under `beansd-rpc::wire::tests` and `beansd-rpc::socket::tests` instead of `beansd::protocol::tests` and `beansd::control::tests`. Net unchanged.
 
-- [ ] **Step 11: Commit**
+-[x][ ] **Step 11: Commit**
 
 ```bash
 git add Cargo.lock crates/
 git commit -m "crates/beansd-rpc: extract wire types and socket helpers"
 ```
+
+## Summary of Changes
+
+New `crates/beansd-rpc` crate housing the wire protocol and UDS socket helpers, both as `pub` for now (tightening to `pub(crate)` happens in Task 5 once typed messages land). The wire types were renamed to `WireRequest` / `WireResponse` to make the upcoming typed surface unambiguous.
+
+`beansd` now depends on `beansd-rpc`. Internal callers preserve `Request`/`Response` names via `use beansd_rpc::{WireRequest as Request, WireResponse as Response}` aliases (`control.rs`, `cli_client.rs`) to keep the diff minimal. `main.rs` and `run.rs` switched to unaliased `beansd_rpc::*` names since they no longer reach the types through local module paths.
+
+Minor consequence beyond the task body: `main.rs`'s CLI subcommand arms also had to retire `protocol::Request::*` / `protocol::Response` / `control::default_socket_path()` since `mod protocol;` was removed; they now use `WireRequest`, `WireResponse`, and `default_socket_path` directly. Those subcommands move to `beansctl` in Task 5.
+
+Verified: `cargo test --workspace` → 61/61 (54 in `beansd` + 7 in `beansd-rpc`). `nix flake check` → builds `beans-daemon-0.1.0.drv` clean.

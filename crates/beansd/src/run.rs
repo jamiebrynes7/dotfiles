@@ -1,6 +1,7 @@
 use crate::config::Config;
-use crate::control::{Daemon, bind_uds, default_socket_path};
+use crate::control::Daemon;
 use crate::launcher::{LauncherState, router_with_state};
+use beansd_rpc::{bind_uds, default_socket_path};
 use crate::registry::Registry;
 use crate::spawner::BeansServeSpawner;
 use crate::supervisor::Supervisor;

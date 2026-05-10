@@ -6,12 +6,12 @@ mod launcher;
 mod logging;
 mod port_alloc;
 mod project_key;
-mod protocol;
 mod registry;
 mod run;
 mod spawner;
 mod supervisor;
 
+use beansd_rpc::{WireRequest, WireResponse, default_socket_path};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
@@ -22,43 +22,43 @@ fn main() -> anyhow::Result<()> {
             rt.block_on(run::run())
         }
         cli::Command::Cd { dir } => {
-            let socket = control::default_socket_path()?;
-            cli_client::send_and_close(&socket, &protocol::Request::Cd { cwd: dir });
+            let socket = default_socket_path()?;
+            cli_client::send_and_close(&socket, &WireRequest::Cd { cwd: dir });
             Ok(())
         }
         cli::Command::Ls => {
-            let socket = control::default_socket_path()?;
-            let resp = cli_client::request(&socket, &protocol::Request::Ls {})?;
+            let socket = default_socket_path()?;
+            let resp = cli_client::request(&socket, &WireRequest::Ls {})?;
             print_response("ls", &resp);
             Ok(())
         }
         cli::Command::Start { key } => {
-            let socket = control::default_socket_path()?;
-            let resp = cli_client::request(&socket, &protocol::Request::Start { key })?;
+            let socket = default_socket_path()?;
+            let resp = cli_client::request(&socket, &WireRequest::Start { key })?;
             print_response("start", &resp);
             Ok(())
         }
         cli::Command::Stop { key } => {
-            let socket = control::default_socket_path()?;
-            let resp = cli_client::request(&socket, &protocol::Request::Stop { key })?;
+            let socket = default_socket_path()?;
+            let resp = cli_client::request(&socket, &WireRequest::Stop { key })?;
             print_response("stop", &resp);
             Ok(())
         }
         cli::Command::Status => {
-            let socket = control::default_socket_path()?;
-            let resp = cli_client::request(&socket, &protocol::Request::Status {})?;
+            let socket = default_socket_path()?;
+            let resp = cli_client::request(&socket, &WireRequest::Status {})?;
             print_response("status", &resp);
             Ok(())
         }
     }
 }
 
-fn print_response(label: &str, resp: &protocol::Response) {
+fn print_response(label: &str, resp: &WireResponse) {
     match resp {
-        protocol::Response::Ok { data, .. } => {
+        WireResponse::Ok { data, .. } => {
             println!("{}", serde_json::to_string_pretty(data).unwrap_or_default());
         }
-        protocol::Response::Error { error, .. } => {
+        WireResponse::Error { error, .. } => {
             eprintln!("beansd {label}: {error}");
             std::process::exit(1);
         }

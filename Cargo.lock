@@ -231,6 +231,7 @@ dependencies = [
  "assert_matches",
  "async-trait",
  "axum",
+ "beansd-rpc",
  "clap",
  "nix",
  "reqwest",
@@ -245,6 +246,18 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "xdg",
+]
+
+[[package]]
+name = "beansd-rpc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

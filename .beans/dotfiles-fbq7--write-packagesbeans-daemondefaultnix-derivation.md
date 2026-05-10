@@ -1,10 +1,11 @@
 ---
 # dotfiles-fbq7
 title: Write `packages/beans-daemon/default.nix` derivation
-status: todo
+status: scrapped
 type: task
+priority: normal
 created_at: 2026-05-03T14:42:39Z
-updated_at: 2026-05-03T14:42:39Z
+updated_at: 2026-05-10T15:52:56Z
 parent: dotfiles-lfly
 ---
 
@@ -67,3 +68,7 @@ Expected: `beansd 0.1.0`
 git add packages/beans-daemon/default.nix flake.nix
 git commit -m 'packages/beans-daemon: nix derivation'
 ```
+
+## Reasons for Scrapping
+
+Superseded by `dotfiles-qwfb` (Workspace split). The workspace-aware `default.nix` — `lib.fileset.toSource` filtered against the repo root, `cargoLock.lockFile = root + "/Cargo.lock"`, `cargoBuildFlags = [ "--workspace" ]` — is written as part of `dotfiles-7zn7` (Task 1: Workspace skeleton). The pre-workspace single-crate derivation this bean specced is no longer the right shape.

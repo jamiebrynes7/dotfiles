@@ -5,13 +5,13 @@ status: todo
 type: task
 priority: low
 created_at: 2026-05-09T14:25:33Z
-updated_at: 2026-05-09T14:25:33Z
+updated_at: 2026-05-10T15:53:20Z
 parent: dotfiles-nzsd
 ---
 
 **Files:**
-- Create: `packages/beans-daemon/tests/spawner_real_binary.rs` (integration test)
-- Likely create: `packages/beans-daemon/tests/fake_beans_serve/` (fixture binary crate, or a `[[bin]]` in `Cargo.toml` gated under `[[test]]`)
+- Create: `crates/beansd/tests/spawner_real_binary.rs` (integration test)
+- Likely create: `crates/beansd/tests/fake_beans_serve/` (fixture binary crate, or a `[[bin]]` in `Cargo.toml` gated under `[[test]]`)
 
 ## Rationale
 
@@ -21,7 +21,7 @@ Without this, regressions in `BeansServeSpawner` / `BeansServeChild` (e.g. accid
 
 ## Sketch of approach
 
-- Add a `[[bin]]` named `fake_beans_serve` to `packages/beans-daemon/Cargo.toml` that:
+- Add a `[[bin]]` named `fake_beans_serve` to `crates/beansd/Cargo.toml` that:
   - parses `--port <u16>` and `--beans-path <PATH>` like the real binary,
   - binds an axum (or `tiny_http`) server on `127.0.0.1:<port>` returning 200 to `GET /`,
   - exits cleanly on SIGTERM (so the SIGTERM-grace path is exercised),
@@ -43,3 +43,8 @@ Without this, regressions in `BeansServeSpawner` / `BeansServeChild` (e.g. accid
 
 - Not testing the supervisor or registry — that's covered by unit tests in `supervisor.rs`.
 - Not testing actual `beans-serve` behavior — that's the e2e smoke test (`dotfiles-24hc`).
+
+
+## Note (2026-05-10)
+
+After `dotfiles-qwfb` (Workspace split) lands, this task's paths are under `crates/beansd/` rather than `packages/beans-daemon/` — body updated. The fake-binary approach itself is unchanged: still a `[[bin]]` in `crates/beansd/Cargo.toml` exposed via `env!("CARGO_BIN_EXE_fake_beans_serve")` to the integration test.

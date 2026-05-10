@@ -3,8 +3,9 @@
 title: launchd agent (Darwin)
 status: todo
 type: task
+priority: normal
 created_at: 2026-05-03T14:42:39Z
-updated_at: 2026-05-03T14:42:39Z
+updated_at: 2026-05-10T15:53:02Z
 parent: dotfiles-ottn
 ---
 
@@ -17,7 +18,7 @@ parent: dotfiles-ottn
     launchd.agents.beans-daemon = lib.mkIf pkgs.stdenv.isDarwin {
       enable = true;
       config = {
-        ProgramArguments = [ "${beans-daemon}/bin/beansd" "run" ];
+        ProgramArguments = [ "${beans-daemon}/bin/beansd" ];
         KeepAlive        = true;
         RunAtLoad        = true;
         StandardOutPath  = "${config.home.homeDirectory}/Library/Logs/beans-daemon.log";

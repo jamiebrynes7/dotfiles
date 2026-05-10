@@ -3,8 +3,9 @@
 title: systemd-user service (Linux)
 status: todo
 type: task
+priority: normal
 created_at: 2026-05-03T14:42:39Z
-updated_at: 2026-05-03T14:42:39Z
+updated_at: 2026-05-10T15:53:02Z
 parent: dotfiles-ottn
 ---
 
@@ -20,7 +21,7 @@ parent: dotfiles-ottn
         After       = [ "default.target" ];
       };
       Service = {
-        ExecStart  = "${beans-daemon}/bin/beansd run";
+        ExecStart  = "${beans-daemon}/bin/beansd";
         Restart    = "always";
         RestartSec = 2;
         # Daemon writes to stdout/stderr; systemd captures via journald.

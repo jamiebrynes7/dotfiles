@@ -3,8 +3,9 @@
 title: zsh chpwd hook integration
 status: todo
 type: task
+priority: normal
 created_at: 2026-05-03T14:42:39Z
-updated_at: 2026-05-03T14:42:39Z
+updated_at: 2026-05-10T15:53:02Z
 parent: dotfiles-ottn
 ---
 
@@ -18,7 +19,7 @@ parent: dotfiles-ottn
       (cfg.enableZshIntegration && config.programs.zsh.enable)
       (lib.mkAfter ''
         beans_daemon_chpwd() {
-          (${beans-daemon}/bin/beansd cd "$PWD" &) >/dev/null 2>&1
+          (${beans-daemon}/bin/beansctl cd "$PWD" &) >/dev/null 2>&1
         }
         chpwd_functions+=(beans_daemon_chpwd)
       '');

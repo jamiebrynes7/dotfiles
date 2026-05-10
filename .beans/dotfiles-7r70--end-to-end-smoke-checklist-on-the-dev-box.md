@@ -3,8 +3,9 @@
 title: End-to-end smoke checklist on the dev box
 status: todo
 type: task
+priority: normal
 created_at: 2026-05-03T14:42:39Z
-updated_at: 2026-05-03T14:42:39Z
+updated_at: 2026-05-10T15:53:09Z
 parent: dotfiles-24hc
 ---
 
@@ -46,7 +47,7 @@ Expected: empty-state page ("Select a project from the left.").
 Open a fresh shell, then:
 ```bash
 cd ~/workspace/dotfiles    # this repo has .beans.yml
-beansd ls
+beansctl ls
 ```
 Expected JSON output lists this project with state `spawning` then `healthy` after a beat.
 
@@ -56,7 +57,7 @@ Refresh `http://localhost:9000`. The dotfiles project appears in the left nav wi
 
 - [ ] **7. Verify heartbeat fires**
 
-Watch journal: `journalctl --user -u beans-daemon -f`. Click the project so its iframe is loaded; observe heartbeat-induced bumps (you can use `beansd ls` repeatedly to watch `last_used` advance).
+Watch journal: `journalctl --user -u beans-daemon -f`. Click the project so its iframe is loaded; observe heartbeat-induced bumps (you can use `beansctl ls` repeatedly to watch `last_used` advance).
 
 - [ ] **8. Verify LRU eviction**
 

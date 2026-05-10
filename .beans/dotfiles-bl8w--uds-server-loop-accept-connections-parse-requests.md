@@ -1,10 +1,11 @@
 ---
 # dotfiles-bl8w
 title: 'UDS server loop: accept connections, parse requests, dispatch'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:38:16Z
-updated_at: 2026-05-03T14:38:16Z
+updated_at: 2026-05-10T13:46:00Z
 parent: dotfiles-2ecf
 ---
 
@@ -13,7 +14,7 @@ parent: dotfiles-2ecf
 
 This wires the previous pieces into a runnable server loop. Per spec §2: newline-delimited JSON, one message per line. The `cd` client may close the write half before reading the response.
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 Append to `packages/beans-daemon/src/control.rs`:
 ```rust
@@ -110,14 +111,18 @@ mod uds_loop_tests {
 }
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `cargo test control::uds_loop_tests`
 Expected: PASS within 1 s.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add packages/beans-daemon/src/control.rs
 git commit -m "packages/beans-daemon: UDS accept loop with newline-JSON dispatch"
 ```
+
+## Summary of Changes
+
+Added `serve_uds(self: Arc<Self>, listener)` and `handle_connection` to `Daemon` in `control.rs`. Each accepted connection runs on its own tokio task. Per-line newline-delimited JSON: parse → dispatch via `match` over the `Request` enum → respond with `ok` envelope. Malformed lines → `Response::err("bad request: …")` and continue. Writes use `write_all` ignoring errors so a fire-and-forget `cd` client closing the read half doesn't propagate. Two integration tests via real UDS socket: `cd` round-trip with no marker (`registered:false`) and a malformed-line response.

@@ -6,7 +6,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::net::UnixListener;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Mutex;
 
 pub fn default_socket_path() -> anyhow::Result<PathBuf> {
@@ -168,6 +169,51 @@ impl<S: ChildSpawner + 'static> Daemon<S> {
             }
         });
         serde_json::json!({ "started": true, "action": "spawning" })
+    }
+
+    pub async fn serve_uds(self: Arc<Self>, listener: UnixListener) -> anyhow::Result<()> {
+        loop {
+            let (sock, _addr) = listener.accept().await?;
+            let me = self.clone();
+            tokio::spawn(async move {
+                if let Err(e) = me.handle_connection(sock).await {
+                    tracing::warn!(error = ?e, "UDS connection ended with error");
+                }
+            });
+        }
+    }
+
+    async fn handle_connection(&self, sock: UnixStream) -> anyhow::Result<()> {
+        use crate::protocol::{Request, Response};
+        let (rd, mut wr) = sock.into_split();
+        let mut lines = BufReader::new(rd).lines();
+        while let Some(line) = lines.next_line().await? {
+            let req: Request = match serde_json::from_str(&line) {
+                Ok(r) => r,
+                Err(e) => {
+                    let resp = Response::err(format!("bad request: {e}"));
+                    let mut buf = serde_json::to_vec(&resp)?;
+                    buf.push(b'\n');
+                    let _ = wr.write_all(&buf).await;
+                    continue;
+                }
+            };
+            let data = match req {
+                Request::Cd { cwd } => self.handle_cd(cwd).await,
+                Request::Ls {} => self.handle_ls().await,
+                Request::Start { key } => self.handle_start(key).await,
+                Request::Stop { key } => self.handle_stop(key).await,
+                Request::Status {} => self.handle_status().await,
+                Request::Heartbeat { key } => self.handle_heartbeat(key).await,
+            };
+            let resp = Response::ok(data);
+            let mut buf = serde_json::to_vec(&resp)?;
+            buf.push(b'\n');
+            // Best-effort: client may have closed the write half already
+            // (fire-and-forget cd). Don't propagate broken-pipe errors.
+            let _ = wr.write_all(&buf).await;
+        }
+        Ok(())
     }
 }
 
@@ -356,6 +402,59 @@ mod handler_tests {
         let d = build_daemon(registry, Duration::from_secs(1));
         let r = d.handle_start("/tmp/missing".into()).await;
         assert_eq!(r["started"], false);
+    }
+
+    #[tokio::test]
+    async fn round_trip_cd_via_uds() {
+        use crate::protocol::Request;
+        use tempfile::tempdir;
+
+        let sock_dir = tempdir().unwrap();
+        let sock_path = sock_dir.path().join("sock");
+        let listener = bind_uds(&sock_path).unwrap();
+
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        let daemon = Arc::new(build_daemon(registry, Duration::from_secs(1)));
+        tokio::spawn(daemon.clone().serve_uds(listener));
+
+        // No marker → handle_cd replies registered:false.
+        let dir = tempdir().unwrap();
+        let req = Request::Cd {
+            cwd: dir.path().to_path_buf(),
+        };
+        let mut buf = serde_json::to_vec(&req).unwrap();
+        buf.push(b'\n');
+
+        let mut sock = UnixStream::connect(&sock_path).await.unwrap();
+        sock.write_all(&buf).await.unwrap();
+        sock.flush().await.unwrap();
+
+        let mut lines = BufReader::new(sock).lines();
+        let line = lines.next_line().await.unwrap().unwrap();
+        assert!(line.contains(r#""ok":true"#));
+        assert!(line.contains(r#""registered":false"#));
+    }
+
+    #[tokio::test]
+    async fn malformed_request_returns_error_envelope() {
+        use tempfile::tempdir;
+
+        let sock_dir = tempdir().unwrap();
+        let sock_path = sock_dir.path().join("sock");
+        let listener = bind_uds(&sock_path).unwrap();
+
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        let daemon = Arc::new(build_daemon(registry, Duration::from_secs(1)));
+        tokio::spawn(daemon.clone().serve_uds(listener));
+
+        let mut sock = UnixStream::connect(&sock_path).await.unwrap();
+        sock.write_all(b"not json\n").await.unwrap();
+        sock.flush().await.unwrap();
+
+        let mut lines = BufReader::new(sock).lines();
+        let line = lines.next_line().await.unwrap().unwrap();
+        assert!(line.contains(r#""ok":false"#));
+        assert!(line.contains("bad request"));
     }
 
     #[tokio::test]

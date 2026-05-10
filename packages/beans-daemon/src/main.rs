@@ -8,6 +8,7 @@ mod port_alloc;
 mod project_key;
 mod protocol;
 mod registry;
+mod run;
 mod spawner;
 mod supervisor;
 
@@ -16,7 +17,10 @@ use clap::Parser;
 fn main() -> anyhow::Result<()> {
     let cli = cli::Cli::parse();
     match cli.command {
-        cli::Command::Run => unimplemented!("daemon entrypoint — see F8"),
+        cli::Command::Run => {
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(run::run())
+        }
         cli::Command::Cd { dir } => {
             let socket = control::default_socket_path()?;
             cli_client::send_and_close(&socket, &protocol::Request::Cd { cwd: dir });

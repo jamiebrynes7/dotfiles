@@ -1,10 +1,11 @@
 ---
 # dotfiles-v7g5
 title: 'Wire `beansd run`: bootstrap config + UDS + launcher servers'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:41:45Z
-updated_at: 2026-05-03T14:41:45Z
+updated_at: 2026-05-10T14:04:10Z
 parent: dotfiles-5h2f
 ---
 
@@ -14,7 +15,7 @@ parent: dotfiles-5h2f
 
 This is the integration step that ties together everything from F2–F6.
 
-- [ ] **Step 1: Implement `run`**
+- [x] **Step 1: Implement `run`**
 
 Create `packages/beans-daemon/src/run.rs`:
 ```rust
@@ -80,7 +81,7 @@ pub async fn run() -> anyhow::Result<()> {
 }
 ```
 
-- [ ] **Step 2: Wire into main.rs**
+- [x] **Step 2: Wire into main.rs**
 
 Add `mod run;` near the top, then replace the `cli::Command::Run` arm with:
 ```rust
@@ -90,14 +91,18 @@ Add `mod run;` near the top, then replace the `cli::Command::Run` arm with:
         }
 ```
 
-- [ ] **Step 3: Smoke build**
+- [x] **Step 3: Smoke build**
 
 Run: `cargo build`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```
 git add packages/beans-daemon/src/run.rs packages/beans-daemon/src/main.rs
 git commit -m 'packages/beans-daemon: wire beansd run entrypoint'
 ```
+
+## Summary of Changes
+
+Added `packages/beans-daemon/src/run.rs` wiring the full daemon: load and validate `Config`, init tracing, build `Registry` + `Supervisor` (with `BeansServeSpawner`) + `Daemon`, bind UDS via `bind_uds(default_socket_path()?)`, spawn `serve_uds`, bind HTTP launcher on `127.0.0.1:cfg.launcher_port`, and `axum::serve` the `router_with_state(LauncherState { registry, daemon })`. `tokio::select!` returns when either server exits. Wired the `Run` arm in `main.rs` to spin up a fresh `tokio::runtime::Runtime` and `block_on(run::run())`. Spec's `Supervisor` literal omitted `children: Arc<Mutex<HashMap>>` — added since the existing API requires it. Builds clean.

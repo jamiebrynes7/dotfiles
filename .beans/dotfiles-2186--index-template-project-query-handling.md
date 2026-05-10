@@ -1,10 +1,11 @@
 ---
 # dotfiles-2186
 title: Index template + `?project=` query handling
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:39:41Z
-updated_at: 2026-05-03T14:39:41Z
+updated_at: 2026-05-10T13:57:53Z
 parent: dotfiles-60yo
 ---
 
@@ -16,7 +17,7 @@ parent: dotfiles-60yo
 
 The launcher's main page renders the project list (left nav) plus an iframe panel (main content). If `?project=<encoded-key>` is present and matches a registered project, the iframe loads `http://127.0.0.1:<port>/`; otherwise the panel shows empty state.
 
-- [ ] **Step 1: Set askama template directory**
+- [x] **Step 1: Set askama template directory**
 
 Append to `packages/beans-daemon/Cargo.toml`:
 ```toml
@@ -24,7 +25,7 @@ Append to `packages/beans-daemon/Cargo.toml`:
 dirs = ["templates"]
 ```
 
-- [ ] **Step 2: Author the templates**
+- [x] **Step 2: Author the templates**
 
 `packages/beans-daemon/templates/project_list.html`:
 ```html
@@ -77,7 +78,7 @@ dirs = ["templates"]
 </html>
 ```
 
-- [ ] **Step 3: Add the index handler**
+- [x] **Step 3: Add the index handler**
 
 Append to `packages/beans-daemon/src/launcher.rs`:
 ```rust
@@ -157,7 +158,7 @@ pub fn router_with_state(state: LauncherState) -> Router {
 }
 ```
 
-- [ ] **Step 4: Test the index endpoint**
+- [x] **Step 4: Test the index endpoint**
 
 Append to `mod tests`:
 ```rust
@@ -184,14 +185,18 @@ Append to `mod tests`:
     }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `cargo test launcher::`
 Expected: 4 tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/beans-daemon/src/launcher.rs packages/beans-daemon/templates/ packages/beans-daemon/Cargo.toml packages/beans-daemon/Cargo.lock
 git commit -m "packages/beans-daemon: launcher index template with iframe panel"
 ```
+
+## Summary of Changes
+
+Added askama templates `templates/index.html` and `templates/project_list.html` (the latter `{% include %}`d by the former and reused as the polling fragment). `launcher.rs` now exposes `LauncherState { registry: Arc<Mutex<Registry>> }`, a `ProjectView` view-model derived from `Registry::iter()`, and an `index` handler that resolves `?project=<key>` against the registry and renders an iframe panel for healthy projects or an empty/`Not registered` message otherwise. Added `[package.metadata.askama] dirs = ["templates"]` to `Cargo.toml`. Spec template had `{{ p.port }}` for the iframe URL but `port: Option<u16>` doesn't `Display` directly — corrected to `p.port.unwrap()` (safe because `active_project` is filtered to `port.is_some()`). 4 launcher tests green.

@@ -29,3 +29,6 @@ xdg = "2"
 assert_matches = "1"
 tempfile = "3"
 tower = { version = "0.4", features = ["util"] }
+
+[package.metadata.askama]
+dirs = ["templates"]

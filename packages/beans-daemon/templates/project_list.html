@@ -1,0 +1,10 @@
+{% for p in projects %}
+<a class="project{% if Some(p.key.clone()) == active_key %} active{% endif %}"
+   href="/?project={{ p.key.display() }}">
+  <div class="name">{{ p.display_name }}</div>
+  <div class="meta">
+    <span class="badge {{ p.state }}">{{ p.state }}</span>
+    {% if let Some(port) = p.port %}<span>:{{ port }}</span>{% endif %}
+  </div>
+</a>
+{% endfor %}

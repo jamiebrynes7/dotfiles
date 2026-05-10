@@ -1,10 +1,11 @@
 ---
 # dotfiles-7zn7
 title: Workspace skeleton — move single crate into crates/beansd/
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-10T14:55:04Z
-updated_at: 2026-05-10T14:55:04Z
+updated_at: 2026-05-10T16:00:02Z
 parent: dotfiles-qwfb
 ---
 
@@ -19,7 +20,7 @@ parent: dotfiles-qwfb
 
 No API changes. Pure restructuring. All 61 existing tests must still pass.
 
-- [ ] **Step 1: Create root `Cargo.toml`**
+- [x] **Step 1: Create root `Cargo.toml`**
 
 Write `Cargo.toml` at repo root:
 
@@ -41,7 +42,7 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 ```
 
-- [ ] **Step 2: Move the existing crate to `crates/beansd/`**
+- [x] **Step 2: Move the existing crate to `crates/beansd/`**
 
 ```bash
 mkdir -p crates
@@ -52,7 +53,7 @@ git mv packages/beans-daemon/Cargo.toml crates/beansd/Cargo.toml
 git mv packages/beans-daemon/Cargo.lock Cargo.lock
 ```
 
-- [ ] **Step 3: Rewrite `crates/beansd/Cargo.toml`**
+- [x] **Step 3: Rewrite `crates/beansd/Cargo.toml`**
 
 Replace contents (rename package, switch shared deps to `{ workspace = true }`):
 
@@ -90,7 +91,7 @@ tempfile = "3"
 tower = { version = "0.4", features = ["util"] }
 ```
 
-- [ ] **Step 4: Rewrite `packages/beans-daemon/default.nix`**
+- [x] **Step 4: Rewrite `packages/beans-daemon/default.nix`**
 
 Replace contents (filtered source via `lib.fileset.toSource` so unrelated repo edits don't trigger rebuilds):
 
@@ -122,7 +123,7 @@ rustPlatform.buildRustPackage {
 }
 ```
 
-- [ ] **Step 5: Run the full workspace test suite**
+- [x] **Step 5: Run the full workspace test suite**
 
 ```bash
 nix develop --command cargo test --manifest-path Cargo.toml --workspace
@@ -130,7 +131,7 @@ nix develop --command cargo test --manifest-path Cargo.toml --workspace
 
 Expected: 61 tests pass.
 
-- [ ] **Step 6: Verify the Nix derivation builds**
+- [x] **Step 6: Verify the Nix derivation builds**
 
 ```bash
 nix flake check
@@ -138,9 +139,15 @@ nix flake check
 
 Expected: success.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add Cargo.toml Cargo.lock crates/ packages/beans-daemon/default.nix
 git commit -m "packages/beans-daemon: introduce workspace, move crate to crates/beansd/"
 ```
+
+## Summary of Changes
+
+Introduced a Cargo workspace at the repo root and moved the single `beans-daemon` crate to `crates/beansd/` (binary still named `beansd`). Workspace-shared deps (anyhow, async-trait, serde, serde_json, tokio, tracing) are declared once in the root `Cargo.toml`. `packages/beans-daemon/default.nix` now consumes a filtered `lib.fileset.toSource` covering only `Cargo.toml`, `Cargo.lock`, and `crates/`, so unrelated repo edits no longer invalidate the derivation. Dropped the now-redundant `[package.metadata.askama] dirs = ["templates"]` (askama 0.12 looks under `templates/` by default).
+
+Verified: `cargo test --workspace` → 61/61 pass. `nix flake check` → builds `beans-daemon-0.1.0.drv` clean.

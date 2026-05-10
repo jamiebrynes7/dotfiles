@@ -1,13 +1,22 @@
 { lib, rustPlatform }:
 
+let
+  root = ../..;
+  src = lib.fileset.toSource {
+    inherit root;
+    fileset = lib.fileset.unions [
+      (root + "/Cargo.toml")
+      (root + "/Cargo.lock")
+      (root + "/crates")
+    ];
+  };
+in
 rustPlatform.buildRustPackage {
   pname = "beans-daemon";
   version = "0.1.0";
-
-  src = lib.cleanSource ./.;
-
-  cargoLock = { lockFile = ./Cargo.lock; };
-
+  inherit src;
+  cargoLock.lockFile = root + "/Cargo.lock";
+  cargoBuildFlags = [ "--workspace" ];
   meta = with lib; {
     description = "Background daemon for the beans issue tracker";
     mainProgram = "beansd";

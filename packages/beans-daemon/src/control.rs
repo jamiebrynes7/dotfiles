@@ -1,7 +1,13 @@
+use crate::registry::Registry;
+use crate::spawner::ChildSpawner;
+use crate::supervisor::Supervisor;
 use anyhow::Context;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::net::UnixListener;
+use tokio::sync::Mutex;
 
 pub fn default_socket_path() -> anyhow::Result<PathBuf> {
     if cfg!(target_os = "macos") {
@@ -27,6 +33,64 @@ pub fn bind_uds(path: &Path) -> anyhow::Result<UnixListener> {
         UnixListener::bind(path).with_context(|| format!("binding {}", path.display()))?;
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
     Ok(listener)
+}
+
+pub struct Daemon<S: ChildSpawner + 'static> {
+    pub registry: Arc<Mutex<Registry>>,
+    pub supervisor: Arc<Supervisor<S>>,
+    pub lru_cap: usize,
+    pub sigterm_grace: Duration,
+    pub sigkill_grace: Duration,
+    pub start_max_attempts: usize,
+    pub start_base_backoff: Duration,
+}
+
+impl<S: ChildSpawner + 'static> Daemon<S> {
+    pub async fn handle_cd(&self, cwd: PathBuf) -> serde_json::Value {
+        let now = Instant::now();
+        let key = match crate::project_key::resolve(&cwd) {
+            Ok(Some(k)) => k,
+            Ok(None) => return serde_json::json!({ "registered": false }),
+            Err(e) => {
+                return serde_json::json!({ "registered": false, "error": e.to_string() });
+            }
+        };
+
+        let mut reg = self.registry.lock().await;
+        if reg.get(&key).is_some() {
+            reg.bump_last_used(&key, now);
+            return serde_json::json!({ "registered": true, "key": key, "action": "bumped" });
+        }
+
+        // At cap → kick eviction of the LRU project. We may briefly hold
+        // (cap + 1) entries until the eviction task removes the LRU one.
+        if reg.count_active() >= self.lru_cap {
+            if let Some(lru_key) = reg.find_lru_for_eviction() {
+                self.supervisor
+                    .trigger_eviction(lru_key, self.sigterm_grace, self.sigkill_grace);
+            }
+        }
+
+        let display = key
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
+        let _ = reg.insert_spawning(key.clone(), display, now);
+        drop(reg);
+
+        let sup = self.supervisor.clone();
+        let max = self.start_max_attempts;
+        let backoff = self.start_base_backoff;
+        let key_clone = key.clone();
+        tokio::spawn(async move {
+            if let Err(e) = sup.start_project_with_retries(key_clone, max, backoff).await {
+                tracing::error!(?e, "start_project failed");
+            }
+        });
+
+        serde_json::json!({ "registered": true, "key": key, "action": "spawned" })
+    }
 }
 
 #[cfg(test)]
@@ -59,5 +123,99 @@ mod tests {
         let res = bind_uds(&path);
         assert!(res.is_err());
         assert!(res.err().unwrap().to_string().contains("already in use"));
+    }
+}
+
+#[cfg(test)]
+mod cd_tests {
+    use super::*;
+    use crate::registry::ProjectState;
+    use crate::spawner::ChildHandle;
+    use async_trait::async_trait;
+    use std::collections::HashMap;
+    use tempfile::tempdir;
+
+    pub(super) struct ImmediateHealthy;
+    #[async_trait]
+    impl ChildSpawner for ImmediateHealthy {
+        async fn spawn(
+            &self,
+            _dir: &std::path::Path,
+            port: u16,
+        ) -> anyhow::Result<Box<dyn ChildHandle>> {
+            let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
+            tokio::spawn(async move {
+                use axum::routing::get;
+                let app = axum::Router::new().route("/", get(|| async { "ok" }));
+                axum::serve(listener, app).await.ok();
+            });
+            Ok(Box::new(NoOpChild))
+        }
+    }
+
+    pub(super) struct NoOpChild;
+    #[async_trait]
+    impl ChildHandle for NoOpChild {
+        fn pid(&self) -> u32 {
+            1
+        }
+        async fn wait(&mut self) -> std::io::Result<String> {
+            std::future::pending().await
+        }
+        async fn send_sigterm(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        async fn send_sigkill(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    pub(super) fn build_daemon(
+        registry: Arc<Mutex<Registry>>,
+        health_timeout: Duration,
+    ) -> Daemon<ImmediateHealthy> {
+        let supervisor = Arc::new(Supervisor {
+            registry: registry.clone(),
+            spawner: ImmediateHealthy,
+            health_timeout,
+            children: Arc::new(Mutex::new(HashMap::new())),
+        });
+        Daemon {
+            registry,
+            supervisor,
+            lru_cap: 8,
+            sigterm_grace: Duration::from_secs(5),
+            sigkill_grace: Duration::from_secs(5),
+            start_max_attempts: 1,
+            start_base_backoff: Duration::from_millis(10),
+        }
+    }
+
+    #[tokio::test]
+    async fn cd_into_dir_without_marker_reports_not_registered() {
+        let dir = tempdir().unwrap();
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        let d = build_daemon(registry, Duration::from_secs(1));
+        let resp = d.handle_cd(dir.path().to_path_buf()).await;
+        assert_eq!(resp["registered"], false);
+    }
+
+    #[tokio::test]
+    async fn cd_into_marked_dir_spawns_and_registers() {
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join(".beans.yml"), "").unwrap();
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        let d = build_daemon(registry.clone(), Duration::from_secs(2));
+        let resp = d.handle_cd(dir.path().to_path_buf()).await;
+        assert_eq!(resp["registered"], true);
+        assert_eq!(resp["action"], "spawned");
+
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let r = registry.lock().await;
+        let canonical = std::fs::canonicalize(dir.path()).unwrap();
+        assert!(matches!(
+            r.get(&canonical).unwrap().state,
+            ProjectState::Healthy { .. }
+        ));
     }
 }

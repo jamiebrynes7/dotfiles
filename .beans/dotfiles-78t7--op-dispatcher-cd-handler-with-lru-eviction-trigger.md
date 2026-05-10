@@ -1,11 +1,11 @@
 ---
 # dotfiles-78t7
 title: 'Op dispatcher: cd handler with LRU eviction trigger'
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-03T14:38:16Z
-updated_at: 2026-05-03T14:48:55Z
+updated_at: 2026-05-10T13:42:01Z
 parent: dotfiles-2ecf
 ---
 
@@ -22,7 +22,7 @@ The cd handler is the heart of the daemon. It:
    c. Spawns a tokio task running `Supervisor::start_project_with_retries`.
    d. Replies success immediately (the supervisor's task continues in background).
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 Append to `packages/beans-daemon/src/control.rs`:
 ```rust
@@ -169,14 +169,18 @@ mod cd_tests {
 }
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `cargo test control::cd_tests`
 Expected: both pass within ~2 s.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add packages/beans-daemon/src/control.rs
 git commit -m "packages/beans-daemon: cd op handler with LRU eviction trigger"
 ```
+
+## Summary of Changes
+
+Added `Daemon<S: ChildSpawner>` to `control.rs` with the `handle_cd` op. Resolves the project key via `project_key::resolve`; on no marker → `{registered: false}`; on already-registered → bumps `last_used`, replies `{action: "bumped"}`; otherwise inserts a `Spawning` entry, kicks `Supervisor::trigger_eviction` for the LRU when at cap, spawns `start_project_with_retries` on a tokio task, and replies `{action: "spawned"}` immediately. Test fixtures (`ImmediateHealthy`, `NoOpChild`, `build_daemon`) live in a `cd_tests` module so the next task can reuse them. Two tests cover the no-marker path and the spawn-and-register path (asserts `Healthy` after the supervisor task completes).

@@ -1,10 +1,11 @@
 ---
 # dotfiles-8grr
 title: Heartbeat + start/stop API endpoints
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:39:41Z
-updated_at: 2026-05-03T14:39:41Z
+updated_at: 2026-05-10T14:01:40Z
 parent: dotfiles-60yo
 ---
 
@@ -15,7 +16,7 @@ These endpoints accept form-encoded `key=<abs-path>` (HTMX's default `hx-vals` J
 
 The launcher needs access to the same `Daemon` struct from F5 to dispatch these — the LauncherState gets a `Daemon` field too.
 
-- [ ] **Step 1: Extend LauncherState with the Daemon handle**
+- [x] **Step 1: Extend LauncherState with the Daemon handle**
 
 Modify `packages/beans-daemon/src/launcher.rs`:
 ```rust
@@ -31,7 +32,7 @@ pub struct LauncherState<S: ChildSpawner + 'static> {
 
 (All previous handlers and `router_with_state` need to be parameterised over `S`. This is a refactor — the test fixtures in `mod tests` will pick a concrete `S`.)
 
-- [ ] **Step 2: Add the API handlers**
+- [x] **Step 2: Add the API handlers**
 
 Append to `packages/beans-daemon/src/launcher.rs`:
 ```rust
@@ -75,7 +76,7 @@ Add to `router_with_state`:
         .route("/api/projects/stop",    axum::routing::post(stop_project::<S>))
 ```
 
-- [ ] **Step 3: Test it**
+- [x] **Step 3: Test it**
 
 Append to `mod tests`:
 ```rust
@@ -130,14 +131,18 @@ Append to `mod tests`:
     }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test launcher::`
 Expected: all tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/launcher.rs
 git commit -m "packages/beans-daemon: heartbeat + start/stop API endpoints"
 ```
+
+## Summary of Changes
+
+Refactored `LauncherState` to be generic over `S: ChildSpawner + 'static` and added an `Arc<Daemon<S>>` field. Manual `Clone` impl avoids requiring `S: Clone`. Made `index`, `projects_partial`, `heartbeat`, `start_project`, `stop_project`, and `router_with_state` generic over `S` accordingly. Added three POST endpoints: `/api/heartbeat` (204), `/api/projects/start` and `/api/projects/stop` (both return the refreshed project-list partial as HTMX swap target). Tests use a `MockSpawner` no-op fixture; new tests cover `heartbeat` 204 + `last_used` bump, and `stop` returning HTML 200.

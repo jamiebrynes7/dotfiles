@@ -33,9 +33,8 @@ impl ChildSpawner for BeansServeSpawner {
             .arg("serve")
             .arg("--port")
             .arg(port.to_string())
-            .arg("--beans-path")
-            .arg(beans_yml_dir)
             .stdin(std::process::Stdio::null())
+            .current_dir(beans_yml_dir)
             .kill_on_drop(false)
             .spawn()?;
         Ok(Box::new(BeansServeChild {

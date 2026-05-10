@@ -1,10 +1,11 @@
 ---
 # dotfiles-1w3a
 title: Define request/response envelope (`Op` enum + serde)
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:38:16Z
-updated_at: 2026-05-03T14:38:16Z
+updated_at: 2026-05-10T13:36:32Z
 parent: dotfiles-2ecf
 ---
 
@@ -14,7 +15,7 @@ parent: dotfiles-2ecf
 
 Newline-delimited JSON, one message per line. Per spec §2: ops are `cd`, `ls`, `start`, `stop`, `status`, `heartbeat`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `packages/beans-daemon/src/protocol.rs`:
 ```rust
@@ -87,23 +88,27 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test protocol::`
 Expected: FAIL — module not declared.
 
-- [ ] **Step 3: Wire into main.rs**
+- [x] **Step 3: Wire into main.rs**
 
 Add `mod protocol;`.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test protocol::`
 Expected: 4 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/protocol.rs packages/beans-daemon/src/main.rs
 git commit -m "packages/beans-daemon: UDS request/response envelope types"
 ```
+
+## Summary of Changes
+
+Added `packages/beans-daemon/src/protocol.rs` defining the newline-delimited JSON envelope for the UDS control plane: `Request` enum (`cd`, `ls`, `start`, `stop`, `status`, `heartbeat`) tagged on `op` with `args` content, and `Response` with untagged `Ok { ok: true, data }` / `Error { ok: false, error }` variants plus `ok()` / `err()` constructors. Wired into `main.rs` via `mod protocol;`. Four unit tests cover round-trip and ok/err serialisation.

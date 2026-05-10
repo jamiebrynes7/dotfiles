@@ -3,6 +3,7 @@ mod config;
 mod logging;
 mod port_alloc;
 mod project_key;
+mod protocol;
 mod registry;
 mod spawner;
 mod supervisor;

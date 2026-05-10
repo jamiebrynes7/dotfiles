@@ -1,11 +1,11 @@
 ---
 # dotfiles-2ecf
 title: UDS control plane
-status: todo
+status: in-progress
 type: feature
 priority: normal
 created_at: 2026-05-03T14:31:49Z
-updated_at: 2026-05-03T14:43:17Z
+updated_at: 2026-05-10T13:35:21Z
 parent: dotfiles-nzsd
 blocked_by:
     - dotfiles-rlzx

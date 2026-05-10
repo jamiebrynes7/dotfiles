@@ -16,7 +16,11 @@ fn main() -> anyhow::Result<()> {
     let cli = cli::Cli::parse();
     match cli.command {
         cli::Command::Run => unimplemented!("daemon entrypoint — see F8"),
-        cli::Command::Cd { .. } => unimplemented!("cd client — see F7"),
+        cli::Command::Cd { dir } => {
+            let socket = control::default_socket_path()?;
+            cli_client::send_and_close(&socket, &protocol::Request::Cd { cwd: dir });
+            Ok(())
+        }
         cli::Command::Ls => unimplemented!("ls client — see F7"),
         cli::Command::Start { .. } => unimplemented!("start client — see F7"),
         cli::Command::Stop { .. } => unimplemented!("stop client — see F7"),

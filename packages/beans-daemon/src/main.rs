@@ -1,5 +1,6 @@
 mod cli;
 mod config;
+mod control;
 mod logging;
 mod port_alloc;
 mod project_key;

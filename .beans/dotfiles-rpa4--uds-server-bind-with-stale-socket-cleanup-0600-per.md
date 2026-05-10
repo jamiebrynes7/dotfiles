@@ -1,10 +1,11 @@
 ---
 # dotfiles-rpa4
 title: UDS server bind (with stale-socket cleanup + 0600 perms)
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:38:16Z
-updated_at: 2026-05-03T14:38:16Z
+updated_at: 2026-05-10T13:38:56Z
 parent: dotfiles-2ecf
 ---
 
@@ -14,7 +15,7 @@ parent: dotfiles-2ecf
 
 Per spec §2 + failure modes: 0600 perms, unlink stale socket file before bind, second instance fails on bind.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `packages/beans-daemon/src/control.rs`:
 ```rust
@@ -89,23 +90,27 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test control::`
 Expected: FAIL — module not declared.
 
-- [ ] **Step 3: Wire into main.rs**
+- [x] **Step 3: Wire into main.rs**
 
 Add `mod control;`.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cargo test control::`
 Expected: 3 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/beans-daemon/src/control.rs packages/beans-daemon/src/main.rs
 git commit -m "packages/beans-daemon: UDS bind with stale-socket cleanup"
 ```
+
+## Summary of Changes
+
+Added `packages/beans-daemon/src/control.rs` with `default_socket_path()` (Linux: `$XDG_RUNTIME_DIR/beans-daemon.sock`; macOS: `$HOME/Library/Caches/beans-daemon/sock`) and `bind_uds()` which creates the parent dir, unlinks any stale socket file, refuses to clobber a live daemon (probes via `UnixStream::connect`), binds the listener, then sets `0600` perms. Wired into `main.rs` via `mod control;`. Three async tests cover perms, stale-file cleanup, and refusal to replace a live socket.

@@ -1,18 +1,18 @@
 ---
 # dotfiles-1dhn
 title: 'Op dispatcher: ls, start, stop, status, heartbeat handlers'
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-03T14:38:16Z
-updated_at: 2026-05-03T14:48:55Z
+updated_at: 2026-05-10T13:44:22Z
 parent: dotfiles-2ecf
 ---
 
 **Files:**
 - Modify: `packages/beans-daemon/src/control.rs`
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 Append to `packages/beans-daemon/src/control.rs`:
 ```rust
@@ -143,14 +143,18 @@ mod handler_tests {
 
 To make the `cd_tests::ImmediateHealthy` and `NoOpChild` reachable from `handler_tests`, change `mod cd_tests {` to `mod cd_tests; pub mod cd_tests_pub { pub use super::cd_tests::*; }` — or simpler: declare these mocks once in `mod test_support` at the file's bottom (visible to all `#[cfg(test)] mod ...`). Pick whichever fits Rust's visibility rules cleanly.
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `cargo test control::handler_tests`
 Expected: 2 new tests pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add packages/beans-daemon/src/control.rs
 git commit -m "packages/beans-daemon: ls/start/stop/status/heartbeat op handlers"
 ```
+
+## Summary of Changes
+
+Added `handle_ls`, `handle_status`, `handle_heartbeat`, `handle_stop`, and `handle_start` to `Daemon` in `control.rs`. `ls` and `status` are pure registry reads (state labels: `spawning` / `healthy` / `evicting` / `dead`; `port` only set for healthy). `heartbeat` bumps `last_used`. `stop` returns `unknown project` for missing keys, otherwise fires `Supervisor::trigger_eviction`. `start` no-ops on `Healthy`/`Spawning`, transitions `Evicting`/`Dead` back to `Spawning` and re-fires `start_project_with_retries`. `cd_tests::ImmediateHealthy`/`build_daemon` are reused via `pub(super)`. Six handler tests cover empty `ls`, `heartbeat` bump, `status` shape, stop/start unknown errors, and start-already-active no-op.

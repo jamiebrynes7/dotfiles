@@ -91,6 +91,84 @@ impl<S: ChildSpawner + 'static> Daemon<S> {
 
         serde_json::json!({ "registered": true, "key": key, "action": "spawned" })
     }
+
+    pub async fn handle_ls(&self) -> serde_json::Value {
+        let reg = self.registry.lock().await;
+        let projects: Vec<_> = reg
+            .iter()
+            .map(|p| {
+                let (state_label, port) = match &p.state {
+                    crate::registry::ProjectState::Spawning { .. } => ("spawning", None),
+                    crate::registry::ProjectState::Healthy { port, .. } => ("healthy", Some(*port)),
+                    crate::registry::ProjectState::Evicting { .. } => ("evicting", None),
+                    crate::registry::ProjectState::Dead { .. } => ("dead", None),
+                };
+                serde_json::json!({
+                    "key": p.key,
+                    "display_name": p.display_name,
+                    "state": state_label,
+                    "port": port,
+                })
+            })
+            .collect();
+        serde_json::json!({ "projects": projects })
+    }
+
+    pub async fn handle_status(&self) -> serde_json::Value {
+        let reg = self.registry.lock().await;
+        serde_json::json!({
+            "registry_size": reg.iter().count(),
+            "active":        reg.count_active(),
+            "lru_cap":       self.lru_cap,
+        })
+    }
+
+    pub async fn handle_heartbeat(&self, key: PathBuf) -> serde_json::Value {
+        self.registry
+            .lock()
+            .await
+            .bump_last_used(&key, Instant::now());
+        serde_json::json!({ "bumped": true })
+    }
+
+    pub async fn handle_stop(&self, key: PathBuf) -> serde_json::Value {
+        let exists = self.registry.lock().await.get(&key).is_some();
+        if !exists {
+            return serde_json::json!({ "stopped": false, "error": "unknown project" });
+        }
+        self.supervisor
+            .trigger_eviction(key, self.sigterm_grace, self.sigkill_grace);
+        serde_json::json!({ "stopped": true })
+    }
+
+    pub async fn handle_start(&self, key: PathBuf) -> serde_json::Value {
+        use crate::registry::ProjectState;
+        let now = Instant::now();
+        let mut reg = self.registry.lock().await;
+        match reg.get(&key).map(|p| &p.state) {
+            Some(ProjectState::Healthy { .. } | ProjectState::Spawning { .. }) => {
+                return serde_json::json!({ "started": true, "action": "already_active" });
+            }
+            Some(_) => {
+                let _ = reg.transition_state(&key, ProjectState::Spawning { since: now });
+            }
+            None => {
+                return serde_json::json!({ "started": false, "error": "unknown project" });
+            }
+        }
+        drop(reg);
+
+        let sup = self.supervisor.clone();
+        let max = self.start_max_attempts;
+        let backoff = self.start_base_backoff;
+        let key_clone = key.clone();
+        tokio::spawn(async move {
+            if let Err(e) = sup.start_project_with_retries(key_clone, max, backoff).await {
+                tracing::error!(?e, "start_project failed");
+            }
+        });
+        serde_json::json!({ "started": true, "action": "spawning" })
+    }
 }
 
 #[cfg(test)]
@@ -217,5 +295,94 @@ mod cd_tests {
             r.get(&canonical).unwrap().state,
             ProjectState::Healthy { .. }
         ));
+    }
+}
+
+#[cfg(test)]
+mod handler_tests {
+    use super::*;
+    use super::cd_tests::build_daemon;
+
+    #[tokio::test]
+    async fn ls_returns_empty_projects_array() {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        let d = build_daemon(registry, Duration::from_secs(1));
+        let r = d.handle_ls().await;
+        assert_eq!(r["projects"].as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn heartbeat_bumps_last_used() {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        registry
+            .lock()
+            .await
+            .insert_spawning("/tmp/x".into(), "x".into(), Instant::now())
+            .unwrap();
+        let d = build_daemon(registry.clone(), Duration::from_secs(1));
+        let before = registry.lock().await.get(Path::new("/tmp/x")).unwrap().last_used;
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        d.handle_heartbeat("/tmp/x".into()).await;
+        let after = registry.lock().await.get(Path::new("/tmp/x")).unwrap().last_used;
+        assert!(after > before);
+    }
+
+    #[tokio::test]
+    async fn status_reports_registry_size_and_cap() {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        registry
+            .lock()
+            .await
+            .insert_spawning("/tmp/a".into(), "a".into(), Instant::now())
+            .unwrap();
+        let d = build_daemon(registry, Duration::from_secs(1));
+        let r = d.handle_status().await;
+        assert_eq!(r["registry_size"], 1);
+        assert_eq!(r["active"], 1);
+        assert_eq!(r["lru_cap"], 8);
+    }
+
+    #[tokio::test]
+    async fn stop_unknown_project_returns_error() {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        let d = build_daemon(registry, Duration::from_secs(1));
+        let r = d.handle_stop("/tmp/missing".into()).await;
+        assert_eq!(r["stopped"], false);
+    }
+
+    #[tokio::test]
+    async fn start_unknown_project_returns_error() {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        let d = build_daemon(registry, Duration::from_secs(1));
+        let r = d.handle_start("/tmp/missing".into()).await;
+        assert_eq!(r["started"], false);
+    }
+
+    #[tokio::test]
+    async fn start_already_healthy_is_noop() {
+        use crate::registry::ProjectState;
+        let registry = Arc::new(Mutex::new(Registry::new()));
+        let now = Instant::now();
+        registry
+            .lock()
+            .await
+            .insert_spawning("/tmp/p".into(), "p".into(), now)
+            .unwrap();
+        registry
+            .lock()
+            .await
+            .transition_state(
+                Path::new("/tmp/p"),
+                ProjectState::Healthy {
+                    port: 1,
+                    pid: 2,
+                    spawned_at: now,
+                },
+            )
+            .unwrap();
+        let d = build_daemon(registry, Duration::from_secs(1));
+        let r = d.handle_start("/tmp/p".into()).await;
+        assert_eq!(r["started"], true);
+        assert_eq!(r["action"], "already_active");
     }
 }

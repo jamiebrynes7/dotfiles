@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::control::Daemon;
+use crate::daemon::Daemon;
 use crate::launcher::{LauncherState, router_with_state};
 use beansd_rpc::{bind_uds, default_socket_path};
 use crate::registry::Registry;
@@ -47,7 +47,7 @@ pub async fn run() -> anyhow::Result<()> {
     tracing::info!(path = %uds_path.display(), "UDS bound");
     let uds_task = {
         let d = daemon.clone();
-        tokio::spawn(async move { d.serve_uds(uds_listener).await })
+        tokio::spawn(async move { beansd_rpc::serve(uds_listener, d).await })
     };
 
     let launcher_addr = std::net::SocketAddr::from(([127, 0, 0, 1], cfg.launcher_port));

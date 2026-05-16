@@ -1,7 +1,8 @@
 mod cli;
 mod cli_client;
 mod config;
-mod control;
+mod daemon;
+mod handler;
 mod launcher;
 mod logging;
 mod port_alloc;

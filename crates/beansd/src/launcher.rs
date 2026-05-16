@@ -1,4 +1,4 @@
-use crate::control::Daemon;
+use crate::daemon::Daemon;
 use crate::registry::Registry;
 use crate::spawner::ChildSpawner;
 use askama::Template;
@@ -121,34 +121,43 @@ async fn heartbeat<S: ChildSpawner + 'static>(
     axum::extract::State(state): axum::extract::State<LauncherState<S>>,
     axum::Form(f): axum::Form<KeyForm>,
 ) -> impl IntoResponse {
-    state.daemon.handle_heartbeat(f.key).await;
-    axum::http::StatusCode::NO_CONTENT
+    use beansd_rpc::Handler;
+    match state.daemon.heartbeat(f.key).await {
+        Ok(()) => axum::http::StatusCode::NO_CONTENT,
+        Err(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+    }
 }
 
 async fn stop_project<S: ChildSpawner + 'static>(
     axum::extract::State(state): axum::extract::State<LauncherState<S>>,
     axum::Form(f): axum::Form<KeyForm>,
-) -> impl IntoResponse {
-    state.daemon.handle_stop(f.key).await;
+) -> axum::response::Response {
+    use beansd_rpc::Handler;
+    if state.daemon.stop(f.key).await.is_err() {
+        return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
     let reg = state.registry.lock().await;
     let tmpl = ProjectListPartial {
         projects: project_views(&reg),
         active_key: None,
     };
-    axum::response::Html(tmpl.render().unwrap())
+    axum::response::Html(tmpl.render().unwrap()).into_response()
 }
 
 async fn start_project<S: ChildSpawner + 'static>(
     axum::extract::State(state): axum::extract::State<LauncherState<S>>,
     axum::Form(f): axum::Form<KeyForm>,
-) -> impl IntoResponse {
-    state.daemon.handle_start(f.key).await;
+) -> axum::response::Response {
+    use beansd_rpc::Handler;
+    if state.daemon.start(f.key).await.is_err() {
+        return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
     let reg = state.registry.lock().await;
     let tmpl = ProjectListPartial {
         projects: project_views(&reg),
         active_key: None,
     };
-    axum::response::Html(tmpl.render().unwrap())
+    axum::response::Html(tmpl.render().unwrap()).into_response()
 }
 
 async fn serve_htmx() -> impl IntoResponse {

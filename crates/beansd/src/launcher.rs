@@ -1,4 +1,5 @@
 use crate::daemon::Daemon;
+use crate::health::{HealthChecker, HttpHealthChecker};
 use crate::registry::Registry;
 use crate::spawner::ChildSpawner;
 use askama::Template;
@@ -12,13 +13,13 @@ use tokio::sync::Mutex;
 const HTMX_JS: &[u8] = include_bytes!("../static/htmx.min.js");
 const APP_CSS: &str = include_str!("../static/app.css");
 
-pub struct LauncherState<S: ChildSpawner + 'static> {
+pub struct LauncherState<S: ChildSpawner + 'static, H: HealthChecker = HttpHealthChecker> {
     pub registry: Arc<Mutex<Registry>>,
-    pub daemon: Arc<Daemon<S>>,
+    pub daemon: Arc<Daemon<S, H>>,
 }
 
-// Manual Clone — we only clone Arcs, so don't require S: Clone.
-impl<S: ChildSpawner + 'static> Clone for LauncherState<S> {
+// Manual Clone — we only clone Arcs, so don't require S/H: Clone.
+impl<S: ChildSpawner + 'static, H: HealthChecker> Clone for LauncherState<S, H> {
     fn clone(&self) -> Self {
         Self {
             registry: self.registry.clone(),
@@ -68,9 +69,9 @@ struct IndexQuery {
     project: Option<PathBuf>,
 }
 
-async fn index<S: ChildSpawner + 'static>(
+async fn index<S: ChildSpawner + 'static, H: HealthChecker>(
     axum::extract::Query(q): axum::extract::Query<IndexQuery>,
-    axum::extract::State(state): axum::extract::State<LauncherState<S>>,
+    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
 ) -> impl IntoResponse {
     let reg = state.registry.lock().await;
     let projects = project_views(&reg);
@@ -100,9 +101,9 @@ struct PartialQuery {
     active: Option<PathBuf>,
 }
 
-async fn projects_partial<S: ChildSpawner + 'static>(
+async fn projects_partial<S: ChildSpawner + 'static, H: HealthChecker>(
     axum::extract::Query(q): axum::extract::Query<PartialQuery>,
-    axum::extract::State(state): axum::extract::State<LauncherState<S>>,
+    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
 ) -> impl IntoResponse {
     let reg = state.registry.lock().await;
     let tmpl = ProjectListPartial {
@@ -117,8 +118,8 @@ struct KeyForm {
     key: PathBuf,
 }
 
-async fn heartbeat<S: ChildSpawner + 'static>(
-    axum::extract::State(state): axum::extract::State<LauncherState<S>>,
+async fn heartbeat<S: ChildSpawner + 'static, H: HealthChecker>(
+    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
     axum::Form(f): axum::Form<KeyForm>,
 ) -> impl IntoResponse {
     use beansd_rpc::Handler;
@@ -128,8 +129,8 @@ async fn heartbeat<S: ChildSpawner + 'static>(
     }
 }
 
-async fn stop_project<S: ChildSpawner + 'static>(
-    axum::extract::State(state): axum::extract::State<LauncherState<S>>,
+async fn stop_project<S: ChildSpawner + 'static, H: HealthChecker>(
+    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
     axum::Form(f): axum::Form<KeyForm>,
 ) -> axum::response::Response {
     use beansd_rpc::Handler;
@@ -144,8 +145,8 @@ async fn stop_project<S: ChildSpawner + 'static>(
     axum::response::Html(tmpl.render().unwrap()).into_response()
 }
 
-async fn start_project<S: ChildSpawner + 'static>(
-    axum::extract::State(state): axum::extract::State<LauncherState<S>>,
+async fn start_project<S: ChildSpawner + 'static, H: HealthChecker>(
+    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
     axum::Form(f): axum::Form<KeyForm>,
 ) -> axum::response::Response {
     use beansd_rpc::Handler;
@@ -168,13 +169,21 @@ async fn serve_css() -> impl IntoResponse {
     ([(header::CONTENT_TYPE, "text/css")], APP_CSS)
 }
 
-pub fn router_with_state<S: ChildSpawner + 'static>(state: LauncherState<S>) -> Router {
+pub fn router_with_state<S: ChildSpawner + 'static, H: HealthChecker>(
+    state: LauncherState<S, H>,
+) -> Router {
     Router::new()
-        .route("/", get(index::<S>))
-        .route("/partials/projects", get(projects_partial::<S>))
-        .route("/api/heartbeat", axum::routing::post(heartbeat::<S>))
-        .route("/api/projects/start", axum::routing::post(start_project::<S>))
-        .route("/api/projects/stop", axum::routing::post(stop_project::<S>))
+        .route("/", get(index::<S, H>))
+        .route("/partials/projects", get(projects_partial::<S, H>))
+        .route("/api/heartbeat", axum::routing::post(heartbeat::<S, H>))
+        .route(
+            "/api/projects/start",
+            axum::routing::post(start_project::<S, H>),
+        )
+        .route(
+            "/api/projects/stop",
+            axum::routing::post(stop_project::<S, H>),
+        )
         .route("/static/htmx.min.js", get(serve_htmx))
         .route("/static/app.css", get(serve_css))
         .with_state(state)
@@ -183,6 +192,7 @@ pub fn router_with_state<S: ChildSpawner + 'static>(state: LauncherState<S>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::health::testing::MockHealthChecker;
     use crate::spawner::ChildHandle;
     use crate::supervisor::Supervisor;
     use async_trait::async_trait;
@@ -219,10 +229,13 @@ mod tests {
         }
     }
 
-    fn build_state(registry: Arc<Mutex<Registry>>) -> LauncherState<MockSpawner> {
+    fn build_state(
+        registry: Arc<Mutex<Registry>>,
+    ) -> LauncherState<MockSpawner, MockHealthChecker> {
         let supervisor = Arc::new(Supervisor {
             registry: registry.clone(),
             spawner: MockSpawner,
+            health_checker: MockHealthChecker::always_ready(),
             health_timeout: Duration::from_secs(1),
             children: Arc::new(Mutex::new(HashMap::new())),
         });
@@ -238,7 +251,7 @@ mod tests {
         LauncherState { registry, daemon }
     }
 
-    fn empty_state() -> LauncherState<MockSpawner> {
+    fn empty_state() -> LauncherState<MockSpawner, MockHealthChecker> {
         build_state(Arc::new(Mutex::new(Registry::new())))
     }
 

@@ -1,15 +1,15 @@
+use crate::health::{HealthChecker, HttpHealthChecker};
 use crate::registry::{ProjectState, Registry};
 use crate::spawner::{ChildHandle, ChildSpawner};
-use async_trait::async_trait;
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
-pub struct Supervisor<S: ChildSpawner> {
+pub struct Supervisor<S: ChildSpawner, H: HealthChecker = HttpHealthChecker> {
     pub registry: Arc<Mutex<Registry>>,
     pub spawner: S,
+    pub health_checker: H,
     /// Health-check timeout for child startup.
     pub health_timeout: Duration,
     /// Live child handles, keyed by project path. Held so the supervisor
@@ -17,7 +17,7 @@ pub struct Supervisor<S: ChildSpawner> {
     pub children: Arc<Mutex<HashMap<std::path::PathBuf, Box<dyn ChildHandle>>>>,
 }
 
-impl<S: ChildSpawner + 'static> Supervisor<S> {
+impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
     /// Spawn a child for `key`, wait for health, transition registry state.
     /// Caller is responsible for having already inserted a `Spawning` entry
     /// for the key (so the cap accounting is correct from cd-op's POV).
@@ -28,7 +28,11 @@ impl<S: ChildSpawner + 'static> Supervisor<S> {
         let spawned_at = Instant::now();
         self.children.lock().await.insert(key.clone(), child);
 
-        if Self::wait_until_healthy(port, self.health_timeout).await {
+        if self
+            .health_checker
+            .wait_until_healthy(port, self.health_timeout)
+            .await
+        {
             self.registry.lock().await.transition_state(
                 &key,
                 ProjectState::Healthy {
@@ -179,22 +183,6 @@ impl<S: ChildSpawner + 'static> Supervisor<S> {
         });
     }
 
-    async fn wait_until_healthy(port: u16, timeout: Duration) -> bool {
-        let deadline = Instant::now() + timeout;
-        let url = format!("http://127.0.0.1:{port}/");
-        loop {
-            if Instant::now() >= deadline {
-                return false;
-            }
-            if let Ok(resp) = reqwest::get(&url).await {
-                if resp.status().is_success() {
-                    return true;
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    }
-
     /// Background task: SIGTERM → wait → SIGKILL → wait → drop entry.
     /// Logs WARN on reap timeout (orphaned process).
     pub async fn evict(
@@ -233,19 +221,17 @@ impl<S: ChildSpawner + 'static> Supervisor<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::health::testing::MockHealthChecker;
+    use async_trait::async_trait;
+    use std::path::Path;
     use std::path::PathBuf;
 
-    /// Mock spawner that immediately starts an in-process axum responding 200.
-    struct ImmediateHealthySpawner;
+    /// Mock spawner: returns a no-op child without binding any port.
+    /// Real-port health is exercised by the mock health checker, not the spawner.
+    struct NoOpSpawner;
     #[async_trait]
-    impl ChildSpawner for ImmediateHealthySpawner {
-        async fn spawn(&self, _dir: &Path, port: u16) -> anyhow::Result<Box<dyn ChildHandle>> {
-            let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
-            tokio::spawn(async move {
-                use axum::routing::get;
-                let app = axum::Router::new().route("/", get(|| async { "ok" }));
-                axum::serve(listener, app).await.ok();
-            });
+    impl ChildSpawner for NoOpSpawner {
+        async fn spawn(&self, _dir: &Path, _port: u16) -> anyhow::Result<Box<dyn ChildHandle>> {
             Ok(Box::new(MockChild { pid: 12345 }))
         }
     }
@@ -280,7 +266,8 @@ mod tests {
 
         let sup = Supervisor {
             registry: registry.clone(),
-            spawner: ImmediateHealthySpawner,
+            spawner: NoOpSpawner,
+            health_checker: MockHealthChecker::always_ready(),
             health_timeout: Duration::from_secs(2),
             children: Arc::new(Mutex::new(HashMap::new())),
         };
@@ -349,7 +336,7 @@ mod tests {
             notify: Arc::new(tokio::sync::Notify::new()),
         });
 
-        Supervisor::<ImmediateHealthySpawner>::evict(
+        Supervisor::<NoOpSpawner, MockHealthChecker>::evict(
             registry.clone(),
             "/tmp/p".into(),
             child,
@@ -412,7 +399,8 @@ mod tests {
 
         let sup = Arc::new(Supervisor {
             registry: registry.clone(),
-            spawner: ImmediateHealthySpawner,
+            spawner: NoOpSpawner,
+            health_checker: MockHealthChecker::always_ready(),
             health_timeout: Duration::from_secs(1),
             children: Arc::new(Mutex::new(std::collections::HashMap::new())),
         });
@@ -438,27 +426,17 @@ mod tests {
         assert!(registry.lock().await.get(&PathBuf::from("/tmp/p")).is_none());
     }
 
-    /// Mock spawner whose first 2 spawns exit immediately; the 3rd stays healthy.
-    struct FlakySpawner {
+    /// Spawn counter for verifying retry behaviour. Always returns a no-op child;
+    /// the mock health checker drives fail-twice-then-ready semantics.
+    struct CountingSpawner {
         spawn_count: Arc<std::sync::atomic::AtomicUsize>,
     }
     #[async_trait]
-    impl ChildSpawner for FlakySpawner {
-        async fn spawn(&self, _dir: &Path, port: u16) -> anyhow::Result<Box<dyn ChildHandle>> {
-            let n = self
-                .spawn_count
+    impl ChildSpawner for CountingSpawner {
+        async fn spawn(&self, _dir: &Path, _port: u16) -> anyhow::Result<Box<dyn ChildHandle>> {
+            self.spawn_count
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            if n < 2 {
-                Ok(Box::new(MockChild { pid: 1 }))
-            } else {
-                let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
-                tokio::spawn(async move {
-                    use axum::routing::get;
-                    let app = axum::Router::new().route("/", get(|| async { "ok" }));
-                    axum::serve(listener, app).await.ok();
-                });
-                Ok(Box::new(MockChild { pid: 2 }))
-            }
+            Ok(Box::new(MockChild { pid: 1 }))
         }
     }
 
@@ -473,9 +451,10 @@ mod tests {
         let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let sup = Supervisor {
             registry: registry.clone(),
-            spawner: FlakySpawner {
+            spawner: CountingSpawner {
                 spawn_count: count.clone(),
             },
+            health_checker: MockHealthChecker::fail_first(2),
             health_timeout: Duration::from_millis(500),
             children: Arc::new(Mutex::new(HashMap::new())),
         };
@@ -537,7 +516,8 @@ mod tests {
 
         let sup = Arc::new(Supervisor {
             registry: registry.clone(),
-            spawner: ImmediateHealthySpawner,
+            spawner: NoOpSpawner,
+            health_checker: MockHealthChecker::always_ready(),
             health_timeout: Duration::from_secs(1),
             children: Arc::new(Mutex::new(HashMap::new())),
         });

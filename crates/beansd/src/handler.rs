@@ -1,4 +1,5 @@
 use crate::daemon::Daemon;
+use crate::health::HealthChecker;
 use crate::registry::ProjectState;
 use crate::spawner::ChildSpawner;
 use async_trait::async_trait;
@@ -10,7 +11,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 #[async_trait]
-impl<S: ChildSpawner + 'static> Handler for Daemon<S> {
+impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
     async fn cd(&self, cwd: PathBuf) -> anyhow::Result<CdResponse> {
         let now = Instant::now();
         let key = match crate::project_key::resolve(&cwd)? {
@@ -135,6 +136,7 @@ impl<S: ChildSpawner + 'static> Handler for Daemon<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::health::testing::MockHealthChecker;
     use crate::registry::Registry;
     use crate::spawner::ChildHandle;
     use crate::supervisor::Supervisor;
@@ -146,20 +148,14 @@ mod tests {
     use tempfile::tempdir;
     use tokio::sync::Mutex;
 
-    pub(crate) struct ImmediateHealthy;
+    pub(crate) struct NoOpSpawner;
     #[async_trait]
-    impl ChildSpawner for ImmediateHealthy {
+    impl ChildSpawner for NoOpSpawner {
         async fn spawn(
             &self,
             _dir: &std::path::Path,
-            port: u16,
+            _port: u16,
         ) -> anyhow::Result<Box<dyn ChildHandle>> {
-            let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
-            tokio::spawn(async move {
-                use axum::routing::get;
-                let app = axum::Router::new().route("/", get(|| async { "ok" }));
-                axum::serve(listener, app).await.ok();
-            });
             Ok(Box::new(NoOpChild))
         }
     }
@@ -184,10 +180,11 @@ mod tests {
     pub(crate) fn build_daemon(
         registry: Arc<Mutex<Registry>>,
         health_timeout: Duration,
-    ) -> Daemon<ImmediateHealthy> {
+    ) -> Daemon<NoOpSpawner, MockHealthChecker> {
         let supervisor = Arc::new(Supervisor {
             registry: registry.clone(),
-            spawner: ImmediateHealthy,
+            spawner: NoOpSpawner,
+            health_checker: MockHealthChecker::always_ready(),
             health_timeout,
             children: Arc::new(Mutex::new(HashMap::new())),
         });

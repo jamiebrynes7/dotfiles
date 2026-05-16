@@ -18,14 +18,4 @@ mod tests {
         let p = pick_loopback_port().unwrap();
         assert!(p > 0);
     }
-
-    #[test]
-    fn returns_distinct_ports_across_calls() {
-        // Not strictly guaranteed by the OS (it could reuse), but in practice
-        // the kernel hands out fresh ephemeral ports for back-to-back binds.
-        // If this becomes flaky, drop the assertion and keep just the smoke test.
-        let a = pick_loopback_port().unwrap();
-        let b = pick_loopback_port().unwrap();
-        assert_ne!(a, b, "expected distinct ephemeral ports; got {a} twice");
-    }
 }

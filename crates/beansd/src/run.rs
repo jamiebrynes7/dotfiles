@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::daemon::Daemon;
+use crate::health::HttpHealthChecker;
 use crate::launcher::{LauncherState, router_with_state};
 use beansd_rpc::{bind_uds, default_socket_path};
 use crate::registry::Registry;
@@ -29,6 +30,7 @@ pub async fn run() -> anyhow::Result<()> {
         spawner: BeansServeSpawner {
             binary: cfg.beans_serve_path.clone(),
         },
+        health_checker: HttpHealthChecker,
         health_timeout: Duration::from_secs(5),
         children: Arc::new(Mutex::new(HashMap::new())),
     });

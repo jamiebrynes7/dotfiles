@@ -1,145 +1,3 @@
----
-# dotfiles-75b5
-title: Add typed messages + Handler trait + serve in beansd-rpc
-status: completed
-type: task
-priority: normal
-created_at: 2026-05-10T14:56:45Z
-updated_at: 2026-05-16T07:35:37Z
-parent: dotfiles-qwfb
-blocked_by:
-    - dotfiles-4f2a
----
-
-**Files:**
-- Create: `crates/beansd-rpc/src/types.rs`
-- Create: `crates/beansd-rpc/src/server.rs`
-- Modify: `crates/beansd-rpc/src/lib.rs` (re-export typed messages, `Handler`, `serve`)
-- Modify: `crates/beansd-rpc/Cargo.toml` (add `async-trait`)
-
-Pure addition. Daemon untouched. The `serve` function is exercised against a `MockHandler` test fixture; the daemon hooks it up in Task 4. After this task `cargo test --workspace` reports 71 total — 54 unchanged in beansd + 17 in beansd-rpc (4 wire + 3 socket from Task 2, plus 6 typed-message + 4 server from this task).
-
-- [x] **Step 1: Add `async-trait` to `crates/beansd-rpc/Cargo.toml`**
-
-In the `[dependencies]` section (kept alphabetical), add:
-
-```toml
-async-trait.workspace = true
-```
-
-- [x] **Step 2: Create `crates/beansd-rpc/src/types.rs`**
-
-```rust
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum ProjectState {
-    Spawning,
-    Healthy,
-    Evicting,
-    Dead,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct ProjectSummary {
-    pub key: PathBuf,
-    pub display_name: String,
-    pub state: ProjectState,
-    pub port: Option<u16>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(tag = "outcome", rename_all = "snake_case")]
-pub enum CdResponse {
-    NotRegistered,
-    Bumped { key: PathBuf },
-    Spawned { key: PathBuf },
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct LsResponse {
-    pub projects: Vec<ProjectSummary>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum StartResponse {
-    AlreadyActive,
-    Spawning,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct StatusResponse {
-    pub registry_size: usize,
-    pub active: usize,
-    pub lru_cap: usize,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn cd_response_not_registered_shape() {
-        let s = serde_json::to_string(&CdResponse::NotRegistered).unwrap();
-        assert_eq!(s, r#"{"outcome":"not_registered"}"#);
-        let back: CdResponse = serde_json::from_str(&s).unwrap();
-        assert_eq!(back, CdResponse::NotRegistered);
-    }
-
-    #[test]
-    fn cd_response_spawned_includes_key() {
-        let r = CdResponse::Spawned { key: PathBuf::from("/x") };
-        let s = serde_json::to_string(&r).unwrap();
-        assert_eq!(s, r#"{"outcome":"spawned","key":"/x"}"#);
-        let back: CdResponse = serde_json::from_str(&s).unwrap();
-        assert_eq!(back, r);
-    }
-
-    #[test]
-    fn ls_response_round_trip() {
-        let r = LsResponse {
-            projects: vec![ProjectSummary {
-                key: PathBuf::from("/p"),
-                display_name: "p".into(),
-                state: ProjectState::Healthy,
-                port: Some(4242),
-            }],
-        };
-        let s = serde_json::to_string(&r).unwrap();
-        let back: LsResponse = serde_json::from_str(&s).unwrap();
-        assert_eq!(back, r);
-    }
-
-    #[test]
-    fn start_response_serialises_as_string() {
-        let s = serde_json::to_string(&StartResponse::AlreadyActive).unwrap();
-        assert_eq!(s, r#""already_active""#);
-        let back: StartResponse = serde_json::from_str(&s).unwrap();
-        assert_eq!(back, StartResponse::AlreadyActive);
-    }
-
-    #[test]
-    fn project_state_snake_case() {
-        let s = serde_json::to_string(&ProjectState::Spawning).unwrap();
-        assert_eq!(s, r#""spawning""#);
-    }
-
-    #[test]
-    fn status_response_round_trip() {
-        let r = StatusResponse { registry_size: 3, active: 2, lru_cap: 8 };
-        let s = serde_json::to_string(&r).unwrap();
-        let back: StatusResponse = serde_json::from_str(&s).unwrap();
-        assert_eq!(back, r);
-    }
-}
-```
-
-- [x] **Step 3: Create `crates/beansd-rpc/src/server.rs`**
-
-```rust
 use crate::types::{CdResponse, LsResponse, StartResponse, StatusResponse};
 use crate::wire::{WireRequest, WireResponse};
 use async_trait::async_trait;
@@ -193,7 +51,7 @@ async fn handle_connection<H: Handler>(
         let resp = dispatch(handler.as_ref(), req).await;
         let mut buf = serde_json::to_vec(&resp)?;
         buf.push(b'\n');
-        // Best-effort: client may have closed the read half (fire-and-forget cd).
+        // Client may have closed the read half (fire-and-forget cd); best-effort write.
         let _ = wr.write_all(&buf).await;
     }
     Ok(())
@@ -226,7 +84,7 @@ mod tests {
     use tempfile::tempdir;
     use tokio::net::UnixStream as ClientStream;
 
-    /// Mock handler that records call counts and lets tests force a failure on the next op.
+    /// Records call counts and lets tests force a failure on the next op.
     struct MockHandler {
         cd_calls: AtomicUsize,
         ls_calls: AtomicUsize,
@@ -256,28 +114,44 @@ mod tests {
     impl Handler for MockHandler {
         async fn cd(&self, _cwd: PathBuf) -> anyhow::Result<CdResponse> {
             self.cd_calls.fetch_add(1, Ordering::SeqCst);
-            if let Some(e) = self.check_fail() { return Err(e); }
+            if let Some(e) = self.check_fail() {
+                return Err(e);
+            }
             Ok(CdResponse::NotRegistered)
         }
         async fn ls(&self) -> anyhow::Result<LsResponse> {
             self.ls_calls.fetch_add(1, Ordering::SeqCst);
-            if let Some(e) = self.check_fail() { return Err(e); }
+            if let Some(e) = self.check_fail() {
+                return Err(e);
+            }
             Ok(LsResponse { projects: vec![] })
         }
         async fn start(&self, _: PathBuf) -> anyhow::Result<StartResponse> {
-            if let Some(e) = self.check_fail() { return Err(e); }
+            if let Some(e) = self.check_fail() {
+                return Err(e);
+            }
             Ok(StartResponse::Spawning)
         }
         async fn stop(&self, _: PathBuf) -> anyhow::Result<()> {
-            if let Some(e) = self.check_fail() { return Err(e); }
+            if let Some(e) = self.check_fail() {
+                return Err(e);
+            }
             Ok(())
         }
         async fn status(&self) -> anyhow::Result<StatusResponse> {
-            if let Some(e) = self.check_fail() { return Err(e); }
-            Ok(StatusResponse { registry_size: 0, active: 0, lru_cap: 8 })
+            if let Some(e) = self.check_fail() {
+                return Err(e);
+            }
+            Ok(StatusResponse {
+                registry_size: 0,
+                active: 0,
+                lru_cap: 8,
+            })
         }
         async fn heartbeat(&self, _: PathBuf) -> anyhow::Result<()> {
-            if let Some(e) = self.check_fail() { return Err(e); }
+            if let Some(e) = self.check_fail() {
+                return Err(e);
+            }
             Ok(())
         }
     }
@@ -355,52 +229,3 @@ mod tests {
         assert!(l2.contains(r#""ok":true"#));
     }
 }
-```
-
-- [x] **Step 4: Update `crates/beansd-rpc/src/lib.rs`**
-
-Replace contents:
-
-```rust
-mod server;
-mod socket;
-mod types;
-mod wire;
-
-pub use server::{Handler, serve};
-pub use socket::{bind_uds, default_socket_path};
-pub use types::*;
-pub use wire::{WireRequest, WireResponse};
-```
-
-- [x] **Step 5: Run beansd-rpc tests**
-
-```bash
-nix develop --command cargo test --manifest-path Cargo.toml -p beansd-rpc
-```
-
-Expected: 4 wire tests + 3 socket tests + 6 types tests + 4 server tests = 17 tests pass.
-
-- [x] **Step 6: Run the full workspace test suite**
-
-```bash
-nix develop --command cargo test --manifest-path Cargo.toml --workspace
-```
-
-Expected: 71 tests pass total (54 daemon + 17 beansd-rpc — Task 2 already moved 7 tests over).
-
-- [x] **Step 7: Commit**
-
-```bash
-git add Cargo.lock crates/beansd-rpc/
-git commit -m "crates/beansd-rpc: typed messages + Handler trait + serve"
-```
-
-## Summary of Changes
-
-- Added `async-trait` dependency to `crates/beansd-rpc/Cargo.toml`.
-- New `crates/beansd-rpc/src/types.rs` — typed response messages (`ProjectState`, `ProjectSummary`, `CdResponse`, `LsResponse`, `StartResponse`, `StatusResponse`) with 6 round-trip serde tests.
-- New `crates/beansd-rpc/src/server.rs` — `Handler` async trait + `serve` function that accepts UDS connections, dispatches typed `WireRequest`s, and wraps results in `WireResponse`. Includes a `MockHandler`-driven test fixture (4 tests covering happy paths, handler errors, and malformed requests on a persistent connection).
-- `crates/beansd-rpc/src/lib.rs` re-exports `Handler`, `serve`, and the typed messages.
-- Daemon untouched (`beansd` will adopt `Handler` + `serve` in `dotfiles-erte`).
-- `cargo test --workspace` → 71 passing (54 beansd + 17 beansd-rpc).

@@ -46,11 +46,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1778800811,
-        "narHash": "sha256-UXxMhLG8/mwq5k3hlKnW3I1D5vjQ5w6XAlFN8mjIVxE=",
+        "lastModified": 1778887055,
+        "narHash": "sha256-1pI/SMAsR0ZwTV7q+zre+hKBmxSfQ+CvXgfwdW5K/pI=",
         "owner": "jamiebrynes7",
         "repo": "claude-code-native-nix",
-        "rev": "3db6f517b55596fa77586a2fe8692b351cb1c24c",
+        "rev": "d27793da9c42d9eda1fd430003d4aabe500b3497",
         "type": "github"
       },
       "original": {

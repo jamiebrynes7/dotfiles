@@ -1,11 +1,11 @@
 ---
 # dotfiles-qu9y
 title: Add Client + extract beansctl crate
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-10T14:59:31Z
-updated_at: 2026-05-10T14:59:40Z
+updated_at: 2026-05-16T07:45:34Z
 parent: dotfiles-qwfb
 blocked_by:
     - dotfiles-erte
@@ -25,7 +25,7 @@ blocked_by:
 
 After this task `beansd` is the daemon-only binary; `beansctl` is the user-facing CLI; the wire format is private to `beansd-rpc`.
 
-- [ ] **Step 1: Create `crates/beansd-rpc/src/client.rs`**
+- [x] **Step 1: Create `crates/beansd-rpc/src/client.rs`**
 
 ```rust
 use crate::socket::default_socket_path;
@@ -255,7 +255,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Tighten wire-type visibility in `crates/beansd-rpc/src/wire.rs`**
+- [x] **Step 2: Tighten wire-type visibility in `crates/beansd-rpc/src/wire.rs`**
 
 Change the two top-level type declarations:
 
@@ -275,7 +275,7 @@ impl WireResponse {
 
 (The fields' inline `pub` stays — `pub(crate)` enums automatically scope their variants.)
 
-- [ ] **Step 3: Update `crates/beansd-rpc/src/lib.rs`**
+- [x] **Step 3: Update `crates/beansd-rpc/src/lib.rs`**
 
 Replace contents:
 
@@ -294,7 +294,7 @@ pub use types::*;
 
 (`pub use wire::{WireRequest, WireResponse};` removed — they're internal now.)
 
-- [ ] **Step 4: Add the integration test `crates/beansd-rpc/tests/round_trip.rs`**
+- [x] **Step 4: Add the integration test `crates/beansd-rpc/tests/round_trip.rs`**
 
 ```rust
 //! Real bind_uds + real serve(MockHandler) + real Client, one assertion per op.
@@ -458,7 +458,7 @@ async fn handler_err_surfaces_with_rpc_context() {
 }
 ```
 
-- [ ] **Step 5: Create `crates/beansctl/Cargo.toml`**
+- [x] **Step 5: Create `crates/beansctl/Cargo.toml`**
 
 ```toml
 [package]
@@ -477,7 +477,7 @@ clap = { version = "4", features = ["derive"] }
 serde_json.workspace = true
 ```
 
-- [ ] **Step 6: Create `crates/beansctl/src/main.rs`**
+- [x] **Step 6: Create `crates/beansctl/src/main.rs`**
 
 ```rust
 use beansd_rpc::Client;
@@ -526,13 +526,13 @@ fn print_pretty<T: serde::Serialize>(value: &T) -> anyhow::Result<()> {
 }
 ```
 
-- [ ] **Step 7: Delete `crates/beansd/src/cli_client.rs`**
+- [x] **Step 7: Delete `crates/beansd/src/cli_client.rs`**
 
 ```bash
 git rm crates/beansd/src/cli_client.rs
 ```
 
-- [ ] **Step 8: Reduce `crates/beansd/src/cli.rs`**
+- [x] **Step 8: Reduce `crates/beansd/src/cli.rs`**
 
 Replace contents:
 
@@ -557,7 +557,7 @@ mod tests {
 
 (All subcommands removed; the daemon binary takes no positional args.)
 
-- [ ] **Step 9: Reduce `crates/beansd/src/main.rs`**
+- [x] **Step 9: Reduce `crates/beansd/src/main.rs`**
 
 Replace contents:
 
@@ -586,7 +586,7 @@ fn main() -> anyhow::Result<()> {
 
 (`mod cli_client;` removed; the `match cli.command` block reduced to `block_on(run::run())`.)
 
-- [ ] **Step 10: Run beansd-rpc tests (unit + integration)**
+- [x] **Step 10: Run beansd-rpc tests (unit + integration)**
 
 ```bash
 nix develop --command cargo test --manifest-path Cargo.toml -p beansd-rpc
@@ -594,7 +594,7 @@ nix develop --command cargo test --manifest-path Cargo.toml -p beansd-rpc
 
 Expected: previous beansd-rpc tests + 6 client unit tests + 7 round_trip integration tests pass.
 
-- [ ] **Step 11: Run the full workspace test suite**
+- [x] **Step 11: Run the full workspace test suite**
 
 ```bash
 nix develop --command cargo test --manifest-path Cargo.toml --workspace
@@ -602,7 +602,7 @@ nix develop --command cargo test --manifest-path Cargo.toml --workspace
 
 Expected: full suite green.
 
-- [ ] **Step 12: Smoke-test the binaries**
+- [x] **Step 12: Smoke-test the binaries**
 
 ```bash
 nix develop --command cargo build --manifest-path Cargo.toml --workspace
@@ -613,9 +613,26 @@ Both binaries exist.
 
 If a daemon is running on this machine: `target/debug/beansctl status` prints typed JSON.
 
-- [ ] **Step 13: Commit**
+- [x] **Step 13: Commit**
 
 ```bash
 git add Cargo.lock crates/
 git commit -m "crates/beansctl: extract CLI; beansd-rpc Client; tighten wire visibility"
 ```
+
+## Summary of Changes
+
+- New `crates/beansd-rpc/src/client.rs` — sync `Client` with typed methods (`cd`, `ls`, `start`, `stop`, `status`, `heartbeat`), op-tagged error context, and friendly error mapping for empty/malformed daemon responses. `connect_to` probes the socket so unreachable daemons fail fast at construction.
+- New `crates/beansd-rpc/tests/round_trip.rs` — 7-op integration test against real `bind_uds` + `serve(MockHandler)` + `Client::connect_to`. Confirms each op round-trips Client → server → Handler → server → Client and that handler errors surface with `rpc <op>` context.
+- New `crates/beansctl/` — daemon CLI binary with `cd|ls|start|stop|status|heartbeat` subcommands, depending only on `beansd-rpc`. Replaces the multi-mode beansd binary.
+- `crates/beansd-rpc/src/wire.rs` — `WireRequest`/`WireResponse` and constructors tightened from `pub` to `pub(crate)`. Wire format is now private to `beansd-rpc`.
+- `crates/beansd-rpc/src/lib.rs` — dropped `pub use wire::*`; added `pub use client::Client`.
+- Deleted `crates/beansd/src/cli_client.rs`.
+- `crates/beansd/src/cli.rs` — collapsed to an empty subcommand-less `Cli` struct.
+- `crates/beansd/src/main.rs` — collapsed to `cli::Cli::parse()` + `block_on(run::run())`. `mod cli_client;` removed.
+- `cargo test --workspace` → 80 passing (50 beansd + 23 beansd-rpc unit + 7 beansd-rpc integration).
+
+## Notes / Deviations from Spec
+
+- Added `serde.workspace = true` to `crates/beansctl/Cargo.toml`: required by `print_pretty<T: serde::Serialize>`, missing from the spec.
+- Replaced the spec's single-accept `echo_once` test helper with looping helpers (`echo_responder`, `silent_responder`): the spec's helper conflicted with `Client::connect_to`'s probe, which consumes one accept before the real request.

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "op", content = "args", rename_all = "snake_case")]
-pub enum WireRequest {
+pub(crate) enum WireRequest {
     Cd { cwd: PathBuf },
     Ls {},
     Start { key: PathBuf },
@@ -14,17 +14,17 @@ pub enum WireRequest {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-pub enum WireResponse {
+pub(crate) enum WireResponse {
     Ok { ok: bool, data: serde_json::Value },
     Error { ok: bool, error: String },
 }
 
 impl WireResponse {
-    pub fn ok(data: serde_json::Value) -> Self {
+    pub(crate) fn ok(data: serde_json::Value) -> Self {
         WireResponse::Ok { ok: true, data }
     }
 
-    pub fn err(msg: impl Into<String>) -> Self {
+    pub(crate) fn err(msg: impl Into<String>) -> Self {
         WireResponse::Error {
             ok: false,
             error: msg.into(),

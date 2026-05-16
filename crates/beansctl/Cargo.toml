@@ -1,0 +1,15 @@
+[package]
+name = "beansctl"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "beansctl"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+beansd-rpc = { path = "../beansd-rpc" }
+clap = { version = "4", features = ["derive"] }
+serde.workspace = true
+serde_json.workspace = true

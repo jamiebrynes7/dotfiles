@@ -10,8 +10,10 @@ pub struct Supervisor<S: ChildSpawner, H: HealthChecker = HttpHealthChecker> {
     pub registry: Arc<Mutex<Registry>>,
     pub spawner: S,
     pub health_checker: H,
-    /// Health-check timeout for child startup.
-    pub health_timeout: Duration,
+    /// Maximum number of health-check attempts for child startup.
+    pub health_attempts: u32,
+    /// Interval between health-check attempts.
+    pub health_interval: Duration,
     /// Live child handles, keyed by project path. Held so the supervisor
     /// can SIGTERM/SIGKILL them later (eviction, restart, shutdown).
     pub children: Arc<Mutex<HashMap<std::path::PathBuf, Box<dyn ChildHandle>>>>,
@@ -30,7 +32,7 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
 
         if self
             .health_checker
-            .wait_until_healthy(port, self.health_timeout)
+            .wait_until_healthy(port, self.health_attempts, self.health_interval)
             .await
         {
             self.registry.lock().await.transition_state(
@@ -268,7 +270,8 @@ mod tests {
             registry: registry.clone(),
             spawner: NoOpSpawner,
             health_checker: MockHealthChecker::always_ready(),
-            health_timeout: Duration::from_secs(2),
+            health_attempts: 5,
+            health_interval: Duration::from_millis(200),
             children: Arc::new(Mutex::new(HashMap::new())),
         };
         sup.start_project("/tmp/proj".into()).await.unwrap();
@@ -401,7 +404,8 @@ mod tests {
             registry: registry.clone(),
             spawner: NoOpSpawner,
             health_checker: MockHealthChecker::always_ready(),
-            health_timeout: Duration::from_secs(1),
+            health_attempts: 5,
+            health_interval: Duration::from_millis(200),
             children: Arc::new(Mutex::new(std::collections::HashMap::new())),
         });
         let notify = Arc::new(tokio::sync::Notify::new());
@@ -455,7 +459,8 @@ mod tests {
                 spawn_count: count.clone(),
             },
             health_checker: MockHealthChecker::fail_first(2),
-            health_timeout: Duration::from_millis(500),
+            health_attempts: 5,
+            health_interval: Duration::from_millis(200),
             children: Arc::new(Mutex::new(HashMap::new())),
         };
         sup.start_project_with_retries("/tmp/proj".into(), 3, Duration::from_millis(50))
@@ -518,7 +523,8 @@ mod tests {
             registry: registry.clone(),
             spawner: NoOpSpawner,
             health_checker: MockHealthChecker::always_ready(),
-            health_timeout: Duration::from_secs(1),
+            health_attempts: 5,
+            health_interval: Duration::from_millis(200),
             children: Arc::new(Mutex::new(HashMap::new())),
         });
         let notify = Arc::new(tokio::sync::Notify::new());

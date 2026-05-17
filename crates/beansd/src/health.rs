@@ -1,31 +1,34 @@
 use async_trait::async_trait;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-/// Poll a freshly-spawned child until it responds healthy or `timeout` elapses.
+/// Poll a freshly-spawned child until it responds healthy or attempts are exhausted.
 /// Production uses HTTP; tests inject a mock to avoid binding real ports.
 #[async_trait]
 pub trait HealthChecker: Send + Sync + 'static {
-    async fn wait_until_healthy(&self, port: u16, timeout: Duration) -> bool;
+    async fn wait_until_healthy(&self, port: u16, attempts: u32, interval: Duration) -> bool;
 }
 
 pub struct HttpHealthChecker;
 
 #[async_trait]
 impl HealthChecker for HttpHealthChecker {
-    async fn wait_until_healthy(&self, port: u16, timeout: Duration) -> bool {
-        let deadline = Instant::now() + timeout;
+    async fn wait_until_healthy(&self, port: u16, attempts: u32, interval: Duration) -> bool {
         let url = format!("http://127.0.0.1:{port}/");
-        loop {
-            if Instant::now() >= deadline {
-                return false;
-            }
-            if let Ok(resp) = reqwest::get(&url).await {
+        for _ in 0..attempts {
+            let response = match tokio::time::timeout(interval, reqwest::get(&url)).await {
+                Ok(resp) => resp,
+                Err(_) => continue,
+            };
+
+            if let Ok(resp) = response {
                 if resp.status().is_success() {
                     return true;
                 }
             }
-            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            tokio::time::sleep(interval).await;
         }
+        false
     }
 }
 
@@ -70,7 +73,12 @@ pub(crate) mod testing {
 
     #[async_trait]
     impl HealthChecker for MockHealthChecker {
-        async fn wait_until_healthy(&self, _port: u16, _timeout: Duration) -> bool {
+        async fn wait_until_healthy(
+            &self,
+            _port: u16,
+            _attempts: u32,
+            _interval: Duration,
+        ) -> bool {
             if self.never_ready {
                 return false;
             }
@@ -95,19 +103,38 @@ mod tests {
         });
 
         let ok = HttpHealthChecker
-            .wait_until_healthy(port, Duration::from_secs(2))
+            .wait_until_healthy(port, 5, Duration::from_millis(500))
             .await;
         assert!(ok);
     }
 
     #[tokio::test]
     async fn http_checker_times_out_when_unreachable() {
+        // Port 1 is almost certainly not running an HTTP server.
+        let ok = HttpHealthChecker
+            .wait_until_healthy(1, 3, Duration::from_millis(50))
+            .await;
+        assert!(!ok);
+    }
+
+    #[tokio::test]
+    async fn http_checker_times_out_when_unresponsive() {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        drop(listener);
+        tokio::spawn(async move {
+            use axum::routing::get;
+            let app = axum::Router::new().route(
+                "/",
+                get(|| async {
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    "ok"
+                }),
+            );
+            axum::serve(listener, app).await.ok();
+        });
 
         let ok = HttpHealthChecker
-            .wait_until_healthy(port, Duration::from_millis(150))
+            .wait_until_healthy(port, 3, Duration::from_millis(50))
             .await;
         assert!(!ok);
     }

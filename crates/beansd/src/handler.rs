@@ -179,13 +179,13 @@ mod tests {
 
     pub(crate) fn build_daemon(
         registry: Arc<Mutex<Registry>>,
-        health_timeout: Duration,
     ) -> Daemon<NoOpSpawner, MockHealthChecker> {
         let supervisor = Arc::new(Supervisor {
             registry: registry.clone(),
             spawner: NoOpSpawner,
             health_checker: MockHealthChecker::always_ready(),
-            health_timeout,
+            health_attempts: 5,
+            health_interval: Duration::from_millis(200),
             children: Arc::new(Mutex::new(HashMap::new())),
         });
         Daemon {
@@ -203,7 +203,7 @@ mod tests {
     async fn cd_no_marker_returns_not_registered() {
         let dir = tempdir().unwrap();
         let registry = Arc::new(Mutex::new(Registry::new()));
-        let d = build_daemon(registry, Duration::from_secs(1));
+        let d = build_daemon(registry);
         let resp = d.cd(dir.path().to_path_buf()).await.unwrap();
         assert_eq!(resp, CdResponse::NotRegistered);
     }
@@ -213,7 +213,7 @@ mod tests {
         let dir = tempdir().unwrap();
         std::fs::write(dir.path().join(".beans.yml"), "").unwrap();
         let registry = Arc::new(Mutex::new(Registry::new()));
-        let d = build_daemon(registry.clone(), Duration::from_secs(2));
+        let d = build_daemon(registry.clone());
         let resp = d.cd(dir.path().to_path_buf()).await.unwrap();
         let canonical = std::fs::canonicalize(dir.path()).unwrap();
         assert_eq!(
@@ -234,7 +234,7 @@ mod tests {
     #[tokio::test]
     async fn cd_resolve_io_error_propagates() {
         let registry = Arc::new(Mutex::new(Registry::new()));
-        let d = build_daemon(registry, Duration::from_secs(1));
+        let d = build_daemon(registry);
         let resp = d.cd(PathBuf::from("/no/such/path/at/all")).await;
         assert!(resp.is_err());
     }
@@ -242,7 +242,7 @@ mod tests {
     #[tokio::test]
     async fn ls_returns_empty_for_empty_registry() {
         let registry = Arc::new(Mutex::new(Registry::new()));
-        let d = build_daemon(registry, Duration::from_secs(1));
+        let d = build_daemon(registry);
         let resp = d.ls().await.unwrap();
         assert_eq!(resp.projects.len(), 0);
     }
@@ -255,7 +255,7 @@ mod tests {
             .await
             .insert_spawning("/tmp/x".into(), "x".into(), Instant::now())
             .unwrap();
-        let d = build_daemon(registry.clone(), Duration::from_secs(1));
+        let d = build_daemon(registry.clone());
         let before = registry
             .lock()
             .await
@@ -281,7 +281,7 @@ mod tests {
             .await
             .insert_spawning("/tmp/a".into(), "a".into(), Instant::now())
             .unwrap();
-        let d = build_daemon(registry, Duration::from_secs(1));
+        let d = build_daemon(registry);
         let r = d.status().await.unwrap();
         assert_eq!(r.registry_size, 1);
         assert_eq!(r.active, 1);
@@ -291,7 +291,7 @@ mod tests {
     #[tokio::test]
     async fn stop_unknown_project_errors() {
         let registry = Arc::new(Mutex::new(Registry::new()));
-        let d = build_daemon(registry, Duration::from_secs(1));
+        let d = build_daemon(registry);
         let r = d.stop("/tmp/missing".into()).await;
         assert!(r.is_err());
         assert!(r.err().unwrap().to_string().contains("unknown project"));
@@ -300,7 +300,7 @@ mod tests {
     #[tokio::test]
     async fn start_unknown_project_errors() {
         let registry = Arc::new(Mutex::new(Registry::new()));
-        let d = build_daemon(registry, Duration::from_secs(1));
+        let d = build_daemon(registry);
         let r = d.start("/tmp/missing".into()).await;
         assert!(r.is_err());
         assert!(r.err().unwrap().to_string().contains("unknown project"));
@@ -327,7 +327,7 @@ mod tests {
                 },
             )
             .unwrap();
-        let d = build_daemon(registry, Duration::from_secs(1));
+        let d = build_daemon(registry);
         let r = d.start("/tmp/p".into()).await.unwrap();
         assert_eq!(r, StartResponse::AlreadyActive);
     }

@@ -31,7 +31,8 @@ pub async fn run() -> anyhow::Result<()> {
             binary: cfg.beans_serve_path.clone(),
         },
         health_checker: HttpHealthChecker,
-        health_timeout: Duration::from_secs(5),
+        health_attempts: 10,
+        health_interval: Duration::from_secs(1),
         children: Arc::new(Mutex::new(HashMap::new())),
     });
     let daemon = Arc::new(Daemon {

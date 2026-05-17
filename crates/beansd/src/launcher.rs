@@ -236,7 +236,8 @@ mod tests {
             registry: registry.clone(),
             spawner: MockSpawner,
             health_checker: MockHealthChecker::always_ready(),
-            health_timeout: Duration::from_secs(1),
+            health_attempts: 5,
+            health_interval: Duration::from_millis(200),
             children: Arc::new(Mutex::new(HashMap::new())),
         });
         let daemon = Arc::new(Daemon {

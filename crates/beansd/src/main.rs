@@ -1,7 +1,6 @@
 mod cli;
 mod config;
 mod daemon;
-mod handler;
 mod health;
 mod launcher;
 mod logging;

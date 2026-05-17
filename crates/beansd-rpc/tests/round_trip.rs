@@ -2,12 +2,12 @@
 
 use async_trait::async_trait;
 use beansd_rpc::{
-    CdResponse, Client, Handler, LsResponse, ProjectState, ProjectSummary, StartResponse,
-    StatusResponse, bind_uds, serve,
+    bind_uds, serve, CdResponse, Client, Handler, LsResponse, ProjectState, ProjectSummary,
+    StartResponse, StatusResponse,
 };
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tempfile::tempdir;
 
 struct MockHandler {

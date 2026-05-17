@@ -16,10 +16,7 @@ pub trait Handler: Send + Sync + 'static {
     async fn heartbeat(&self, key: PathBuf) -> anyhow::Result<()>;
 }
 
-pub async fn serve<H: Handler>(
-    listener: UnixListener,
-    handler: Arc<H>,
-) -> anyhow::Result<()> {
+pub async fn serve<H: Handler>(listener: UnixListener, handler: Arc<H>) -> anyhow::Result<()> {
     loop {
         let (sock, _addr) = listener.accept().await?;
         let h = handler.clone();
@@ -31,10 +28,7 @@ pub async fn serve<H: Handler>(
     }
 }
 
-async fn handle_connection<H: Handler>(
-    sock: UnixStream,
-    handler: Arc<H>,
-) -> anyhow::Result<()> {
+async fn handle_connection<H: Handler>(sock: UnixStream, handler: Arc<H>) -> anyhow::Result<()> {
     let (rd, mut wr) = sock.into_split();
     let mut lines = BufReader::new(rd).lines();
     while let Some(line) = lines.next_line().await? {
@@ -220,7 +214,9 @@ mod tests {
 
         let mut sock = ClientStream::connect(&p).await.unwrap();
         sock.write_all(b"not json\n").await.unwrap();
-        sock.write_all(b"{\"op\":\"ls\",\"args\":{}}\n").await.unwrap();
+        sock.write_all(b"{\"op\":\"ls\",\"args\":{}}\n")
+            .await
+            .unwrap();
         sock.flush().await.unwrap();
         let mut lines = BufReader::new(sock).lines();
         let l1 = lines.next_line().await.unwrap().unwrap();

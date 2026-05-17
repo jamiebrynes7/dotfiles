@@ -84,8 +84,9 @@ impl Client {
         let resp: WireResponse = serde_json::from_str(&line)
             .with_context(|| format!("rpc {op}: malformed response from daemon"))?;
         match resp {
-            WireResponse::Ok { data, .. } => serde_json::from_value(data)
-                .with_context(|| format!("rpc {op}: decoding response")),
+            WireResponse::Ok { data, .. } => {
+                serde_json::from_value(data).with_context(|| format!("rpc {op}: decoding response"))
+            }
             WireResponse::Error { error, .. } => {
                 Err(anyhow::anyhow!("{error}")).with_context(|| format!("rpc {op}"))
             }
@@ -122,9 +123,7 @@ mod tests {
     /// connection without writing.
     async fn silent_responder(path: &Path) {
         let listener = UnixListener::bind(path).unwrap();
-        tokio::spawn(async move {
-            while let Ok((_sock, _)) = listener.accept().await {}
-        });
+        tokio::spawn(async move { while let Ok((_sock, _)) = listener.accept().await {} });
     }
 
     #[tokio::test]
@@ -160,10 +159,9 @@ mod tests {
         .await
         .unwrap()
         .unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("daemon closed connection without responding")
-        );
+        assert!(err
+            .to_string()
+            .contains("daemon closed connection without responding"));
     }
 
     #[tokio::test]
@@ -222,11 +220,10 @@ mod tests {
 
     #[tokio::test]
     async fn connect_to_missing_socket_errors() {
-        let result = tokio::task::spawn_blocking(|| {
-            Client::connect_to(PathBuf::from("/no/such/socket"))
-        })
-        .await
-        .unwrap();
+        let result =
+            tokio::task::spawn_blocking(|| Client::connect_to(PathBuf::from("/no/such/socket")))
+                .await
+                .unwrap();
         assert!(result.is_err());
     }
 }

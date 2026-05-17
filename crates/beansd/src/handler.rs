@@ -47,7 +47,10 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
         let backoff = self.start_base_backoff;
         let key_clone = key.clone();
         tokio::spawn(async move {
-            if let Err(e) = sup.start_project_with_retries(key_clone, max, backoff).await {
+            if let Err(e) = sup
+                .start_project_with_retries(key_clone, max, backoff)
+                .await
+            {
                 tracing::error!(?e, "start_project failed");
             }
         });
@@ -85,7 +88,7 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
                 return Ok(StartResponse::AlreadyActive);
             }
             Some(_) => {
-                let _ = reg.transition_state(&key, ProjectState::Spawning { since: now });
+                let _ = reg.transition_state(&key, ProjectState::Spawning);
             }
             None => {
                 anyhow::bail!("unknown project: {}", key.display());
@@ -98,7 +101,10 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
         let backoff = self.start_base_backoff;
         let key_clone = key.clone();
         tokio::spawn(async move {
-            if let Err(e) = sup.start_project_with_retries(key_clone, max, backoff).await {
+            if let Err(e) = sup
+                .start_project_with_retries(key_clone, max, backoff)
+                .await
+            {
                 tracing::error!(?e, "start_project failed");
             }
         });
@@ -320,11 +326,7 @@ mod tests {
             .await
             .transition_state(
                 Path::new("/tmp/p"),
-                ProjectState::Healthy {
-                    port: 1,
-                    pid: 2,
-                    spawned_at: now,
-                },
+                ProjectState::Healthy { port: 1, pid: 2 },
             )
             .unwrap();
         let d = build_daemon(registry);

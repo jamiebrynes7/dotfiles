@@ -8,25 +8,22 @@ pub struct Project {
     pub display_name: String,
     pub last_used: Instant,
     pub state: ProjectState,
+    pub since: Instant,
+}
+
+impl Project {
+    pub fn set_state(&mut self, state: ProjectState) {
+        self.state = state;
+        self.since = Instant::now();
+    }
 }
 
 #[derive(Debug)]
 pub enum ProjectState {
-    Spawning {
-        since: Instant,
-    },
-    Healthy {
-        port: u16,
-        pid: u32,
-        spawned_at: Instant,
-    },
-    Evicting {
-        since: Instant,
-    },
-    Dead {
-        reason: String,
-        since: Instant,
-    },
+    Spawning,
+    Healthy { port: u16, pid: u32 },
+    Evicting,
+    Dead { reason: String },
 }
 
 impl ProjectState {
@@ -70,7 +67,8 @@ impl Registry {
                 key,
                 display_name,
                 last_used: now,
-                state: ProjectState::Spawning { since: now },
+                since: now,
+                state: ProjectState::Spawning,
             },
         );
         Ok(())
@@ -108,7 +106,8 @@ impl Registry {
             .by_key
             .get_mut(key)
             .ok_or_else(|| anyhow::anyhow!("unknown project: {}", key.display()))?;
-        proj.state = new_state;
+
+        proj.set_state(new_state);
         Ok(())
     }
 
@@ -129,24 +128,10 @@ mod tests {
 
     #[test]
     fn counts_toward_cap_for_active_states() {
-        let now = Instant::now();
-        assert!(ProjectState::Spawning { since: now }.counts_toward_cap());
-        assert!(
-            ProjectState::Healthy {
-                port: 1,
-                pid: 2,
-                spawned_at: now
-            }
-            .counts_toward_cap()
-        );
-        assert!(!ProjectState::Evicting { since: now }.counts_toward_cap());
-        assert!(
-            !ProjectState::Dead {
-                reason: "x".into(),
-                since: now
-            }
-            .counts_toward_cap()
-        );
+        assert!(ProjectState::Spawning.counts_toward_cap());
+        assert!(ProjectState::Healthy { port: 1, pid: 2 }.counts_toward_cap());
+        assert!(!ProjectState::Evicting.counts_toward_cap());
+        assert!(!ProjectState::Dead { reason: "x".into() }.counts_toward_cap());
     }
 }
 
@@ -172,10 +157,9 @@ mod registry_tests {
         let now = Instant::now();
         r.insert_spawning(PathBuf::from("/tmp/p"), "p".into(), now)
             .unwrap();
-        assert!(
-            r.insert_spawning(PathBuf::from("/tmp/p"), "p".into(), now)
-                .is_err()
-        );
+        assert!(r
+            .insert_spawning(PathBuf::from("/tmp/p"), "p".into(), now)
+            .is_err());
     }
 
     #[test]
@@ -208,15 +192,12 @@ mod cap_tests {
         let now = Instant::now();
         r.insert_spawning("/tmp/a".into(), "a".into(), now).unwrap();
         r.insert_spawning("/tmp/b".into(), "b".into(), now).unwrap();
-        r.transition_state(Path::new("/tmp/b"), ProjectState::Evicting { since: now })
+        r.transition_state(Path::new("/tmp/b"), ProjectState::Evicting)
             .unwrap();
         r.insert_spawning("/tmp/c".into(), "c".into(), now).unwrap();
         r.transition_state(
             Path::new("/tmp/c"),
-            ProjectState::Dead {
-                reason: "x".into(),
-                since: now,
-            },
+            ProjectState::Dead { reason: "x".into() },
         )
         .unwrap();
         assert_eq!(r.count_active(), 1);
@@ -241,7 +222,7 @@ mod cap_tests {
         r.insert_spawning("/tmp/a".into(), "a".into(), t0).unwrap();
         r.insert_spawning("/tmp/b".into(), "b".into(), t0 + Duration::from_secs(1))
             .unwrap();
-        r.transition_state(Path::new("/tmp/a"), ProjectState::Evicting { since: t0 })
+        r.transition_state(Path::new("/tmp/a"), ProjectState::Evicting)
             .unwrap();
         assert_eq!(r.find_lru_for_eviction(), Some("/tmp/b".into()));
     }
@@ -254,13 +235,9 @@ mod cap_tests {
     #[test]
     fn transition_state_unknown_key_errors() {
         let mut r = Registry::new();
-        let now = Instant::now();
         let err = r.transition_state(
             Path::new("/tmp/missing"),
-            ProjectState::Dead {
-                reason: "x".into(),
-                since: now,
-            },
+            ProjectState::Dead { reason: "x".into() },
         );
         assert!(err.is_err());
     }

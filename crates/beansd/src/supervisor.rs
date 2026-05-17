@@ -27,7 +27,6 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
         let port = crate::port_alloc::pick_loopback_port()?;
         let child = self.spawner.spawn(&key, port).await?;
         let pid = child.pid();
-        let spawned_at = Instant::now();
         self.children.lock().await.insert(key.clone(), child);
 
         if self
@@ -35,14 +34,10 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
             .wait_until_healthy(port, self.health_attempts, self.health_interval)
             .await
         {
-            self.registry.lock().await.transition_state(
-                &key,
-                ProjectState::Healthy {
-                    port,
-                    pid,
-                    spawned_at,
-                },
-            )?;
+            self.registry
+                .lock()
+                .await
+                .transition_state(&key, ProjectState::Healthy { port, pid })?;
         } else {
             if let Some(mut c) = self.children.lock().await.remove(&key) {
                 let _ = c.send_sigkill().await;
@@ -51,7 +46,6 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
                 &key,
                 ProjectState::Dead {
                     reason: "startup health check timed out".into(),
-                    since: Instant::now(),
                 },
             )?;
         }
@@ -75,12 +69,10 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
     ) -> anyhow::Result<()> {
         let mut backoff = base_backoff;
         for attempt in 0..max_attempts {
-            self.registry.lock().await.transition_state(
-                &key,
-                ProjectState::Spawning {
-                    since: Instant::now(),
-                },
-            )?;
+            self.registry
+                .lock()
+                .await
+                .transition_state(&key, ProjectState::Spawning)?;
             self.start_project(key.clone()).await?;
             let healthy = matches!(
                 self.registry.lock().await.get(&key).map(|p| &p.state),
@@ -90,7 +82,12 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
                 return Ok(());
             }
             if attempt + 1 < max_attempts {
-                tracing::warn!(?key, attempt = attempt + 1, ?backoff, "child startup failed; backing off");
+                tracing::warn!(
+                    ?key,
+                    attempt = attempt + 1,
+                    ?backoff,
+                    "child startup failed; backing off"
+                );
                 tokio::time::sleep(backoff).await;
                 backoff *= 4;
             }
@@ -127,13 +124,7 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
             me.registry
                 .lock()
                 .await
-                .transition_state(
-                    &key,
-                    ProjectState::Dead {
-                        reason: exit,
-                        since: Instant::now(),
-                    },
-                )
+                .transition_state(&key, ProjectState::Dead { reason: exit })
                 .ok();
 
             if attempts_used + 1 >= MAX_ATTEMPTS {
@@ -167,15 +158,16 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
                     me.registry
                         .lock()
                         .await
-                        .transition_state(
-                            &key,
-                            ProjectState::Evicting {
-                                since: Instant::now(),
-                            },
-                        )
+                        .transition_state(&key, ProjectState::Evicting)
                         .ok();
-                    Self::evict(me.registry.clone(), key, child, sigterm_grace, sigkill_grace)
-                        .await;
+                    Self::evict(
+                        me.registry.clone(),
+                        key,
+                        child,
+                        sigterm_grace,
+                        sigkill_grace,
+                    )
+                    .await;
                 }
                 None => {
                     tracing::warn!(?key, "trigger_eviction: no child handle stored");
@@ -198,14 +190,20 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
         tracing::info!(?key, pid, "evicting project");
 
         let _ = child.send_sigterm().await;
-        if tokio::time::timeout(sigterm_grace, child.wait()).await.is_ok() {
+        if tokio::time::timeout(sigterm_grace, child.wait())
+            .await
+            .is_ok()
+        {
             registry.lock().await.remove(&key);
             tracing::info!(?key, pid, "evicted (clean SIGTERM exit)");
             return;
         }
 
         let _ = child.send_sigkill().await;
-        if tokio::time::timeout(sigkill_grace, child.wait()).await.is_ok() {
+        if tokio::time::timeout(sigkill_grace, child.wait())
+            .await
+            .is_ok()
+        {
             registry.lock().await.remove(&key);
             tracing::info!(?key, pid, "evicted (SIGKILL)");
             return;
@@ -325,11 +323,7 @@ mod tests {
             .await
             .transition_state(
                 &PathBuf::from("/tmp/p"),
-                ProjectState::Healthy {
-                    port: 1,
-                    pid: 999,
-                    spawned_at: now,
-                },
+                ProjectState::Healthy { port: 1, pid: 999 },
             )
             .unwrap();
 
@@ -348,7 +342,11 @@ mod tests {
         )
         .await;
 
-        assert!(registry.lock().await.get(&PathBuf::from("/tmp/p")).is_none());
+        assert!(registry
+            .lock()
+            .await
+            .get(&PathBuf::from("/tmp/p"))
+            .is_none());
     }
 
     #[tokio::test]
@@ -366,11 +364,7 @@ mod tests {
             .await
             .transition_state(
                 &PathBuf::from("/tmp/p"),
-                ProjectState::Healthy {
-                    port: 1,
-                    pid: 7,
-                    spawned_at: now,
-                },
+                ProjectState::Healthy { port: 1, pid: 7 },
             )
             .unwrap();
 
@@ -427,7 +421,11 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         assert!(was_killed.load(Ordering::SeqCst));
-        assert!(registry.lock().await.get(&PathBuf::from("/tmp/p")).is_none());
+        assert!(registry
+            .lock()
+            .await
+            .get(&PathBuf::from("/tmp/p"))
+            .is_none());
     }
 
     /// Spawn counter for verifying retry behaviour. Always returns a no-op child;
@@ -511,11 +509,7 @@ mod tests {
             .await
             .transition_state(
                 &PathBuf::from("/tmp/p"),
-                ProjectState::Healthy {
-                    port: 1,
-                    pid: 100,
-                    spawned_at: Instant::now(),
-                },
+                ProjectState::Healthy { port: 1, pid: 100 },
             )
             .unwrap();
 

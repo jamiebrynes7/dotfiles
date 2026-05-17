@@ -5,7 +5,7 @@ use crate::spawner::ChildSpawner;
 use askama::Template;
 use axum::http::header;
 use axum::response::IntoResponse;
-use axum::{Router, routing::get};
+use axum::{routing::get, Router};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -293,11 +293,7 @@ mod tests {
     async fn index_renders_empty_state() {
         let app = router_with_state(empty_state());
         let resp = app
-            .oneshot(
-                Request::get("/")
-                    .body(axum::body::Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(Request::get("/").body(axum::body::Body::empty()).unwrap())
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
@@ -340,11 +336,7 @@ mod tests {
             .await
             .transition_state(
                 std::path::Path::new("/tmp/p"),
-                ProjectState::Healthy {
-                    port: 4242,
-                    pid: 1,
-                    spawned_at: Instant::now(),
-                },
+                ProjectState::Healthy { port: 4242, pid: 1 },
             )
             .unwrap();
         let app = router_with_state(build_state(registry));

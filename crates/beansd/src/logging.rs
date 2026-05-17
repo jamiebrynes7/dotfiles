@@ -6,8 +6,8 @@ use tracing_subscriber::EnvFilter;
 /// filter overrides it. Returns an error if a subscriber was already set
 /// (only one per process).
 pub fn init(default_level: &str) -> anyhow::Result<()> {
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(default_level));
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_level));
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(true)

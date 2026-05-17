@@ -1,11 +1,11 @@
 use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::health::HttpHealthChecker;
-use crate::launcher::{LauncherState, router_with_state};
-use beansd_rpc::{bind_uds, default_socket_path};
+use crate::launcher::{router_with_state, LauncherState};
 use crate::registry::Registry;
 use crate::spawner::BeansServeSpawner;
 use crate::supervisor::Supervisor;
+use beansd_rpc::{bind_uds, default_socket_path};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;

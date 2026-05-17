@@ -15,17 +15,3 @@ pub fn init(default_level: &str) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("tracing already initialised: {e}"))?;
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn init_with_invalid_level_falls_back_to_default() {
-        // Just verifies the function signature compiles and that calling it
-        // with a sane level doesn't panic. We can't easily test the global
-        // subscriber state here.
-        // (Real integration coverage comes via F8's smoke test.)
-        let _ = init("info");
-    }
-}

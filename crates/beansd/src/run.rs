@@ -6,7 +6,6 @@ use crate::registry::Registry;
 use crate::spawner::BeansServeSpawner;
 use crate::supervisor::Supervisor;
 use beansd_rpc::{bind_uds, default_socket_path};
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -33,7 +32,6 @@ pub async fn run() -> anyhow::Result<()> {
         health_checker: HttpHealthChecker,
         health_attempts: 10,
         health_interval: Duration::from_secs(1),
-        children: Arc::new(Mutex::new(HashMap::new())),
     });
     let daemon = Arc::new(Daemon {
         registry: registry.clone(),
@@ -75,9 +73,9 @@ pub async fn run() -> anyhow::Result<()> {
     // us; each child's own shutdown handler does the rest.
     let reg = registry.lock().await;
     for p in reg.iter() {
-        if let crate::registry::ProjectState::Healthy { pid, .. } = &p.state {
+        if let crate::registry::ProjectState::Healthy { child, .. } = &p.state {
             let _ = nix::sys::signal::kill(
-                nix::unistd::Pid::from_raw(*pid as i32),
+                nix::unistd::Pid::from_raw(child.pid() as i32),
                 nix::sys::signal::Signal::SIGTERM,
             );
         }

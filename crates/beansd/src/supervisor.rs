@@ -1,9 +1,8 @@
 use crate::health::{HealthChecker, HttpHealthChecker};
 use crate::registry::{ProjectState, Registry};
 use crate::spawner::{ChildHandle, ChildSpawner};
-use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 pub struct Supervisor<S: ChildSpawner, H: HealthChecker = HttpHealthChecker> {
@@ -14,9 +13,6 @@ pub struct Supervisor<S: ChildSpawner, H: HealthChecker = HttpHealthChecker> {
     pub health_attempts: u32,
     /// Interval between health-check attempts.
     pub health_interval: Duration,
-    /// Live child handles, keyed by project path. Held so the supervisor
-    /// can SIGTERM/SIGKILL them later (eviction, restart, shutdown).
-    pub children: Arc<Mutex<HashMap<std::path::PathBuf, Box<dyn ChildHandle>>>>,
 }
 
 impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
@@ -25,38 +21,34 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
     /// for the key (so the cap accounting is correct from cd-op's POV).
     pub async fn start_project(&self, key: std::path::PathBuf) -> anyhow::Result<()> {
         let port = crate::port_alloc::pick_loopback_port()?;
-        let child = self.spawner.spawn(&key, port).await?;
-        let pid = child.pid();
-        self.children.lock().await.insert(key.clone(), child);
+        let mut child = self.spawner.spawn(&key, port).await?;
 
-        if self
+        let is_healthy = self
             .health_checker
             .wait_until_healthy(port, self.health_attempts, self.health_interval)
-            .await
-        {
-            self.registry
-                .lock()
-                .await
-                .transition_state(&key, ProjectState::Healthy { port, pid })?;
-        } else {
-            if let Some(mut c) = self.children.lock().await.remove(&key) {
-                let _ = c.send_sigkill().await;
-            }
+            .await;
+
+        if !is_healthy {
             self.registry.lock().await.transition_state(
                 &key,
                 ProjectState::Dead {
-                    reason: "startup health check timed out".into(),
+                    reason: "startup health check failed".into(),
                 },
             )?;
-        }
-        Ok(())
-    }
 
-    /// Store a child handle under `key`. Used by the supervisor itself and
-    /// by tests that want to seed the children map without going through
-    /// `start_project`.
-    pub async fn insert_child(&self, key: std::path::PathBuf, child: Box<dyn ChildHandle>) {
-        self.children.lock().await.insert(key, child);
+            if let Err(e) = child.send_sigkill().await {
+                tracing::error!(?key, ?e, "failed to send SIGKILL");
+            }
+
+            return Err(anyhow::anyhow!("failed to start project"));
+        }
+
+        self.registry
+            .lock()
+            .await
+            .transition_state(&key, ProjectState::Healthy { port, child })?;
+
+        Ok(())
     }
 
     /// Wrapper around `start_project` that retries up to `max_attempts` times
@@ -73,7 +65,9 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
                 .lock()
                 .await
                 .transition_state(&key, ProjectState::Spawning)?;
-            self.start_project(key.clone()).await?;
+            if let Err(e) = self.start_project(key.clone()).await {
+                tracing::warn!(?key, ?e, "failed to start project");
+            }
             let healthy = matches!(
                 self.registry.lock().await.get(&key).map(|p| &p.state),
                 Some(ProjectState::Healthy { .. })
@@ -96,51 +90,6 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
         Ok(())
     }
 
-    /// Spawn a task that awaits the stored child handle's `wait()`, then:
-    ///   - marks the project Dead with the exit status as the reason,
-    ///   - if `attempts_used + 1 < MAX_ATTEMPTS`, sleeps `backoff` and re-spawns
-    ///     (single attempt via `start_project_with_retries`), then watches the
-    ///     new child with incremented `attempts_used` and quadrupled backoff.
-    /// Caller invokes this once after a successful health-check transition.
-    pub fn watch_for_exit(
-        self: &Arc<Self>,
-        key: std::path::PathBuf,
-        attempts_used: usize,
-        backoff: Duration,
-    ) {
-        const MAX_ATTEMPTS: usize = 3;
-        let me = self.clone();
-        tokio::spawn(async move {
-            let mut child = match me.children.lock().await.remove(&key) {
-                Some(c) => c,
-                None => return,
-            };
-            let exit = child
-                .wait()
-                .await
-                .unwrap_or_else(|e| format!("wait error: {e}"));
-            tracing::warn!(?key, exit, attempts_used, "child exited unexpectedly");
-
-            me.registry
-                .lock()
-                .await
-                .transition_state(&key, ProjectState::Dead { reason: exit })
-                .ok();
-
-            if attempts_used + 1 >= MAX_ATTEMPTS {
-                return;
-            }
-            tokio::time::sleep(backoff).await;
-            if me
-                .start_project_with_retries(key.clone(), 1, Duration::from_millis(0))
-                .await
-                .is_ok()
-            {
-                me.watch_for_exit(key, attempts_used + 1, backoff * 4);
-            }
-        });
-    }
-
     /// Begin eviction of `key`: pulls its child handle, transitions registry
     /// to `Evicting`, then spawns a background task running `evict`.
     /// Fire-and-forget: callers do not await completion.
@@ -152,27 +101,25 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
     ) {
         let me = self.clone();
         tokio::spawn(async move {
-            let child = me.children.lock().await.remove(&key);
-            match child {
-                Some(child) => {
-                    me.registry
-                        .lock()
-                        .await
-                        .transition_state(&key, ProjectState::Evicting)
-                        .ok();
-                    Self::evict(
-                        me.registry.clone(),
-                        key,
-                        child,
-                        sigterm_grace,
-                        sigkill_grace,
-                    )
-                    .await;
+            let mut registry = me.registry.lock().await;
+            let prior = match registry.transition_state(&key, ProjectState::Evicting) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::warn!(?key, ?e, "failed to transition to Evicting");
+                    return;
                 }
-                None => {
-                    tracing::warn!(?key, "trigger_eviction: no child handle stored");
-                    me.registry.lock().await.remove(&key);
-                }
+            };
+            drop(registry);
+
+            if let ProjectState::Healthy { child, port: _ } = prior {
+                Self::evict(
+                    me.registry.clone(),
+                    key,
+                    child,
+                    sigterm_grace,
+                    sigkill_grace,
+                )
+                .await;
             }
         });
     }
@@ -222,10 +169,11 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Supervisor<S, H> {
 mod tests {
     use super::*;
     use crate::health::testing::MockHealthChecker;
+    use crate::registry;
+    use crate::registry::Project;
     use async_trait::async_trait;
     use std::path::Path;
     use std::path::PathBuf;
-
     /// Mock spawner: returns a no-op child without binding any port.
     /// Real-port health is exercised by the mock health checker, not the spawner.
     struct NoOpSpawner;
@@ -257,24 +205,26 @@ mod tests {
 
     #[tokio::test]
     async fn start_project_marks_healthy_when_child_responds() {
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/proj".into(), "proj".into(), Instant::now())
-            .unwrap();
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/proj".into(),
+                "proj".into(),
+                ProjectState::Spawning,
+            )],
+        );
 
         let sup = Supervisor {
-            registry: registry.clone(),
+            registry: Arc::new(Mutex::new(r)),
             spawner: NoOpSpawner,
             health_checker: MockHealthChecker::always_ready(),
             health_attempts: 5,
             health_interval: Duration::from_millis(200),
-            children: Arc::new(Mutex::new(HashMap::new())),
         };
         sup.start_project("/tmp/proj".into()).await.unwrap();
 
-        let r = registry.lock().await;
+        let r = sup.registry.lock().await;
         let p = r.get(&PathBuf::from("/tmp/proj")).unwrap();
         assert!(matches!(p.state, ProjectState::Healthy { .. }));
     }
@@ -311,21 +261,16 @@ mod tests {
 
     #[tokio::test]
     async fn evict_terminates_quickly_on_sigterm() {
+        let mut registry = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut registry,
+            vec![Project::new(
+                "/tmp/p".into(),
+                "p".into(),
+                ProjectState::Evicting,
+            )],
+        );
         let registry = Arc::new(Mutex::new(Registry::new()));
-        let now = Instant::now();
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/p".into(), "p".into(), now)
-            .unwrap();
-        registry
-            .lock()
-            .await
-            .transition_state(
-                &PathBuf::from("/tmp/p"),
-                ProjectState::Healthy { port: 1, pid: 999 },
-            )
-            .unwrap();
 
         let child: Box<dyn ChildHandle> = Box::new(DelayedExitChild {
             pid: 999,
@@ -352,28 +297,23 @@ mod tests {
     #[tokio::test]
     async fn trigger_eviction_kills_stored_child_and_drops_entry() {
         use std::sync::atomic::{AtomicBool, Ordering};
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        let now = Instant::now();
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/p".into(), "p".into(), now)
-            .unwrap();
-        registry
-            .lock()
-            .await
-            .transition_state(
-                &PathBuf::from("/tmp/p"),
-                ProjectState::Healthy { port: 1, pid: 7 },
-            )
-            .unwrap();
-
-        let was_killed = Arc::new(AtomicBool::new(false));
-        let killed_clone = was_killed.clone();
 
         struct TrackingChild {
             killed: Arc<AtomicBool>,
             notify: Arc<tokio::sync::Notify>,
+        }
+        impl TrackingChild {
+            pub fn new() -> (TrackingChild, Arc<AtomicBool>) {
+                let was_killed = Arc::new(AtomicBool::new(false));
+                let killed_clone = was_killed.clone();
+                (
+                    TrackingChild {
+                        killed: was_killed,
+                        notify: Arc::new(tokio::sync::Notify::new()),
+                    },
+                    killed_clone,
+                )
+            }
         }
         #[async_trait]
         impl ChildHandle for TrackingChild {
@@ -394,23 +334,28 @@ mod tests {
             }
         }
 
+        let (child, was_killed) = TrackingChild::new();
+
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/p".into(),
+                "p".into(),
+                ProjectState::Healthy {
+                    port: 1,
+                    child: Box::new(child),
+                },
+            )],
+        );
+
         let sup = Arc::new(Supervisor {
-            registry: registry.clone(),
+            registry: Arc::new(Mutex::new(r)),
             spawner: NoOpSpawner,
             health_checker: MockHealthChecker::always_ready(),
             health_attempts: 5,
             health_interval: Duration::from_millis(200),
-            children: Arc::new(Mutex::new(std::collections::HashMap::new())),
         });
-        let notify = Arc::new(tokio::sync::Notify::new());
-        sup.insert_child(
-            "/tmp/p".into(),
-            Box::new(TrackingChild {
-                killed: killed_clone,
-                notify,
-            }),
-        )
-        .await;
 
         sup.trigger_eviction(
             "/tmp/p".into(),
@@ -421,7 +366,8 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         assert!(was_killed.load(Ordering::SeqCst));
-        assert!(registry
+        assert!(sup
+            .registry
             .lock()
             .await
             .get(&PathBuf::from("/tmp/p"))
@@ -444,12 +390,17 @@ mod tests {
 
     #[tokio::test]
     async fn start_project_with_retries_eventually_succeeds() {
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/proj".into(), "proj".into(), Instant::now())
-            .unwrap();
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/proj".into(),
+                "proj".into(),
+                ProjectState::Spawning,
+            )],
+        );
+
+        let registry = Arc::new(Mutex::new(r));
         let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let sup = Supervisor {
             registry: registry.clone(),
@@ -459,7 +410,6 @@ mod tests {
             health_checker: MockHealthChecker::fail_first(2),
             health_attempts: 5,
             health_interval: Duration::from_millis(200),
-            children: Arc::new(Mutex::new(HashMap::new())),
         };
         sup.start_project_with_retries("/tmp/proj".into(), 3, Duration::from_millis(50))
             .await
@@ -470,72 +420,6 @@ mod tests {
         assert!(matches!(
             r.get(&PathBuf::from("/tmp/proj")).unwrap().state,
             ProjectState::Healthy { .. }
-        ));
-    }
-
-    /// Child that exits "unexpectedly" after a configurable delay.
-    struct AutoExitChild {
-        notify: Arc<tokio::sync::Notify>,
-        exit_after: Duration,
-    }
-    #[async_trait]
-    impl ChildHandle for AutoExitChild {
-        fn pid(&self) -> u32 {
-            100
-        }
-        async fn wait(&mut self) -> std::io::Result<String> {
-            tokio::time::sleep(self.exit_after).await;
-            self.notify.notify_one();
-            Ok("crashed".into())
-        }
-        async fn send_sigterm(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-        async fn send_sigkill(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-
-    #[tokio::test]
-    async fn watch_for_exit_marks_dead_when_child_crashes() {
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/p".into(), "p".into(), Instant::now())
-            .unwrap();
-        registry
-            .lock()
-            .await
-            .transition_state(
-                &PathBuf::from("/tmp/p"),
-                ProjectState::Healthy { port: 1, pid: 100 },
-            )
-            .unwrap();
-
-        let sup = Arc::new(Supervisor {
-            registry: registry.clone(),
-            spawner: NoOpSpawner,
-            health_checker: MockHealthChecker::always_ready(),
-            health_attempts: 5,
-            health_interval: Duration::from_millis(200),
-            children: Arc::new(Mutex::new(HashMap::new())),
-        });
-        let notify = Arc::new(tokio::sync::Notify::new());
-        let child: Box<dyn ChildHandle> = Box::new(AutoExitChild {
-            notify: notify.clone(),
-            exit_after: Duration::from_millis(100),
-        });
-        sup.insert_child("/tmp/p".into(), child).await;
-        // attempts_used=2 means 2+1 == MAX_ATTEMPTS, so no retry — state stays Dead.
-        sup.watch_for_exit("/tmp/p".into(), 2, Duration::from_millis(50));
-
-        tokio::time::sleep(Duration::from_millis(500)).await;
-
-        let r = registry.lock().await;
-        assert!(matches!(
-            r.get(&PathBuf::from("/tmp/p")).map(|p| &p.state),
-            Some(ProjectState::Dead { .. })
         ));
     }
 }

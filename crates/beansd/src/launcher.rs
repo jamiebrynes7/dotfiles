@@ -193,12 +193,13 @@ pub fn router_with_state<S: ChildSpawner + 'static, H: HealthChecker>(
 mod tests {
     use super::*;
     use crate::health::testing::MockHealthChecker;
+    use crate::registry::{self, Project, ProjectState};
+    use crate::spawner::testing::MockChildHandle;
     use crate::spawner::ChildHandle;
     use crate::supervisor::Supervisor;
     use async_trait::async_trait;
     use axum::http::{Request, StatusCode};
-    use std::collections::HashMap;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
     use tower::ServiceExt;
 
     pub struct MockSpawner;
@@ -238,7 +239,6 @@ mod tests {
             health_checker: MockHealthChecker::always_ready(),
             health_attempts: 5,
             health_interval: Duration::from_millis(200),
-            children: Arc::new(Mutex::new(HashMap::new())),
         });
         let daemon = Arc::new(Daemon {
             registry: registry.clone(),
@@ -323,23 +323,19 @@ mod tests {
 
     #[tokio::test]
     async fn partial_lists_registered_projects() {
-        use crate::registry::ProjectState;
-
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/p".into(), "p".into(), Instant::now())
-            .unwrap();
-        registry
-            .lock()
-            .await
-            .transition_state(
-                std::path::Path::new("/tmp/p"),
-                ProjectState::Healthy { port: 4242, pid: 1 },
-            )
-            .unwrap();
-        let app = router_with_state(build_state(registry));
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/p".into(),
+                "p".into(),
+                ProjectState::Healthy {
+                    port: 4242,
+                    child: Box::new(MockChildHandle),
+                },
+            )],
+        );
+        let app = router_with_state(build_state(Arc::new(Mutex::new(r))));
         let resp = app
             .oneshot(
                 Request::get("/partials/projects")
@@ -382,12 +378,16 @@ mod tests {
 
     #[tokio::test]
     async fn heartbeat_returns_204_and_bumps_last_used() {
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/x".into(), "x".into(), Instant::now())
-            .unwrap();
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/x".into(),
+                "x".into(),
+                ProjectState::Spawning,
+            )],
+        );
+        let registry = Arc::new(Mutex::new(r));
         let before = registry
             .lock()
             .await
@@ -419,12 +419,16 @@ mod tests {
 
     #[tokio::test]
     async fn stop_returns_partial_html() {
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/y".into(), "y".into(), Instant::now())
-            .unwrap();
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/y".into(),
+                "y".into(),
+                ProjectState::Spawning,
+            )],
+        );
+        let registry = Arc::new(Mutex::new(r));
 
         let app = router_with_state(build_state(registry));
         let resp = app

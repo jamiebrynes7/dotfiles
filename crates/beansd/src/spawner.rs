@@ -89,3 +89,26 @@ mod tests {
         assert!(res.is_err());
     }
 }
+
+#[cfg(test)]
+pub mod testing {
+    use axum::async_trait;
+
+    pub struct MockChildHandle;
+
+    #[async_trait]
+    impl super::ChildHandle for MockChildHandle {
+        fn pid(&self) -> u32 {
+            1
+        }
+        async fn wait(&mut self) -> std::io::Result<String> {
+            Ok("exited".into())
+        }
+        async fn send_sigterm(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        async fn send_sigkill(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+}

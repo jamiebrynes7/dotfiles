@@ -1,6 +1,6 @@
 use crate::daemon::Daemon;
 use crate::health::HealthChecker;
-use crate::registry::ProjectState;
+use crate::registry::{Project, ProjectState};
 use crate::spawner::ChildSpawner;
 use async_trait::async_trait;
 use beansd_rpc::{
@@ -39,7 +39,7 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_string();
-        let _ = reg.insert_spawning(key.clone(), display, now);
+        let _ = reg.insert(Project::new(key.clone(), display, ProjectState::Spawning));
         drop(reg);
 
         let sup = self.supervisor.clone();
@@ -81,7 +81,6 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
     }
 
     async fn start(&self, key: PathBuf) -> anyhow::Result<StartResponse> {
-        let now = Instant::now();
         let mut reg = self.registry.lock().await;
         match reg.get(&key).map(|p| &p.state) {
             Some(ProjectState::Healthy { .. } | ProjectState::Spawning { .. }) => {
@@ -143,11 +142,11 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
 mod tests {
     use super::*;
     use crate::health::testing::MockHealthChecker;
-    use crate::registry::Registry;
+    use crate::registry::{self, Registry};
+    use crate::spawner::testing::MockChildHandle;
     use crate::spawner::ChildHandle;
     use crate::supervisor::Supervisor;
     use async_trait::async_trait;
-    use std::collections::HashMap;
     use std::path::Path;
     use std::sync::Arc;
     use std::time::Duration;
@@ -192,7 +191,6 @@ mod tests {
             health_checker: MockHealthChecker::always_ready(),
             health_attempts: 5,
             health_interval: Duration::from_millis(200),
-            children: Arc::new(Mutex::new(HashMap::new())),
         });
         Daemon {
             registry,
@@ -255,12 +253,16 @@ mod tests {
 
     #[tokio::test]
     async fn heartbeat_bumps_last_used() {
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/x".into(), "x".into(), Instant::now())
-            .unwrap();
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/x".into(),
+                "x".into(),
+                ProjectState::Spawning,
+            )],
+        );
+        let registry = Arc::new(Mutex::new(r));
         let d = build_daemon(registry.clone());
         let before = registry
             .lock()
@@ -281,12 +283,16 @@ mod tests {
 
     #[tokio::test]
     async fn status_reports_size_and_cap() {
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/a".into(), "a".into(), Instant::now())
-            .unwrap();
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/a".into(),
+                "a".into(),
+                ProjectState::Spawning,
+            )],
+        );
+        let registry = Arc::new(Mutex::new(r));
         let d = build_daemon(registry);
         let r = d.status().await.unwrap();
         assert_eq!(r.registry_size, 1);
@@ -314,21 +320,19 @@ mod tests {
 
     #[tokio::test]
     async fn start_already_healthy_returns_already_active() {
-        let registry = Arc::new(Mutex::new(Registry::new()));
-        let now = Instant::now();
-        registry
-            .lock()
-            .await
-            .insert_spawning("/tmp/p".into(), "p".into(), now)
-            .unwrap();
-        registry
-            .lock()
-            .await
-            .transition_state(
-                Path::new("/tmp/p"),
-                ProjectState::Healthy { port: 1, pid: 2 },
-            )
-            .unwrap();
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/p".into(),
+                "p".into(),
+                ProjectState::Healthy {
+                    port: 1,
+                    child: Box::new(MockChildHandle),
+                },
+            )],
+        );
+        let registry = Arc::new(Mutex::new(r));
         let d = build_daemon(registry);
         let r = d.start("/tmp/p".into()).await.unwrap();
         assert_eq!(r, StartResponse::AlreadyActive);

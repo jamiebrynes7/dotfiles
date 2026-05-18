@@ -1,7 +1,5 @@
 use crate::daemon::Daemon;
-use crate::health::{HealthChecker, HttpHealthChecker};
 use crate::registry::Registry;
-use crate::spawner::ChildSpawner;
 use askama::Template;
 use axum::http::header;
 use axum::response::IntoResponse;
@@ -13,19 +11,10 @@ use tokio::sync::Mutex;
 const HTMX_JS: &[u8] = include_bytes!("../static/htmx.min.js");
 const APP_CSS: &str = include_str!("../static/app.css");
 
-pub struct LauncherState<S: ChildSpawner + 'static, H: HealthChecker = HttpHealthChecker> {
+#[derive(Clone)]
+pub struct LauncherState {
     pub registry: Arc<Mutex<Registry>>,
-    pub daemon: Arc<Daemon<S, H>>,
-}
-
-// Manual Clone — we only clone Arcs, so don't require S/H: Clone.
-impl<S: ChildSpawner + 'static, H: HealthChecker> Clone for LauncherState<S, H> {
-    fn clone(&self) -> Self {
-        Self {
-            registry: self.registry.clone(),
-            daemon: self.daemon.clone(),
-        }
-    }
+    pub daemon: Arc<Daemon>,
 }
 
 #[derive(Clone)]
@@ -69,9 +58,9 @@ struct IndexQuery {
     project: Option<PathBuf>,
 }
 
-async fn index<S: ChildSpawner + 'static, H: HealthChecker>(
+async fn index(
     axum::extract::Query(q): axum::extract::Query<IndexQuery>,
-    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
+    axum::extract::State(state): axum::extract::State<LauncherState>,
 ) -> impl IntoResponse {
     let reg = state.registry.lock().await;
     let projects = project_views(&reg);
@@ -101,9 +90,9 @@ struct PartialQuery {
     active: Option<PathBuf>,
 }
 
-async fn projects_partial<S: ChildSpawner + 'static, H: HealthChecker>(
+async fn projects_partial(
     axum::extract::Query(q): axum::extract::Query<PartialQuery>,
-    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
+    axum::extract::State(state): axum::extract::State<LauncherState>,
 ) -> impl IntoResponse {
     let reg = state.registry.lock().await;
     let tmpl = ProjectListPartial {
@@ -118,8 +107,8 @@ struct KeyForm {
     key: PathBuf,
 }
 
-async fn heartbeat<S: ChildSpawner + 'static, H: HealthChecker>(
-    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
+async fn heartbeat(
+    axum::extract::State(state): axum::extract::State<LauncherState>,
     axum::Form(f): axum::Form<KeyForm>,
 ) -> impl IntoResponse {
     use beansd_rpc::Handler;
@@ -129,8 +118,8 @@ async fn heartbeat<S: ChildSpawner + 'static, H: HealthChecker>(
     }
 }
 
-async fn stop_project<S: ChildSpawner + 'static, H: HealthChecker>(
-    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
+async fn stop_project(
+    axum::extract::State(state): axum::extract::State<LauncherState>,
     axum::Form(f): axum::Form<KeyForm>,
 ) -> axum::response::Response {
     use beansd_rpc::Handler;
@@ -145,8 +134,8 @@ async fn stop_project<S: ChildSpawner + 'static, H: HealthChecker>(
     axum::response::Html(tmpl.render().unwrap()).into_response()
 }
 
-async fn start_project<S: ChildSpawner + 'static, H: HealthChecker>(
-    axum::extract::State(state): axum::extract::State<LauncherState<S, H>>,
+async fn start_project(
+    axum::extract::State(state): axum::extract::State<LauncherState>,
     axum::Form(f): axum::Form<KeyForm>,
 ) -> axum::response::Response {
     use beansd_rpc::Handler;
@@ -169,21 +158,13 @@ async fn serve_css() -> impl IntoResponse {
     ([(header::CONTENT_TYPE, "text/css")], APP_CSS)
 }
 
-pub fn router_with_state<S: ChildSpawner + 'static, H: HealthChecker>(
-    state: LauncherState<S, H>,
-) -> Router {
+pub fn router_with_state(state: LauncherState) -> Router {
     Router::new()
-        .route("/", get(index::<S, H>))
-        .route("/partials/projects", get(projects_partial::<S, H>))
-        .route("/api/heartbeat", axum::routing::post(heartbeat::<S, H>))
-        .route(
-            "/api/projects/start",
-            axum::routing::post(start_project::<S, H>),
-        )
-        .route(
-            "/api/projects/stop",
-            axum::routing::post(stop_project::<S, H>),
-        )
+        .route("/", get(index))
+        .route("/partials/projects", get(projects_partial))
+        .route("/api/heartbeat", axum::routing::post(heartbeat))
+        .route("/api/projects/start", axum::routing::post(start_project))
+        .route("/api/projects/stop", axum::routing::post(stop_project))
         .route("/static/htmx.min.js", get(serve_htmx))
         .route("/static/app.css", get(serve_css))
         .with_state(state)
@@ -192,67 +173,24 @@ pub fn router_with_state<S: ChildSpawner + 'static, H: HealthChecker>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::health::testing::MockHealthChecker;
     use crate::registry::{self, Project, ProjectState};
-    use crate::spawner::testing::MockChildHandle;
-    use crate::spawner::ChildHandle;
-    use crate::supervisor::Supervisor;
-    use async_trait::async_trait;
+    use crate::spawner::testing::FakeChildHandle;
+    use crate::supervisor::test_utils::FakeSupervisor;
     use axum::http::{Request, StatusCode};
     use std::time::Duration;
     use tower::ServiceExt;
 
-    pub struct MockSpawner;
-    #[async_trait]
-    impl ChildSpawner for MockSpawner {
-        async fn spawn(
-            &self,
-            _dir: &std::path::Path,
-            _port: u16,
-        ) -> anyhow::Result<Box<dyn ChildHandle>> {
-            struct C;
-            #[async_trait]
-            impl ChildHandle for C {
-                fn pid(&self) -> u32 {
-                    0
-                }
-                async fn wait(&mut self) -> std::io::Result<String> {
-                    std::future::pending().await
-                }
-                async fn send_sigterm(&mut self) -> std::io::Result<()> {
-                    Ok(())
-                }
-                async fn send_sigkill(&mut self) -> std::io::Result<()> {
-                    Ok(())
-                }
-            }
-            Ok(Box::new(C))
-        }
-    }
-
-    fn build_state(
-        registry: Arc<Mutex<Registry>>,
-    ) -> LauncherState<MockSpawner, MockHealthChecker> {
-        let supervisor = Arc::new(Supervisor {
-            registry: registry.clone(),
-            spawner: MockSpawner,
-            health_checker: MockHealthChecker::always_ready(),
-            health_attempts: 5,
-            health_interval: Duration::from_millis(200),
-        });
+    fn build_state(registry: Arc<Mutex<Registry>>) -> LauncherState {
+        let supervisor = FakeSupervisor::new(registry.clone());
         let daemon = Arc::new(Daemon {
             registry: registry.clone(),
             supervisor,
             lru_cap: 8,
-            sigterm_grace: Duration::from_secs(5),
-            sigkill_grace: Duration::from_secs(5),
-            start_max_attempts: 1,
-            start_base_backoff: Duration::from_millis(10),
         });
         LauncherState { registry, daemon }
     }
 
-    fn empty_state() -> LauncherState<MockSpawner, MockHealthChecker> {
+    fn empty_state() -> LauncherState {
         build_state(Arc::new(Mutex::new(Registry::new())))
     }
 
@@ -331,7 +269,7 @@ mod tests {
                 "p".into(),
                 ProjectState::Healthy {
                     port: 4242,
-                    child: Box::new(MockChildHandle),
+                    child: Box::new(FakeChildHandle::new(1)),
                 },
             )],
         );

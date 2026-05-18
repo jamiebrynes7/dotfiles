@@ -1,10 +1,10 @@
 use crate::config::Config;
 use crate::daemon::Daemon;
+use crate::eviction::{Evictor, EvictorConfig};
 use crate::health::HttpHealthChecker;
 use crate::launcher::{router_with_state, LauncherState};
 use crate::registry::Registry;
 use crate::spawner::BeansServeSpawner;
-use crate::supervisor::Supervisor;
 use beansd_rpc::{bind_uds, default_socket_path};
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,23 +24,14 @@ pub async fn run() -> anyhow::Result<()> {
     );
 
     let registry = Arc::new(Mutex::new(Registry::new()));
-    let supervisor = Arc::new(Supervisor {
-        registry: registry.clone(),
-        spawner: BeansServeSpawner {
-            binary: cfg.beans_serve_path.clone(),
-        },
-        health_checker: HttpHealthChecker,
-        health_attempts: 10,
-        health_interval: Duration::from_secs(1),
-    });
+    let spawner = BeansServeSpawner {
+        binary: cfg.beans_serve_path.clone(),
+    };
+    let supervisor = crate::supervisor::new(registry.clone(), spawner, HttpHealthChecker);
     let daemon = Arc::new(Daemon {
         registry: registry.clone(),
         supervisor: supervisor.clone(),
         lru_cap: cfg.lru_cap,
-        sigterm_grace: Duration::from_secs(5),
-        sigkill_grace: Duration::from_secs(5),
-        start_max_attempts: 3,
-        start_base_backoff: Duration::from_secs(1),
     });
 
     let uds_path = default_socket_path()?;
@@ -60,6 +51,16 @@ pub async fn run() -> anyhow::Result<()> {
     tracing::info!(%launcher_addr, "HTTP launcher bound");
     let http_task = tokio::spawn(async move { axum::serve(tcp, app).await });
 
+    let eviction_task = Evictor::new(
+        registry.clone(),
+        supervisor.clone(),
+        EvictorConfig {
+            lru_cap: cfg.lru_cap,
+            poll_interval: Duration::from_secs(60),
+        },
+    )
+    .spawn();
+
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
     let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
     tokio::select! {
@@ -67,6 +68,7 @@ pub async fn run() -> anyhow::Result<()> {
         _ = sigint.recv()  => { tracing::info!("SIGINT received; shutting down"); }
         r = uds_task       => { tracing::error!(?r, "UDS server exited unexpectedly"); }
         r = http_task      => { tracing::error!(?r, "HTTP server exited unexpectedly"); }
+        r = eviction_task  => { tracing::error!(?r, "Eviction task exited unexpectedly"); }
     }
 
     // Best-effort SIGTERM to all healthy children. Service manager will reap

@@ -1,6 +1,4 @@
-use crate::health::{HealthChecker, HttpHealthChecker};
 use crate::registry::{Project, ProjectState, Registry};
-use crate::spawner::ChildSpawner;
 use crate::supervisor::Supervisor;
 use async_trait::async_trait;
 use beansd_rpc::{
@@ -9,22 +7,17 @@ use beansd_rpc::{
 };
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 use std::time::Instant;
 use tokio::sync::Mutex;
 
-pub struct Daemon<S: ChildSpawner + 'static, H: HealthChecker = HttpHealthChecker> {
+pub struct Daemon {
     pub registry: Arc<Mutex<Registry>>,
-    pub supervisor: Arc<Supervisor<S, H>>,
+    pub supervisor: Arc<dyn Supervisor>,
     pub lru_cap: usize,
-    pub sigterm_grace: Duration,
-    pub sigkill_grace: Duration,
-    pub start_max_attempts: usize,
-    pub start_base_backoff: Duration,
 }
 
 #[async_trait]
-impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
+impl Handler for Daemon {
     async fn cd(&self, cwd: PathBuf) -> anyhow::Result<CdResponse> {
         let now = Instant::now();
         let key = match crate::project_key::resolve(&cwd)? {
@@ -38,15 +31,6 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
             return Ok(CdResponse::Bumped { key });
         }
 
-        // At cap → kick eviction of the LRU project. We may briefly hold
-        // (cap + 1) entries until the eviction task removes the LRU one.
-        if reg.count_active() >= self.lru_cap {
-            if let Some(lru_key) = reg.find_lru_for_eviction() {
-                self.supervisor
-                    .trigger_eviction(lru_key, self.sigterm_grace, self.sigkill_grace);
-            }
-        }
-
         let display = key
             .file_name()
             .and_then(|s| s.to_str())
@@ -56,14 +40,10 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
         drop(reg);
 
         let sup = self.supervisor.clone();
-        let max = self.start_max_attempts;
-        let backoff = self.start_base_backoff;
         let key_clone = key.clone();
         tokio::spawn(async move {
-            if let Err(e) = sup
-                .start_project_with_retries(key_clone, max, backoff)
-                .await
-            {
+            // TODO: Retries
+            if let Err(e) = sup.start(key_clone).await {
                 tracing::error!(?e, "start_project failed");
             }
         });
@@ -109,14 +89,10 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
         drop(reg);
 
         let sup = self.supervisor.clone();
-        let max = self.start_max_attempts;
-        let backoff = self.start_base_backoff;
         let key_clone = key.clone();
         tokio::spawn(async move {
-            if let Err(e) = sup
-                .start_project_with_retries(key_clone, max, backoff)
-                .await
-            {
+            // TODO: Retries
+            if let Err(e) = sup.start(key_clone).await {
                 tracing::error!(?e, "start_project failed");
             }
         });
@@ -128,8 +104,7 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
         if !exists {
             anyhow::bail!("unknown project: {}", key.display());
         }
-        self.supervisor
-            .trigger_eviction(key, self.sigterm_grace, self.sigkill_grace);
+        self.supervisor.stop(key).await?;
         Ok(())
     }
 
@@ -137,7 +112,10 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
         let reg = self.registry.lock().await;
         Ok(StatusResponse {
             registry_size: reg.iter().count(),
-            active: reg.count_active(),
+            active: reg
+                .iter()
+                .filter(|p| matches!(p.state, ProjectState::Healthy { .. }))
+                .count(),
             lru_cap: self.lru_cap,
         })
     }
@@ -154,65 +132,21 @@ impl<S: ChildSpawner + 'static, H: HealthChecker> Handler for Daemon<S, H> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::health::testing::MockHealthChecker;
     use crate::registry::{self, Registry};
-    use crate::spawner::testing::MockChildHandle;
-    use crate::spawner::ChildHandle;
-    use crate::supervisor::Supervisor;
-    use async_trait::async_trait;
+    use crate::spawner::testing::FakeChildHandle;
+    use crate::supervisor::test_utils::FakeSupervisor;
     use std::path::Path;
     use std::sync::Arc;
     use std::time::Duration;
     use tempfile::tempdir;
     use tokio::sync::Mutex;
 
-    pub(crate) struct NoOpSpawner;
-    #[async_trait]
-    impl ChildSpawner for NoOpSpawner {
-        async fn spawn(
-            &self,
-            _dir: &std::path::Path,
-            _port: u16,
-        ) -> anyhow::Result<Box<dyn ChildHandle>> {
-            Ok(Box::new(NoOpChild))
-        }
-    }
-
-    pub(crate) struct NoOpChild;
-    #[async_trait]
-    impl ChildHandle for NoOpChild {
-        fn pid(&self) -> u32 {
-            1
-        }
-        async fn wait(&mut self) -> std::io::Result<String> {
-            std::future::pending().await
-        }
-        async fn send_sigterm(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-        async fn send_sigkill(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-
-    pub(crate) fn build_daemon(
-        registry: Arc<Mutex<Registry>>,
-    ) -> Daemon<NoOpSpawner, MockHealthChecker> {
-        let supervisor = Arc::new(Supervisor {
-            registry: registry.clone(),
-            spawner: NoOpSpawner,
-            health_checker: MockHealthChecker::always_ready(),
-            health_attempts: 5,
-            health_interval: Duration::from_millis(200),
-        });
+    pub(crate) fn build_daemon(registry: Arc<Mutex<Registry>>) -> Daemon {
+        let supervisor = FakeSupervisor::new(registry.clone());
         Daemon {
             registry,
             supervisor,
             lru_cap: 8,
-            sigterm_grace: Duration::from_secs(5),
-            sigkill_grace: Duration::from_secs(5),
-            start_max_attempts: 1,
-            start_base_backoff: Duration::from_millis(10),
         }
     }
 
@@ -309,7 +243,7 @@ mod tests {
         let d = build_daemon(registry);
         let r = d.status().await.unwrap();
         assert_eq!(r.registry_size, 1);
-        assert_eq!(r.active, 1);
+        assert_eq!(r.active, 0);
         assert_eq!(r.lru_cap, 8);
     }
 
@@ -341,7 +275,7 @@ mod tests {
                 "p".into(),
                 ProjectState::Healthy {
                     port: 1,
-                    child: Box::new(MockChildHandle),
+                    child: Box::new(FakeChildHandle::new(1)),
                 },
             )],
         );

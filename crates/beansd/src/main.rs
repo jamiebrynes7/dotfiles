@@ -1,5 +1,6 @@
 mod config;
 mod daemon;
+mod eviction;
 mod health;
 mod launcher;
 mod logging;
@@ -9,8 +10,6 @@ mod registry;
 mod run;
 mod spawner;
 mod supervisor;
-
-use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
     let rt = tokio::runtime::Runtime::new()?;

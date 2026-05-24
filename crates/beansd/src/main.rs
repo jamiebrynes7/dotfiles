@@ -10,6 +10,7 @@ mod registry;
 mod run;
 mod spawner;
 mod supervisor;
+mod web;
 
 fn main() -> anyhow::Result<()> {
     let rt = tokio::runtime::Runtime::new()?;

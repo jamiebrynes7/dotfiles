@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-02-28
+Freshness: 2026-05-24
 
 ## Tech Stack
 
@@ -10,14 +10,16 @@ Freshness: 2026-02-28
 - **nix-darwin** — macOS system configuration (`darwin/`)
 - **home-manager** — user-level dotfiles and programs (`home/`)
 - **direnv** — development shells for this repo and project templates
+- **Rust** — Cargo workspace under `crates/` housing the `beans` issue-tracker daemon + CLI; see `crates/CLAUDE.md`
 
 ## Commands
 
 No justfile at the repo root. Common operations:
 
-- `nix flake check` — validate the flake (runs all checks)
+- `nix flake check` — validate the flake; also builds and tests the Rust workspace (this is what CI runs)
 - `nix flake show` — list outputs (systems, templates, lib)
 - `nixfmt <file>` — format Nix files (available in the devShell)
+- `cargo test --workspace` — run Rust tests directly without going through Nix (see `crates/CLAUDE.md`)
 
 Host-specific build/switch commands live in downstream system repos created from `templates/systems/`.
 
@@ -37,6 +39,8 @@ templates/
   projects/          # go, typescript — scaffolded via `spark`
   systems/           # darwin, nixos, home-manager
 modules/             # Shared NixOS/nix-darwin modules (currently empty)
+crates/              # Rust workspace: beansd + beansctl + beansd-rpc — see crates/CLAUDE.md
+packages/            # Nix packages built from this repo (e.g. beans-daemon)
 ```
 
 ## Conventions

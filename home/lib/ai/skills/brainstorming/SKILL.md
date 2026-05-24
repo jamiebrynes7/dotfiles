@@ -89,7 +89,7 @@ Set the Bash tool timeout to `1800000` ms (30 minutes) so the user has enough ti
 
 The command returns JSON of the form `{"decision": "approved"|"annotated"|"dismissed", "feedback": "..."}`. Handle each branch:
 
-- **`approved`** — proceed with the recommended approach as written. Move to "Present design".
+- **`approved`** — delete the options file (`rm -f <path>`), then proceed with the recommended approach as written. Move to "Present design". The options file is a transient review artifact; only the spec is worth retaining.
 - **`annotated`** — the `feedback` field contains numbered annotation blocks. Treat each as an instruction: revise the options file inline (or pivot to a different recommended approach). Re-run `plannotator annotate --gate --json` on the revised file. Loop until `approved`.
 - **`dismissed`** — the user wants a fresh take. Rewrite the options from scratch (different framings, different trade-offs) and re-invoke plannotator. Do NOT fall back to inline questioning.
 

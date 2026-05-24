@@ -101,13 +101,17 @@ mod tests {
     use tempfile::tempdir;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader as TokioBufReader};
     use tokio::net::UnixListener;
+    use tokio::sync::oneshot;
 
     /// In-process UDS server that, per connection, reads one request line and
     /// writes the supplied response line. Loops so it can serve the probe
-    /// connection from `Client::connect_to` and a follow-up request.
+    /// connection from `Client::connect_to` and a follow-up request. Awaits a
+    /// readiness signal so callers don't need to sleep.
     async fn echo_responder(path: &Path, response: &'static [u8]) {
         let listener = UnixListener::bind(path).unwrap();
+        let (ready_tx, ready_rx) = oneshot::channel();
         tokio::spawn(async move {
+            let _ = ready_tx.send(());
             while let Ok((sock, _)) = listener.accept().await {
                 tokio::spawn(async move {
                     let (rd, mut wr) = sock.into_split();
@@ -117,13 +121,27 @@ mod tests {
                 });
             }
         });
+        ready_rx.await.unwrap();
     }
 
-    /// In-process UDS server that accepts and immediately drops every
-    /// connection without writing.
+    /// In-process UDS server that consumes one request line per connection and
+    /// then drops without writing — the client sees a clean EOF on read.
+    /// Reading first matters: dropping before the client finishes writing would
+    /// race the kernel buffer and surface as EPIPE instead of EOF.
     async fn silent_responder(path: &Path) {
         let listener = UnixListener::bind(path).unwrap();
-        tokio::spawn(async move { while let Ok((_sock, _)) = listener.accept().await {} });
+        let (ready_tx, ready_rx) = oneshot::channel();
+        tokio::spawn(async move {
+            let _ = ready_tx.send(());
+            while let Ok((sock, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    let (rd, _wr) = sock.into_split();
+                    let mut lines = TokioBufReader::new(rd).lines();
+                    let _ = lines.next_line().await;
+                });
+            }
+        });
+        ready_rx.await.unwrap();
     }
 
     #[tokio::test]
@@ -131,7 +149,6 @@ mod tests {
         let dir = tempdir().unwrap();
         let p = dir.path().join("sock");
         echo_responder(&p, b"{\"ok\":true,\"data\":{\"projects\":[]}}\n").await;
-        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
         let path = p.clone();
         let resp = tokio::task::spawn_blocking(move || {
@@ -149,7 +166,6 @@ mod tests {
         let dir = tempdir().unwrap();
         let p = dir.path().join("sock");
         silent_responder(&p).await;
-        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
         let path = p.clone();
         let err = tokio::task::spawn_blocking(move || {
@@ -169,7 +185,6 @@ mod tests {
         let dir = tempdir().unwrap();
         let p = dir.path().join("sock");
         echo_responder(&p, b"not json\n").await;
-        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
         let path = p.clone();
         let err = tokio::task::spawn_blocking(move || {
@@ -187,7 +202,6 @@ mod tests {
         let dir = tempdir().unwrap();
         let p = dir.path().join("sock");
         echo_responder(&p, b"{\"ok\":false,\"error\":\"unknown project: /x\"}\n").await;
-        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
         let path = p.clone();
         let err = tokio::task::spawn_blocking(move || {
@@ -206,7 +220,6 @@ mod tests {
         let dir = tempdir().unwrap();
         let p = dir.path().join("sock");
         silent_responder(&p).await;
-        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
         let path = p.clone();
         let result = tokio::task::spawn_blocking(move || {

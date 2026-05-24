@@ -12,6 +12,9 @@ use tokio::sync::Mutex;
 mod routes;
 mod views;
 
+#[cfg(test)]
+mod test_utils;
+
 #[derive(Clone)]
 pub(in crate::web) struct State {
     pub(in crate::web) registry: Arc<Mutex<Registry>>,

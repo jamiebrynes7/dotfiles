@@ -3,9 +3,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_FILE="$SCRIPT_DIR/data.json"
+FLAKE_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 
 OWNER="hmans"
 REPO="beans"
+
+# Evaluate against the flake's pinned nixpkgs so the hashes we write match
+# what `nix flake check` will recompute. `<nixpkgs>` from NIX_PATH can resolve
+# to a different channel and a different `pnpm`, producing a stale
+# `pnpmDepsHash`.
+echo "Resolving flake nixpkgs..."
+NIXPKGS=$(nix eval --raw --impure --expr "(builtins.getFlake \"$FLAKE_ROOT\").inputs.nixpkgs.outPath")
 
 echo "Fetching latest commit from $OWNER/$REPO..."
 COMMIT_INFO=$(curl -sf "https://api.github.com/repos/$OWNER/$REPO/commits/main")
@@ -25,7 +33,7 @@ echo "Source hash: $SRI_HASH"
 
 echo "Computing vendor hash..."
 VENDOR_HASH=$(
-  nix-build --no-out-link -E "
+  nix-build --no-out-link -I "nixpkgs=$NIXPKGS" -E "
     with import <nixpkgs> {};
     buildGoModule {
       pname = \"beans\";
@@ -50,7 +58,7 @@ echo "Vendor hash: $VENDOR_HASH"
 
 echo "Computing pnpm deps hash..."
 PNPM_DEPS_HASH=$(
-  nix-build --no-out-link -E "
+  nix-build --no-out-link -I "nixpkgs=$NIXPKGS" -E "
     with import <nixpkgs> {};
     fetchPnpmDeps {
       pname = \"beans-frontend\";

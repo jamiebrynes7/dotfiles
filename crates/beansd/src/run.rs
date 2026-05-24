@@ -2,9 +2,9 @@ use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::eviction::{Evictor, EvictorConfig};
 use crate::health::HttpHealthChecker;
-use crate::launcher::{router_with_state, LauncherState};
 use crate::registry::Registry;
 use crate::spawner::BeansServeSpawner;
+use crate::web;
 use beansd_rpc::{bind_uds, default_socket_path};
 use std::sync::Arc;
 use std::time::Duration;
@@ -42,14 +42,9 @@ pub async fn run() -> anyhow::Result<()> {
         tokio::spawn(async move { beansd_rpc::serve(uds_listener, d).await })
     };
 
-    let launcher_addr = std::net::SocketAddr::from(([127, 0, 0, 1], cfg.launcher_port));
-    let tcp = tokio::net::TcpListener::bind(launcher_addr).await?;
-    let app = router_with_state(LauncherState {
-        registry: registry.clone(),
-        daemon: daemon.clone(),
-    });
-    tracing::info!(%launcher_addr, "HTTP launcher bound");
-    let http_task = tokio::spawn(async move { axum::serve(tcp, app).await });
+    let server = web::Server::bind(registry.clone(), daemon.clone(), cfg.launcher_port).await?;
+    tracing::info!(addr = %server.local_addr(), "HTTP launcher bound");
+    let http_task = tokio::spawn(server.serve());
 
     let eviction_task = Evictor::new(
         registry.clone(),

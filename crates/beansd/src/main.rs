@@ -2,7 +2,6 @@ mod config;
 mod daemon;
 mod eviction;
 mod health;
-mod launcher;
 mod logging;
 mod port_alloc;
 mod project_key;

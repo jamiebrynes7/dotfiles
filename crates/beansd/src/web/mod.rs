@@ -1,5 +1,3 @@
-#![allow(dead_code)] // scaffold: removed once routes are migrated and run.rs wires Server
-
 use crate::daemon::Daemon;
 use crate::registry::Registry;
 use axum::Router;

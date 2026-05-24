@@ -1,10 +1,11 @@
 ---
 # dotfiles-tlpb
 title: Move templates, static, askama.toml; fix include paths
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-24T15:06:21Z
-updated_at: 2026-05-24T15:06:21Z
+updated_at: 2026-05-24T18:15:58Z
 parent: dotfiles-4jzf
 ---
 
@@ -16,20 +17,20 @@ parent: dotfiles-4jzf
 
 This is a refactor — no new behavior, no new tests. Verification is that the existing 8 tests in `launcher.rs` still pass after the move.
 
-- [ ] **Step 1: Move templates directory**
+- [x] **Step 1: Move templates directory**
 
 ```bash
 mkdir -p crates/beansd/src/web
 git mv crates/beansd/templates crates/beansd/src/web/templates
 ```
 
-- [ ] **Step 2: Move static directory**
+- [x] **Step 2: Move static directory**
 
 ```bash
 git mv crates/beansd/static crates/beansd/src/web/static
 ```
 
-- [ ] **Step 3: Create `crates/beansd/askama.toml`**
+- [x] **Step 3: Create `crates/beansd/askama.toml`**
 
 ```toml
 [general]
@@ -38,7 +39,7 @@ dirs = ["src/web/templates"]
 
 Askama 0.12 reads this file from `CARGO_MANIFEST_DIR`; `dirs` overrides the default `["templates"]`. After this, `#[template(path = "index.html")]` in `launcher.rs` resolves to `crates/beansd/src/web/templates/index.html`.
 
-- [ ] **Step 4: Update `include_*!` paths in `crates/beansd/src/launcher.rs`**
+- [x] **Step 4: Update `include_*!` paths in `crates/beansd/src/launcher.rs`**
 
 `launcher.rs` lives at `crates/beansd/src/launcher.rs`. From its perspective, the new static dir is `web/static/` (no `..` needed — it's a sibling subtree).
 
@@ -55,7 +56,7 @@ const APP_CSS: &str = include_str!("web/static/app.css");
 
 (These get removed in dotfiles-th98 when `launcher.rs` is deleted; this is an interim fix to keep the crate building.)
 
-- [ ] **Step 5: Verify build and tests**
+- [x] **Step 5: Verify build and tests**
 
 ```bash
 cargo test -p beansd
@@ -65,9 +66,18 @@ Expected: all 8 launcher tests pass (`serves_htmx_with_js_content_type`, `serves
 
 If askama complains "template not found", confirm `askama.toml` lives at `crates/beansd/askama.toml` and that `dirs = ["src/web/templates"]` (relative to the crate, not the workspace).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add crates/beansd/src/web crates/beansd/askama.toml crates/beansd/src/launcher.rs
 git commit -m "beansd: relocate templates and static under src/web/"
 ```
+
+## Summary of Changes
+
+- `git mv crates/beansd/templates → crates/beansd/src/web/templates`
+- `git mv crates/beansd/static    → crates/beansd/src/web/static`
+- Added `crates/beansd/askama.toml` with `[general] dirs = ["src/web/templates"]`. Askama 0.12 reads it from `CARGO_MANIFEST_DIR`; `#[template(path = "index.html")]` in `launcher.rs` now resolves to the new location.
+- Updated `launcher.rs` include paths from `../static/...` to `web/static/...` (sibling subtree from `src/launcher.rs`).
+
+`cargo test -p beansd` → 52 passed, 0 failed; all 8 launcher tests still green.

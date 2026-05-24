@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-const HTMX_JS: &[u8] = include_bytes!("../static/htmx.min.js");
-const APP_CSS: &str = include_str!("../static/app.css");
+const HTMX_JS: &[u8] = include_bytes!("web/static/htmx.min.js");
+const APP_CSS: &str = include_str!("web/static/app.css");
 
 #[derive(Clone)]
 pub struct LauncherState {

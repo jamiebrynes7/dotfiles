@@ -49,5 +49,18 @@ in {
           "${config.home.homeDirectory}/Library/Logs/beans-daemon.log";
       };
     };
+
+    systemd.user.services.beans-daemon = lib.mkIf pkgs.stdenv.isLinux {
+      Unit = {
+        Description = "Beans daemon — multiplexes beans-serve across projects";
+        After = [ "default.target" ];
+      };
+      Service = {
+        ExecStart = "${pkgs.dotfiles.beans-daemon}/bin/beansd";
+        Restart = "always";
+        RestartSec = 2;
+      };
+      Install.WantedBy = [ "default.target" ];
+    };
   };
 }

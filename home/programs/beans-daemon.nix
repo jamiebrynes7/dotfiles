@@ -36,5 +36,18 @@ in {
       log_level        = "info"
       beans_serve_path = "${pkgs.dotfiles.beans}/bin/beans-serve"
     '';
+
+    launchd.agents.beans-daemon = lib.mkIf pkgs.stdenv.isDarwin {
+      enable = true;
+      config = {
+        ProgramArguments = [ "${pkgs.dotfiles.beans-daemon}/bin/beansd" ];
+        KeepAlive = true;
+        RunAtLoad = true;
+        StandardOutPath =
+          "${config.home.homeDirectory}/Library/Logs/beans-daemon.log";
+        StandardErrorPath =
+          "${config.home.homeDirectory}/Library/Logs/beans-daemon.log";
+      };
+    };
   };
 }

@@ -1,18 +1,18 @@
 ---
 # dotfiles-w28q
 title: launchd agent (Darwin)
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-03T14:42:39Z
-updated_at: 2026-05-10T15:53:02Z
+updated_at: 2026-05-26T16:56:58Z
 parent: dotfiles-ottn
 ---
 
 **Files:**
 - Modify: `home/programs/beans-daemon.nix`
 
-- [ ] **Step 1: Append the launchd block to the `config = lib.mkIf cfg.enable { ... }` body**
+- [x] **Step 1: Append the launchd block to the `config = lib.mkIf cfg.enable { ... }` body**
 
 ```nix
     launchd.agents.beans-daemon = lib.mkIf pkgs.stdenv.isDarwin {
@@ -31,14 +31,22 @@ parent: dotfiles-ottn
     };
 ```
 
-- [ ] **Step 2: Verify the module evaluates**
+- [x] **Step 2: Verify the module evaluates**
 
 Run: `nix flake check`
 Expected: no evaluation errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```
 git add home/programs/beans-daemon.nix
 git commit -m 'home/programs/beans-daemon: launchd agent for Darwin'
 ```
+
+## Summary of Changes
+
+Added `launchd.agents.beans-daemon` (gated on `pkgs.stdenv.isDarwin`) to `home/programs/beans-daemon.nix`. Runs `${pkgs.dotfiles.beans-daemon}/bin/beansd` with `KeepAlive` + `RunAtLoad`; stdout/stderr go to `~/Library/Logs/beans-daemon.log`.
+
+Omitted the empty `EnvironmentVariables` block from the original plan — there are no env vars to set, and an empty attrset with only a comment is noise.
+
+`nix flake check` evaluated clean on aarch64-darwin.

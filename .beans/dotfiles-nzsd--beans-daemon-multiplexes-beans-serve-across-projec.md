@@ -1,10 +1,11 @@
 ---
 # dotfiles-nzsd
 title: Beans daemon (multiplexes beans-serve across projects)
-status: todo
+status: completed
 type: epic
+priority: normal
 created_at: 2026-05-03T14:31:08Z
-updated_at: 2026-05-03T14:31:08Z
+updated_at: 2026-05-26T17:07:56Z
 ---
 
 **Goal:** Build `beansd`, a long-lived per-user daemon that multiplexes `beans-serve` instances across many projects on one dev box. cd into a project tree → daemon ensures beans-serve is running for it. A unified web launcher on `localhost:9000` lists projects and embeds the active one in an iframe.
@@ -21,3 +22,9 @@ updated_at: 2026-05-03T14:31:08Z
 - SSE/WebSocket push for registry updates
 - "Add by path" UI to register without cd
 - bash/fish cd-hook integrations
+
+## Summary of Changes
+
+Shipped: Rust workspace (`beansd` + `beansctl` + `beansd-rpc`), Nix package (`packages/beans-daemon`), home-manager module (`home/programs/beans-daemon.nix`) with launchd / systemd / zsh chpwd integration, and Darwin smoke verification.
+
+Scrapped: `dotfiles-lfly` (superseded by the workspace-aware package in `dotfiles-7zn7`) and `dotfiles-1tu7` (real-binary integration test — marginal value over existing mocked seams).

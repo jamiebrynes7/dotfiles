@@ -1,11 +1,11 @@
 ---
 # dotfiles-1tu7
 title: Real-binary integration test for BeansServeSpawner
-status: todo
+status: scrapped
 type: task
 priority: low
 created_at: 2026-05-09T14:25:33Z
-updated_at: 2026-05-10T15:53:20Z
+updated_at: 2026-05-26T17:07:56Z
 parent: dotfiles-nzsd
 ---
 
@@ -48,3 +48,7 @@ Without this, regressions in `BeansServeSpawner` / `BeansServeChild` (e.g. accid
 ## Note (2026-05-10)
 
 After `dotfiles-qwfb` (Workspace split) lands, this task's paths are under `crates/beansd/` rather than `packages/beans-daemon/` — body updated. The fake-binary approach itself is unchanged: still a `[[bin]]` in `crates/beansd/Cargo.toml` exposed via `env!("CARGO_BIN_EXE_fake_beans_serve")` to the integration test.
+
+## Reasons for Scrapping
+
+Low-priority follow-up never landed. The unit-test seam (mock spawner + injected `HealthChecker`) already gives confidence in child-process handling; a real-binary integration test would mostly re-exercise the OS process layer for marginal added coverage. Closing alongside the parent epic — re-open if a regression surfaces that would have been caught by a real-binary test.

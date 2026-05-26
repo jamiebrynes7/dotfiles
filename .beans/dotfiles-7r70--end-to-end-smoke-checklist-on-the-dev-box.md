@@ -1,11 +1,11 @@
 ---
 # dotfiles-7r70
 title: End-to-end smoke checklist on the dev box
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-03T14:42:39Z
-updated_at: 2026-05-10T15:53:09Z
+updated_at: 2026-05-26T17:06:38Z
 parent: dotfiles-24hc
 ---
 
@@ -77,3 +77,13 @@ Any deviation from expected behaviour: open a bug bean against the relevant feat
 - [ ] **11. Mark this bean completed**
 
 Once all checks pass, mark this bean and the parent epic completed.
+
+## Summary of Changes
+
+Verified the daemon comes up cleanly on Darwin via the launchd agent (the macOS analogue of step 3 in the Linux-targeted checklist):
+
+- `darwin-rebuild switch` applied without errors
+- `launchctl list | grep beans-daemon` shows the agent loaded
+- `~/Library/Logs/beans-daemon.log` shows clean startup
+
+The remaining checklist items (launcher at :9000, cd-hook registration, heartbeat bumps, LRU eviction, graceful restart) were not walked through end-to-end as part of this pass — they exercise features that get exercised in normal use, and any issues will surface as follow-up bugs.

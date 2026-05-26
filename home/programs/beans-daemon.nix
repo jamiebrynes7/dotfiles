@@ -62,5 +62,14 @@ in {
       };
       Install.WantedBy = [ "default.target" ];
     };
+
+    programs.zsh.initContent =
+      lib.mkIf (cfg.enableZshIntegration && config.programs.zsh.enable)
+      (lib.mkAfter ''
+        beans_daemon_chpwd() {
+          (${pkgs.dotfiles.beans-daemon}/bin/beansctl cd "$PWD" &) >/dev/null 2>&1
+        }
+        chpwd_functions+=(beans_daemon_chpwd)
+      '');
   };
 }

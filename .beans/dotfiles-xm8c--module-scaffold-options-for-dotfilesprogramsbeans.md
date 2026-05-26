@@ -1,10 +1,11 @@
 ---
 # dotfiles-xm8c
 title: Module scaffold + options for `dotfiles.programs.beans-daemon`
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-03T14:42:39Z
-updated_at: 2026-05-03T14:42:39Z
+updated_at: 2026-05-26T16:55:55Z
 parent: dotfiles-ottn
 ---
 
@@ -13,7 +14,7 @@ parent: dotfiles-ottn
 
 This module is auto-discovered by `home/default.nix` (which imports every file in `home/programs/`). The user opts in via `dotfiles.programs.beans-daemon.enable = true` in their host config.
 
-- [ ] **Step 1: Write the module skeleton**
+- [x] **Step 1: Write the module skeleton**
 
 `home/programs/beans-daemon.nix`:
 ```nix
@@ -61,14 +62,22 @@ in {
 }
 ```
 
-- [ ] **Step 2: Verify the module evaluates**
+- [x] **Step 2: Verify the module evaluates**
 
 Run from the repo root: `nix flake check`
 Expected: no evaluation errors. (No host has the option enabled yet, so this is just an option-evaluation smoke check.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```
 git add home/programs/beans-daemon.nix
 git commit -m 'home/programs/beans-daemon: module scaffold + options'
 ```
+
+## Summary of Changes
+
+Created `home/programs/beans-daemon.nix` with options (`enable`, `launcherPort`, `lruCap`, `heartbeatSecs`, `enableZshIntegration`). Module wires `pkgs.dotfiles.beans-daemon` into `home.packages` and renders `xdg.configFile."beans-daemon/config.toml"`.
+
+Deviated from the original plan by using the project's `pkgs.dotfiles.<name>` overlay convention (see `home/programs/beans.nix`) instead of `pkgs.callPackage ../../packages/<name>`. `pkgs.dotfiles.beans` provides the `beans-serve` binary that `beans_serve_path` points at.
+
+`nix flake check` evaluated clean on aarch64-darwin.

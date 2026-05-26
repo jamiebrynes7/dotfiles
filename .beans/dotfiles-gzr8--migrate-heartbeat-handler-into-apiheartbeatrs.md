@@ -1,11 +1,11 @@
 ---
 # dotfiles-gzr8
 title: Migrate heartbeat handler into api/heartbeat.rs
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-24T15:08:11Z
-updated_at: 2026-05-24T15:09:17Z
+updated_at: 2026-05-26T17:10:32Z
 parent: dotfiles-p6a4
 blocked_by:
     - dotfiles-7iu6
@@ -110,3 +110,7 @@ Expected: 14 tests pass — 8 launcher + 4 html + 1 api/projects + 1 new `web::r
 git add crates/beansd/src/web/routes/api/heartbeat.rs
 git commit -m "beansd: migrate heartbeat handler into web::routes::api::heartbeat"
 ```
+
+## Summary of Changes
+
+Rolled up into parent `dotfiles-p6a4`. Heartbeat handler now lives at `web/routes/api/heartbeat.rs`; see the parent feature for the migration commit.

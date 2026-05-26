@@ -1,11 +1,11 @@
 ---
 # dotfiles-n25o
 title: Migrate static asset handlers into assets.rs
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-24T15:08:23Z
-updated_at: 2026-05-24T15:09:17Z
+updated_at: 2026-05-26T17:10:32Z
 parent: dotfiles-prsi
 blocked_by:
     - dotfiles-7iu6
@@ -101,3 +101,7 @@ Expected: 16 tests pass — 8 launcher + 4 html + 1 api/projects + 1 api/heartbe
 git add crates/beansd/src/web/routes/assets.rs
 git commit -m "beansd: migrate static asset handlers into web::routes::assets"
 ```
+
+## Summary of Changes
+
+Rolled up into parent `dotfiles-prsi`. Static asset handlers live at `web/routes/assets.rs`.

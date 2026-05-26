@@ -1,11 +1,11 @@
 ---
 # dotfiles-bqzh
 title: Migrate start/stop handlers into api/projects.rs
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-24T15:07:59Z
-updated_at: 2026-05-24T15:09:16Z
+updated_at: 2026-05-26T17:10:32Z
 parent: dotfiles-p6a4
 blocked_by:
     - dotfiles-7iu6
@@ -120,3 +120,7 @@ Expected: 13 tests pass — 8 launcher + 4 html + 1 new `web::routes::api::proje
 git add crates/beansd/src/web/routes/api/projects.rs
 git commit -m "beansd: migrate start/stop handlers into web::routes::api::projects"
 ```
+
+## Summary of Changes
+
+Rolled up into parent `dotfiles-p6a4`. start/stop handlers live at `web/routes/api/projects.rs`.

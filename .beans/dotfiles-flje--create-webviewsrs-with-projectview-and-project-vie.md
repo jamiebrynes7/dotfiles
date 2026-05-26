@@ -1,11 +1,11 @@
 ---
 # dotfiles-flje
 title: Create web/views.rs with ProjectView and project_views
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-24T15:06:48Z
-updated_at: 2026-05-24T15:09:13Z
+updated_at: 2026-05-26T17:10:32Z
 parent: dotfiles-j2qx
 blocked_by:
     - dotfiles-c7ss
@@ -83,3 +83,7 @@ Expected: all 8 launcher tests still pass.
 git add crates/beansd/src/web/views.rs crates/beansd/src/web/mod.rs
 git commit -m "beansd: add ProjectView and project_views in web::views"
 ```
+
+## Summary of Changes
+
+Rolled up into parent `dotfiles-j2qx` — `web/views.rs` (`ProjectView` + `project_views`) was created as part of the scaffold commit.

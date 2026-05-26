@@ -1,11 +1,11 @@
 ---
 # dotfiles-ms85
 title: Scaffold web/routes tree and shared KeyForm
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-24T15:07:06Z
-updated_at: 2026-05-24T15:10:02Z
+updated_at: 2026-05-26T17:10:32Z
 parent: dotfiles-j2qx
 blocked_by:
     - dotfiles-flje
@@ -144,3 +144,7 @@ Expected: all 8 launcher tests still pass.
 git add crates/beansd/src/web/routes crates/beansd/src/web/mod.rs
 git commit -m "beansd: scaffold web::routes module tree with shared KeyForm"
 ```
+
+## Summary of Changes
+
+Rolled up into parent `dotfiles-j2qx` — the `web/routes` tree (html/api/assets stubs) was scaffolded as part of the parent commit.

@@ -1,11 +1,11 @@
 ---
 # dotfiles-inrw
 title: Swap run.rs to web::Server; delete launcher.rs
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-24T15:08:47Z
-updated_at: 2026-05-24T15:09:20Z
+updated_at: 2026-05-26T17:10:32Z
 parent: dotfiles-th98
 blocked_by:
     - dotfiles-bqzh
@@ -135,3 +135,7 @@ git add crates/beansd/src/run.rs crates/beansd/src/main.rs
 git rm crates/beansd/src/launcher.rs
 git commit -m "beansd: switch run.rs to web::Server and delete launcher.rs"
 ```
+
+## Summary of Changes
+
+Rolled up into parent `dotfiles-th98`; shipped in commit `b140a91` (beansd: swap run.rs to web::Server, delete launcher.rs).

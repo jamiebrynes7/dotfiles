@@ -1,11 +1,11 @@
 ---
 # dotfiles-7iu6
 title: Migrate index and partial handlers into html/projects.rs; add web::test_utils
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-24T15:07:44Z
-updated_at: 2026-05-24T15:09:15Z
+updated_at: 2026-05-26T17:10:32Z
 parent: dotfiles-tlhu
 blocked_by:
     - dotfiles-ms85
@@ -242,3 +242,7 @@ Expected: 12 tests pass — the 8 still in `launcher.rs` plus the 4 new ones in 
 git add crates/beansd/src/web/routes/html/projects.rs crates/beansd/src/web/mod.rs
 git commit -m "beansd: migrate index and project_list handlers into web::routes::html::projects"
 ```
+
+## Summary of Changes
+
+Rolled up into parent `dotfiles-tlhu`. Index and partial handlers migrated to `web/routes/html/projects.rs`; `web::test_utils` landed alongside.

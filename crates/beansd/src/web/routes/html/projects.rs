@@ -35,10 +35,11 @@ async fn index(
 }
 
 #[derive(Template)]
-#[template(path = "project_list.html")]
-pub(in crate::web) struct ProjectListPartial {
+#[template(path = "top_bar.html")]
+pub(in crate::web) struct TopBarPartial {
     pub(in crate::web) projects: Vec<ProjectView>,
     pub(in crate::web) active_key: Option<PathBuf>,
+    pub(in crate::web) active_project: Option<ProjectView>,
 }
 
 #[derive(serde::Deserialize)]
@@ -46,14 +47,17 @@ struct PartialQuery {
     active: Option<PathBuf>,
 }
 
-async fn projects_partial(
+async fn topbar_partial(
     axum::extract::Query(q): axum::extract::Query<PartialQuery>,
     axum::extract::State(state): axum::extract::State<State>,
 ) -> impl IntoResponse {
     let reg = state.registry.lock().await;
-    let tmpl = ProjectListPartial {
-        projects: project_views(&reg),
+    let projects = project_views(&reg);
+    let active_project = crate::web::views::resolve_active(&projects, q.active.as_deref());
+    let tmpl = TopBarPartial {
+        projects,
         active_key: q.active,
+        active_project,
     };
     axum::response::Html(tmpl.render().unwrap())
 }
@@ -61,7 +65,7 @@ async fn projects_partial(
 pub(super) fn router() -> Router<State> {
     Router::new()
         .route("/", get(index))
-        .route("/partials/projects", get(projects_partial))
+        .route("/partials/topbar", get(topbar_partial))
 }
 
 #[cfg(test)]
@@ -90,7 +94,7 @@ mod tests {
                 .to_vec(),
         )
         .unwrap();
-        assert!(body.contains("Select a project"));
+        assert!(body.contains("No active project"));
     }
 
     #[tokio::test]
@@ -119,7 +123,7 @@ mod tests {
         let app = router().with_state(empty_state());
         let resp = app
             .oneshot(
-                Request::get("/partials/projects")
+                Request::get("/partials/topbar")
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )
@@ -145,7 +149,7 @@ mod tests {
         let app = router().with_state(build_state(Arc::new(Mutex::new(r))));
         let resp = app
             .oneshot(
-                Request::get("/partials/projects")
+                Request::get("/partials/topbar")
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )
@@ -159,6 +163,45 @@ mod tests {
         )
         .unwrap();
         assert!(body.contains("healthy"));
-        assert!(body.contains(":4242"));
+        assert!(body.contains("/tmp/p"), "path should appear in the dropdown row");
+    }
+
+    #[tokio::test]
+    async fn index_with_active_project_shows_detail_strip() {
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/tmp/p".into(),
+                "p".into(),
+                ProjectState::Healthy {
+                    port: 4242,
+                    child: Box::new(FakeChildHandle::new(1)),
+                },
+            )],
+        );
+        let app = router().with_state(build_state(Arc::new(Mutex::new(r))));
+        let resp = app
+            .oneshot(
+                Request::get("/?project=/tmp/p")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = String::from_utf8(
+            axum::body::to_bytes(resp.into_body(), 64 * 1024)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(body.contains(":4242"), "port should appear in detail strip");
+        let path_count = body.matches("/tmp/p").count();
+        assert!(
+            path_count >= 2,
+            "path should appear in both row and detail strip, got {path_count}"
+        );
     }
 }

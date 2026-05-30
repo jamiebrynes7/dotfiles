@@ -1,4 +1,4 @@
-use super::super::html::projects::ProjectListPartial;
+use super::super::html::projects::TopBarPartial;
 use crate::web::views::project_views;
 use crate::web::State;
 use askama::Template;
@@ -15,9 +15,10 @@ async fn start_project(
         return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
     let reg = state.registry.lock().await;
-    let tmpl = ProjectListPartial {
+    let tmpl = TopBarPartial {
         projects: project_views(&reg),
         active_key: None,
+        active_project: None,
     };
     axum::response::Html(tmpl.render().unwrap()).into_response()
 }
@@ -30,9 +31,10 @@ async fn stop_project(
         return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
     let reg = state.registry.lock().await;
-    let tmpl = ProjectListPartial {
+    let tmpl = TopBarPartial {
         projects: project_views(&reg),
         active_key: None,
+        active_project: None,
     };
     axum::response::Html(tmpl.render().unwrap()).into_response()
 }

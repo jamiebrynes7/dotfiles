@@ -1,11 +1,11 @@
 ---
 # dotfiles-x9za
 title: Top bar templates, struct rename, and route
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-26T20:21:14Z
-updated_at: 2026-05-26T20:22:25Z
+updated_at: 2026-05-30T15:54:16Z
 parent: dotfiles-a93p
 blocked_by:
     - dotfiles-n7m9
@@ -19,7 +19,7 @@ blocked_by:
 
 **Depends on:** Task `dotfiles-n7m9` (uses `crate::web::views::resolve_active`)
 
-- [ ] **Step 1: Create `top_bar.html`**
+- [x] **Step 1: Create `top_bar.html`**
 
 Write `crates/beansd/src/web/templates/top_bar.html`:
 
@@ -49,7 +49,7 @@ Write `crates/beansd/src/web/templates/top_bar.html`:
 {% endif %}
 ```
 
-- [ ] **Step 2: Replace `index.html`**
+- [x] **Step 2: Replace `index.html`**
 
 Overwrite `crates/beansd/src/web/templates/index.html` with:
 
@@ -86,7 +86,7 @@ Overwrite `crates/beansd/src/web/templates/index.html` with:
 </html>
 ```
 
-- [ ] **Step 3: Rename struct, change template path, add field, rename route**
+- [x] **Step 3: Rename struct, change template path, add field, rename route**
 
 In `crates/beansd/src/web/routes/html/projects.rs`, replace the existing `ProjectListPartial` struct + `projects_partial` handler + `router` with:
 
@@ -121,13 +121,13 @@ pub(super) fn router() -> Router<State> {
 }
 ```
 
-- [ ] **Step 4: Delete `project_list.html`**
+- [x] **Step 4: Delete `project_list.html`**
 
 ```bash
 rm crates/beansd/src/web/templates/project_list.html
 ```
 
-- [ ] **Step 5: Update existing tests**
+- [x] **Step 5: Update existing tests**
 
 In the `#[cfg(test)] mod tests` block of `projects.rs`:
 
@@ -156,7 +156,7 @@ assert!(body.contains("/tmp/p"), "path should appear in the dropdown row");
 
 (The `:4242` assertion moves to the new detail-strip test in step 6 — it is only rendered when `active_project` is `Some`, which the partial test does not set.)
 
-- [ ] **Step 6: Add detail-strip test**
+- [x] **Step 6: Add detail-strip test**
 
 Append inside the `#[cfg(test)] mod tests` block:
 
@@ -201,12 +201,12 @@ async fn index_with_active_project_shows_detail_strip() {
 }
 ```
 
-- [ ] **Step 7: Run all tests**
+- [x] **Step 7: Run all tests**
 
 Run: `cargo test -p beansd`
 Expected: PASS (renamed tests now hit `/partials/topbar`; new detail-strip test passes; no leftover references to `project_list.html` or `ProjectListPartial`).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add crates/beansd/src/web/templates/top_bar.html \
@@ -217,3 +217,7 @@ git commit -m "refactor(beansd): replace sidebar with top-bar dropdown UI"
 ```
 
 (`git add -u` picks up the deletion of `project_list.html`.)
+
+## Summary of Changes
+
+Created `top_bar.html` (dropdown switcher + active-project detail strip), rewrote `index.html` to host a `<header id="topbar">` polling `/partials/topbar` (heartbeat form kept in `<main>`), deleted `project_list.html`, and renamed `ProjectListPartial`/`projects_partial`/`/partials/projects` to `TopBarPartial`/`topbar_partial`/`/partials/topbar` with the added `active_project` field. Updated existing tests to the new route/copy and added `index_with_active_project_shows_detail_strip`. All 39 beansd tests pass.

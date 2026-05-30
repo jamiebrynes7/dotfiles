@@ -1,0 +1,23 @@
+<details class="project-switcher">
+  <summary>
+    {% if let Some(p) = active_project %}{{ p.display_name }}{% else %}Select a project{% endif %}
+    <span class="caret">▾</span>
+  </summary>
+  <div class="panel">
+    {% for p in projects %}
+    <a class="project-row{% if Some(p.key.clone()) == active_key %} active{% endif %}"
+       href="/?project={{ p.key.display() }}">
+      <div class="name">{{ p.display_name }}</div>
+      <div class="path">{{ p.key.display() }}</div>
+      <span class="badge {{ p.state }}">{{ p.state }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</details>
+{% if let Some(p) = active_project %}
+<div class="topbar-detail">
+  <span class="badge {{ p.state }}">{{ p.state }}</span>
+  <span class="path">{{ p.key.display() }}</span>
+  {% if let Some(port) = p.port %}<span class="port">:{{ port }}</span>{% endif %}
+</div>
+{% endif %}

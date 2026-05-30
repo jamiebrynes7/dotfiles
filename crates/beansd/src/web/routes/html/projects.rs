@@ -25,12 +25,7 @@ async fn index(
 ) -> impl IntoResponse {
     let reg = state.registry.lock().await;
     let projects = project_views(&reg);
-    let active_project = q.project.as_ref().and_then(|k| {
-        projects
-            .iter()
-            .find(|p| &p.key == k && p.port.is_some())
-            .cloned()
-    });
+    let active_project = crate::web::views::resolve_active(&projects, q.project.as_deref());
     let tmpl = IndexTemplate {
         projects,
         active_key: q.project,

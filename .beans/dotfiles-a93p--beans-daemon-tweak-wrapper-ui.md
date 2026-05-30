@@ -1,11 +1,11 @@
 ---
 # dotfiles-a93p
 title: '[beans daemon] tweak wrapper UI'
-status: todo
+status: in-progress
 type: feature
 priority: normal
 created_at: 2026-05-26T19:56:15Z
-updated_at: 2026-05-26T20:08:06Z
+updated_at: 2026-05-30T15:52:42Z
 ---
 
 **Goal:** Replace the 280px left sidebar in the beans daemon launcher with a thin top bar containing a custom rich dropdown (project name + path + status badge per row) and an always-visible detail strip for the active project.

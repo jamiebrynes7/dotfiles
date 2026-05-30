@@ -1,10 +1,11 @@
 ---
 # dotfiles-n7m9
 title: Extract resolve_active helper
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-26T20:08:22Z
-updated_at: 2026-05-26T20:08:22Z
+updated_at: 2026-05-30T15:53:22Z
 parent: dotfiles-a93p
 ---
 
@@ -12,7 +13,7 @@ parent: dotfiles-a93p
 - Modify: `crates/beansd/src/web/views.rs` (add helper + tests)
 - Modify: `crates/beansd/src/web/routes/html/projects.rs:28-33` (use helper in `index`)
 
-- [ ] **Step 1: Add failing test for `resolve_active`**
+- [x] **Step 1: Add failing test for `resolve_active`**
 
 Append to `crates/beansd/src/web/views.rs`:
 
@@ -46,12 +47,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Verify test fails**
+- [x] **Step 2: Verify test fails**
 
 Run: `cargo test -p beansd --lib web::views::tests::resolve_active`
 Expected: FAIL — `cannot find function resolve_active in module super`
 
-- [ ] **Step 3: Implement `resolve_active`**
+- [x] **Step 3: Implement `resolve_active`**
 
 Add to `crates/beansd/src/web/views.rs`, above the `#[cfg(test)]` block (and add `use std::path::Path;` next to the existing `use std::path::PathBuf;`):
 
@@ -68,12 +69,12 @@ pub(in crate::web) fn resolve_active(
 }
 ```
 
-- [ ] **Step 4: Verify test passes**
+- [x] **Step 4: Verify test passes**
 
 Run: `cargo test -p beansd --lib web::views::tests::resolve_active`
 Expected: PASS
 
-- [ ] **Step 5: Use helper from `index` handler**
+- [x] **Step 5: Use helper from `index` handler**
 
 In `crates/beansd/src/web/routes/html/projects.rs`, replace the body of `async fn index` with:
 
@@ -94,14 +95,18 @@ async fn index(
 }
 ```
 
-- [ ] **Step 6: Verify whole crate still compiles & tests pass**
+- [x] **Step 6: Verify whole crate still compiles & tests pass**
 
 Run: `cargo test -p beansd`
 Expected: PASS (all existing tests still green)
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add crates/beansd/src/web/views.rs crates/beansd/src/web/routes/html/projects.rs
 git commit -m "refactor(beansd): extract resolve_active helper for active project lookup"
 ```
+
+## Summary of Changes
+
+Added `resolve_active(projects, key)` to `web/views.rs` (with a unit test covering port-present/absent/missing/None cases) and switched the `index` handler in `web/routes/html/projects.rs` to call it instead of the inline find. All 38 beansd tests pass.

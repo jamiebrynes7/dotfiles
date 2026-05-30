@@ -5,7 +5,8 @@ status: todo
 type: task
 priority: normal
 created_at: 2026-05-24T15:18:14Z
-updated_at: 2026-05-24T15:23:37Z
+updated_at: 2026-05-30T17:36:01Z
+parent: dotfiles-ubfq
 ---
 
 Today `.github/workflows/ci.yml` runs only `nix flake check`. At `flake.nix:185` that's `checks = self.packages`, so the only Rust gate is the `beans-daemon` package build. Missing:
@@ -45,3 +46,8 @@ Wire each as `checks.<system>.{rustfmt,clippy,test}` so `nix flake check` runs t
 - Introducing `[workspace.lints]` or `clippy.toml` (per `crates/CLAUDE.md`: raise with user first). Clippy uses defaults + `-D warnings` only.
 - A separate `cargo` GitHub Actions job — `nix flake check` is the single source of truth.
 - Cross-platform CI matrix (macOS); `ubuntu-latest` stays. Pinned toolchain keeps results deterministic across platforms locally.
+
+
+## Coordination with closure slimming (dotfiles-d1qc)
+
+When wiring `craneLib.overrideToolchain`, point it at the bare `default`-profile `buildToolchain` (no `rust-src`/`rust-analyzer`), **not** the fat devShell `rustToolchain` at `flake.nix:55`. `rustfmt` and `clippy` are in the `default` profile, so the crane checks still work, and this avoids re-bloating the `beans-daemon` runtime closure. See sibling bean dotfiles-d1qc for the full rationale.

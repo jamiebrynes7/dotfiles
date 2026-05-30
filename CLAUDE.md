@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-05-24
+Freshness: 2026-05-30
 
 ## Tech Stack
 
@@ -76,6 +76,15 @@ Defined in `home/profiles.nix` under `dotfiles.profiles`:
 ### Formatting
 
 All Nix files are formatted with `nixfmt-classic`.
+
+### Commit messages
+
+Subject format is `<area>: <imperative summary>`. The area names the part of the repo that changed — there are no Conventional Commits type prefixes (`feat:`, `fix:`, `refactor:`, `chore:`).
+
+- Scope to the crate/subdir when the change lives there: `crates beansd:`, `crates beansd-rpc:`, `home/programs/<tool>:`.
+- Use the parent area when a change spans several: `crates:`, `packages:`, `flake.lock:`.
+- `beans:` is for issue-tracker housekeeping (creating, closing, archiving beans) — not for `beansd`/`beansctl` code.
+- When a bean tracks the work, append its id: `crates beansd: extract resolve_active helper (dotfiles-n7m9)`.
 
 ## Boundaries
 

@@ -1,11 +1,11 @@
 ---
 # dotfiles-hjfu
 title: Rewrite app.css for top-bar layout and smoke-test
-status: todo
+status: in-progress
 type: task
 priority: normal
 created_at: 2026-05-26T20:22:21Z
-updated_at: 2026-05-26T20:22:25Z
+updated_at: 2026-05-30T15:55:49Z
 parent: dotfiles-a93p
 blocked_by:
     - dotfiles-x9za
@@ -16,7 +16,7 @@ blocked_by:
 
 **Depends on:** Task `dotfiles-x9za` (uses class names `.project-switcher`, `.project-row`, `.topbar-detail`, `#topbar`, `.caret`, `.panel`, etc.)
 
-- [ ] **Step 1: Replace `app.css` contents**
+- [x] **Step 1: Replace `app.css` contents**
 
 Overwrite `crates/beansd/src/web/static/app.css` with:
 
@@ -129,7 +129,7 @@ main .empty {
 }
 ```
 
-- [ ] **Step 2: Run `nix flake check`**
+- [x] **Step 2: Run `nix flake check`**
 
 Run: `nix flake check`
 Expected: PASS (CSS is a static asset — confirms the workspace still builds and all tests still pass under Nix).
@@ -150,7 +150,7 @@ In a browser, walk through the acceptance criteria from the spec:
 4. Open the dropdown — confirm each row shows name (top), path (mono, smaller, dimmed), status badge on the right; the active row is highlighted.
 5. Stop the project's child via the daemon and wait ≤5s — the badge in the dropdown and the detail strip should flip to `dead` (or `evicting`, then `dead`).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add crates/beansd/src/web/static/app.css

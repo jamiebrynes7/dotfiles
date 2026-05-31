@@ -1,10 +1,11 @@
 ---
 # dotfiles-z3aj
 title: beansd dev/prod coexistence via --dev flag
-status: todo
+status: in-progress
 type: epic
+priority: normal
 created_at: 2026-05-30T18:31:40Z
-updated_at: 2026-05-30T18:31:40Z
+updated_at: 2026-05-31T14:02:24Z
 ---
 
 **Goal:** Let a dev `beansd` run alongside the launchd-managed prod daemon, selected by an explicit `--dev` flag on both binaries.

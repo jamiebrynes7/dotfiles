@@ -23,6 +23,7 @@ tokio-util = { version = "0.7", features = ["codec"] }
 toml = "0.8"
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+which.workspace = true
 xdg = "2"
 
 [dev-dependencies]

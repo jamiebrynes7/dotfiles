@@ -1,10 +1,11 @@
 ---
 # dotfiles-uc8x
 title: Add the which crate to the workspace
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-30T18:32:16Z
-updated_at: 2026-05-30T18:32:16Z
+updated_at: 2026-05-31T14:07:35Z
 parent: dotfiles-i5zy
 ---
 
@@ -14,7 +15,7 @@ Add the `which` crate (used to resolve `beans-serve` on `$PATH`) to the workspac
 - Modify: `Cargo.toml` (root, `[workspace.dependencies]`)
 - Modify: `crates/beansd/Cargo.toml` (`[dependencies]`)
 
-- [ ] **Step 1: Add `which` to `[workspace.dependencies]`**
+- [x] **Step 1: Add `which` to `[workspace.dependencies]`**
 
 In the root `Cargo.toml`, under `[workspace.dependencies]`, add (keep the list tidy):
 
@@ -22,7 +23,7 @@ In the root `Cargo.toml`, under `[workspace.dependencies]`, add (keep the list t
 which = "7"
 ```
 
-- [ ] **Step 2: Inherit it in beansd**
+- [x] **Step 2: Inherit it in beansd**
 
 In `crates/beansd/Cargo.toml`, under `[dependencies]`, add:
 
@@ -30,14 +31,18 @@ In `crates/beansd/Cargo.toml`, under `[dependencies]`, add:
 which.workspace = true
 ```
 
-- [ ] **Step 3: Verify it resolves and builds**
+- [x] **Step 3: Verify it resolves and builds**
 
 Run: `cargo build -p beansd`
 Expected: success; `Cargo.lock` updated to include `which`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Cargo.toml crates/beansd/Cargo.toml Cargo.lock
 git commit -m "crates beansd: add which dependency for \$PATH lookup (dotfiles-z3aj)"
 ```
+
+## Summary of Changes
+
+Added the `which` crate (v7) to `[workspace.dependencies]` in the root `Cargo.toml` and inherited it in `crates/beansd/Cargo.toml` via `which.workspace = true`. Pure dependency plumbing — no code uses it yet; it backs the upcoming `$PATH` resolution of `beans-serve`. `cargo build -p beansd` succeeds and `Cargo.lock` now pins `which 7.0.3`.

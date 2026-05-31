@@ -1,10 +1,11 @@
 ---
 # dotfiles-i5zy
 title: Dev-aware daemon config (beansd)
-status: todo
+status: in-progress
 type: feature
+priority: normal
 created_at: 2026-05-30T18:31:49Z
-updated_at: 2026-05-30T18:31:49Z
+updated_at: 2026-05-31T14:02:25Z
 parent: dotfiles-z3aj
 ---
 

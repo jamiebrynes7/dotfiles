@@ -1,11 +1,11 @@
 ---
 # dotfiles-a93p
 title: '[beans daemon] tweak wrapper UI'
-status: in-progress
+status: completed
 type: feature
 priority: normal
 created_at: 2026-05-26T19:56:15Z
-updated_at: 2026-05-30T15:52:42Z
+updated_at: 2026-05-31T20:04:48Z
 ---
 
 **Goal:** Replace the 280px left sidebar in the beans daemon launcher with a thin top bar containing a custom rich dropdown (project name + path + status badge per row) and an always-visible detail strip for the active project.
@@ -15,3 +15,7 @@ updated_at: 2026-05-30T15:52:42Z
 **Tech Stack:** Rust, axum, askama, htmx, plain CSS.
 
 **Spec:** docs/specs/2026-05-26-beans-daemon-wrapper-topbar.md
+
+## Summary of Changes
+
+Replaced the 280px left sidebar with a thin top bar: a custom `<details>` dropdown switcher (name + path + status badge per row) plus an always-visible detail strip for the active project. Server stays axum + askama + htmx; the 5s poll now targets `/partials/topbar` (rendering switcher + detail strip atomically) while the 15s heartbeat form stays in `<main>`. Delivered across three tasks: `dotfiles-n7m9` (resolve_active helper), `dotfiles-x9za` (templates, struct/route rename), and `dotfiles-hjfu` (CSS rewrite). Manual browser smoke test passed all 5 acceptance checks.

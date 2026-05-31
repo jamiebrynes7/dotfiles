@@ -1,14 +1,12 @@
 ---
 # dotfiles-hjfu
 title: Rewrite app.css for top-bar layout and smoke-test
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-26T20:22:21Z
-updated_at: 2026-05-30T15:55:49Z
+updated_at: 2026-05-31T20:04:41Z
 parent: dotfiles-a93p
-blocked_by:
-    - dotfiles-x9za
 ---
 
 **Files:**
@@ -134,7 +132,7 @@ main .empty {
 Run: `nix flake check`
 Expected: PASS (CSS is a static asset — confirms the workspace still builds and all tests still pass under Nix).
 
-- [ ] **Step 3: Smoke test against a running daemon**
+- [x] **Step 3: Smoke test against a running daemon** (verified manually — all 5 acceptance checks pass)
 
 In one shell:
 

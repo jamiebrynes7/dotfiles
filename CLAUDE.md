@@ -84,7 +84,13 @@ Subject format is `<area>: <imperative summary>`. The area names the part of the
 - Scope to the crate/subdir when the change lives there: `crates beansd:`, `crates beansd-rpc:`, `home/programs/<tool>:`.
 - Use the parent area when a change spans several: `crates:`, `packages:`, `flake.lock:`.
 - `beans:` is for issue-tracker housekeeping (creating, closing, archiving beans) — not for `beansd`/`beansctl` code.
-- When a bean tracks the work, append its id: `crates beansd: extract resolve_active helper (dotfiles-n7m9)`.
+- When a bean tracks the work, reference its id in the commit body (not the subject) as a trailer: a `Bean: <id>` line at the end of the message, e.g.
+
+  ```
+  crates beansd: extract resolve_active helper
+
+  Bean: dotfiles-n7m9
+  ```
 
 ## Boundaries
 

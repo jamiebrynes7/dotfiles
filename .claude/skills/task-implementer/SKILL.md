@@ -71,6 +71,6 @@ Only when every todo item on the bean is checked and both reviews are resolved:
    <what changed and why>"
    ```
 
-2. Commit the **code changes and the bean file together** in one commit. The bean's state and the code it describes must never drift apart. Follow the repo's commit convention — subject `<area>: <imperative summary>` with the bean id appended, e.g. `home/programs/foo: add bar (dotfiles-4byb)`.
+2. Commit the **code changes and the bean file together** in one commit. The bean's state and the code it describes must never drift apart. Follow the repo's commit convention (see the root `CLAUDE.md`).
 
 Commit and push only when the user has asked you to; if unsure, stage the work and confirm. After landing, offer follow-up beans for anything deferred.

@@ -1,6 +1,6 @@
 # Rust Workspace (`crates/`)
 
-Freshness: 2026-05-24
+Freshness: 2026-05-31
 
 ## Purpose
 
@@ -33,6 +33,19 @@ tests the whole workspace.
   the whole workspace via `packages/beans-daemon/default.nix`.
 
 No `justfile` / `Makefile`; don't introduce one unless asked.
+
+### Dev instance (`--dev`)
+
+To run a dev `beansd` alongside the launchd-managed prod daemon on the same
+machine, pass `--dev` to both binaries. It selects a separate socket
+(`…/sock-dev`) and the repo-local `crates/beansd/dev-config.toml` (launcher port
+9001, `beans_serve_path` resolved from `$PATH`). Prod and the chpwd/prime hooks
+never pass `--dev`, so they're untouched.
+
+    cargo run -p beansd  -- --dev          # dev daemon (sock-dev, port 9001)
+    cargo run -p beansctl -- --dev status  # dev CLI -> dev daemon
+
+`beans-serve` must be on `$PATH` (it is, via the home-manager `beans` package).
 
 ## Conventions
 

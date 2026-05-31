@@ -1,11 +1,11 @@
 ---
 # dotfiles-iq8b
 title: Document the --dev dev workflow in crates/CLAUDE.md
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-30T18:33:34Z
-updated_at: 2026-05-30T18:33:46Z
+updated_at: 2026-05-31T14:39:11Z
 parent: dotfiles-spyq
 blocked_by:
     - dotfiles-paxh
@@ -17,7 +17,7 @@ Document how to run a dev daemon alongside prod, so the workflow is discoverable
 **Files:**
 - Modify: `crates/CLAUDE.md` (add a subsection; bump the Freshness date to 2026-05-30)
 
-- [ ] **Step 1: Add a "Dev instance (`--dev`)" subsection**
+- [x] **Step 1: Add a "Dev instance (`--dev`)" subsection**
 
 Under the `## Commands` section of `crates/CLAUDE.md`, add:
 
@@ -36,13 +36,17 @@ never pass `--dev`, so they're untouched.
 `beans-serve` must be on `$PATH` (it is, via the home-manager `beans` package).
 ```
 
-- [ ] **Step 2: Bump the Freshness date**
+- [x] **Step 2: Bump the Freshness date** (used today, 2026-05-31)
 
 At the top of `crates/CLAUDE.md`, change the `Freshness:` line to `Freshness: 2026-05-30`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add crates/CLAUDE.md
 git commit -m "crates: document the --dev dev workflow (dotfiles-z3aj)"
 ```
+
+## Summary of Changes
+
+Added a "Dev instance (`--dev`)" subsection to `crates/CLAUDE.md` documenting how to run a dev daemon alongside prod (dev socket `sock-dev`, repo-local `dev-config.toml`, port 9001, `beans-serve` from `$PATH`), with the two `cargo run -- --dev` example commands. Bumped Freshness to 2026-05-31.

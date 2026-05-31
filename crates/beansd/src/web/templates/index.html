@@ -14,7 +14,7 @@
   </header>
   <main>
     {% if let Some(p) = active_project %}
-      <iframe src="http://127.0.0.1:{{ p.port.unwrap() }}/"></iframe>
+      <iframe src="http://127.0.0.1:{{ p.port.unwrap() }}/" allow="clipboard-write; clipboard-read"></iframe>
       <form hx-post="/api/heartbeat" hx-trigger="every 15s" hx-vals='{"key":"{{ p.key.display() }}"}' style="display:none"></form>
     {% else %}
       <div class="empty">

@@ -1,11 +1,11 @@
 ---
 # dotfiles-hm5p
 title: 'default_path: dev flag + repo-local dev-config.toml'
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-30T18:33:00Z
-updated_at: 2026-05-30T18:33:45Z
+updated_at: 2026-05-31T14:13:40Z
 parent: dotfiles-i5zy
 blocked_by:
     - dotfiles-m8nc
@@ -19,7 +19,7 @@ Make `Config::default_path` flavor-aware: in dev it points at the repo-local `de
 - Create: `crates/beansd/dev-config.toml`
 - Test: `crates/beansd/src/config.rs`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `mod load_tests` in `crates/beansd/src/config.rs`:
 
@@ -40,12 +40,12 @@ fn prod_default_path_points_at_xdg_config() {
 
 (`Path::ends_with` matches whole path components, so `dev-config.toml` does not satisfy `ends_with("config.toml")` — these two assertions are distinct.)
 
-- [ ] **Step 2: Run them, expect failure**
+- [x] **Step 2: Run them, expect failure**
 
 Run: `cargo test -p beansd default_path`
 Expected: FAILS to compile — `default_path` takes no arguments yet.
 
-- [ ] **Step 3: Add the `dev` parameter**
+- [x] **Step 3: Add the `dev` parameter**
 
 In `crates/beansd/src/config.rs`, replace `default_path` with:
 
@@ -65,7 +65,7 @@ In `crates/beansd/src/config.rs`, replace `default_path` with:
     }
 ```
 
-- [ ] **Step 4: Update the call site to pass `false`**
+- [x] **Step 4: Update the call site to pass `false`**
 
 In `crates/beansd/src/run.rs:14`:
 
@@ -73,7 +73,7 @@ In `crates/beansd/src/run.rs:14`:
     let cfg = Config::load(&Config::default_path(false)?)?;
 ```
 
-- [ ] **Step 5: Create the dev config**
+- [x] **Step 5: Create the dev config**
 
 Create `crates/beansd/dev-config.toml`:
 
@@ -87,14 +87,18 @@ heartbeat_secs = 15
 log_level      = "debug"
 ```
 
-- [ ] **Step 6: Run the tests, expect pass**
+- [x] **Step 6: Run the tests, expect pass**
 
 Run: `cargo test -p beansd default_path`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add crates/beansd/src/config.rs crates/beansd/src/run.rs crates/beansd/dev-config.toml
 git commit -m "crates beansd: add dev config path + dev-config.toml (dotfiles-z3aj)"
 ```
+
+## Summary of Changes
+
+`Config::default_path` now takes `dev: bool`. In dev it returns the repo-local `crates/beansd/dev-config.toml`, resolved from `CARGO_MANIFEST_DIR` at compile time (working-directory independent); in prod it keeps returning `$XDG_CONFIG_HOME/beans-daemon/config.toml`. Added the checked-in `dev-config.toml` (port 9001, debug logging, `beans_serve_path` omitted for $PATH resolution in a later task). The sole caller in `run.rs` passes `false` for now. Two tests lock the contract.

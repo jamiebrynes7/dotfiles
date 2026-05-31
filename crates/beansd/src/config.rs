@@ -18,10 +18,16 @@ pub struct Config {
 }
 
 impl Config {
-    /// Resolve the canonical config path for the current user:
-    /// `$XDG_CONFIG_HOME/beans-daemon/config.toml`, falling back to
-    /// `$HOME/.config/beans-daemon/config.toml`.
-    pub fn default_path() -> anyhow::Result<PathBuf> {
+    /// Resolve the config path for the current flavor. Prod:
+    /// `$XDG_CONFIG_HOME/beans-daemon/config.toml`. Dev: the repo-local
+    /// `dev-config.toml` next to this crate's source.
+    pub fn default_path(dev: bool) -> anyhow::Result<PathBuf> {
+        if dev {
+            return Ok(PathBuf::from(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/dev-config.toml"
+            )));
+        }
         let dirs = xdg::BaseDirectories::with_prefix("beans-daemon")?;
         Ok(dirs.get_config_file("config.toml"))
     }
@@ -138,6 +144,19 @@ mod load_tests {
     fn missing_file_returns_error_with_path() {
         let err = Config::load(Path::new("/no/such/file.toml")).unwrap_err();
         assert!(err.to_string().contains("/no/such/file.toml"));
+    }
+
+    #[test]
+    fn dev_default_path_points_at_repo_dev_config() {
+        let p = Config::default_path(true).unwrap();
+        assert!(p.ends_with("dev-config.toml"), "got {}", p.display());
+    }
+
+    #[test]
+    fn prod_default_path_points_at_xdg_config() {
+        let p = Config::default_path(false).unwrap();
+        assert!(p.ends_with("config.toml"));
+        assert!(!p.ends_with("dev-config.toml"));
     }
 
     #[test]

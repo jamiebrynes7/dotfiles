@@ -1,0 +1,7 @@
+# Dev instance config, loaded by `beansd --dev`. Kept in-repo (not deployed by
+# home-manager). beans_serve_path is intentionally omitted — beansd resolves
+# `beans-serve` from $PATH, so this never goes stale against nix-store churn.
+launcher_port  = 9001
+lru_cap        = 8
+heartbeat_secs = 15
+log_level      = "debug"

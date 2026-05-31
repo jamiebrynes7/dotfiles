@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 
 pub async fn run() -> anyhow::Result<()> {
-    let cfg = Config::load(&Config::default_path()?)?;
+    let cfg = Config::load(&Config::default_path(false)?)?;
     cfg.validate()?;
 
     crate::logging::init(&cfg.log_level)?;

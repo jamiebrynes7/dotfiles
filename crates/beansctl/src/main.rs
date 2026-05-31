@@ -5,6 +5,9 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(name = "beansctl", version)]
 struct Cli {
+    /// Talk to the dev daemon (matches `beansd --dev`).
+    #[arg(long, global = true)]
+    dev: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -27,7 +30,11 @@ enum Command {
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    let client = Client::connect()?;
+    let client = if cli.dev {
+        Client::connect_to(beansd_rpc::default_socket_path(true)?)?
+    } else {
+        Client::connect()?
+    };
     match cli.command {
         Command::Cd { dir } => client.cd(dir),
         Command::Ls => print_pretty(&client.ls()?),

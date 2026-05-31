@@ -1,10 +1,11 @@
 ---
 # dotfiles-spyq
 title: Wire --dev through the binaries + docs
-status: todo
+status: in-progress
 type: feature
+priority: normal
 created_at: 2026-05-30T18:31:49Z
-updated_at: 2026-05-30T18:31:49Z
+updated_at: 2026-05-31T14:25:32Z
 parent: dotfiles-z3aj
 ---
 

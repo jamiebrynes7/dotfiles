@@ -1,11 +1,11 @@
 ---
 # dotfiles-paxh
 title: 'beansd: parse --dev and thread it through run()'
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-30T18:33:16Z
-updated_at: 2026-05-30T18:33:45Z
+updated_at: 2026-05-31T14:34:48Z
 parent: dotfiles-spyq
 blocked_by:
     - dotfiles-3531
@@ -20,7 +20,7 @@ blocked_by:
 
 Depends on the socket and config tasks: `default_socket_path(dev)`, `Config::default_path(dev)`, and `resolve_beans_serve()` must already exist.
 
-- [ ] **Step 1: Add the clap parser to main.rs**
+- [x] **Step 1: Add the clap parser to main.rs**
 
 In `crates/beansd/src/main.rs`, keep the existing `mod` declarations and replace the `use`/`main` section so the file reads:
 
@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<()> {
 
 (`clap` with the `derive` feature is already a dependency of `beansd`.)
 
-- [ ] **Step 2: Give `run` the `dev` parameter and thread it**
+- [x] **Step 2: Give `run` the `dev` parameter and thread it**
 
 In `crates/beansd/src/run.rs`, change the signature on line 13:
 
@@ -57,26 +57,30 @@ Then replace the two `false` literals previously inserted:
 - line 14: `let cfg = Config::load(&Config::default_path(dev)?)?;`
 - line 37: `let uds_path = default_socket_path(dev)?;`
 
-- [ ] **Step 3: Build the workspace**
+- [x] **Step 3: Build the workspace**
 
 Run: `cargo build --workspace`
 Expected: success.
 
-- [ ] **Step 4: Smoke-test that --dev parses and is wired**
+- [x] **Step 4: Smoke-test that --dev parses and is wired** (verified: sock-dev, port=9001, beans-serve resolved from \$PATH; beansctl --dev status round-trips)
 
 Run: `cargo run -p beansd -- --help`
 Expected: help output lists `--dev`.
 
 Run: `cargo run -p beansd -- --dev` in one terminal; expect log lines showing the dev socket path (`sock-dev`) and `port=9001`. Stop it with Ctrl-C. (If `beans-serve` isn't on `$PATH`, expect the clear "beans-serve not found on $PATH" error instead — that still proves the dev config + resolution path are wired.)
 
-- [ ] **Step 5: Run the test suite**
+- [x] **Step 5: Run the test suite**
 
 Run: `cargo test -p beansd`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add crates/beansd/src/main.rs crates/beansd/src/run.rs
 git commit -m "crates beansd: parse --dev and select the dev instance (dotfiles-z3aj)"
 ```
+
+## Summary of Changes
+
+`beansd` now parses a minimal clap `Cli` with a single `--dev` flag and threads `cli.dev` into `run::run(dev)`. `run()` passes `dev` to both `Config::default_path` and `default_socket_path`, replacing the temporary `false` literals from earlier tasks. Verified at runtime: `beansd --dev` loads dev-config.toml (port 9001), binds `sock-dev`, resolves `beans-serve` from `$PATH`, and `beansctl --dev status` round-trips to it.

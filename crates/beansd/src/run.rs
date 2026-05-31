@@ -10,8 +10,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-pub async fn run() -> anyhow::Result<()> {
-    let cfg = Config::load(&Config::default_path(false)?)?;
+pub async fn run(dev: bool) -> anyhow::Result<()> {
+    let cfg = Config::load(&Config::default_path(dev)?)?;
     cfg.validate()?;
     let beans_serve = cfg.resolve_beans_serve()?;
 
@@ -35,7 +35,7 @@ pub async fn run() -> anyhow::Result<()> {
         lru_cap: cfg.lru_cap,
     });
 
-    let uds_path = default_socket_path(false)?;
+    let uds_path = default_socket_path(dev)?;
     let uds_listener = bind_uds(&uds_path)?;
     tracing::info!(path = %uds_path.display(), "UDS bound");
     let uds_task = {

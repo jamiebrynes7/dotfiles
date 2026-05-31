@@ -13,11 +13,12 @@ use tokio::sync::Mutex;
 pub async fn run() -> anyhow::Result<()> {
     let cfg = Config::load(&Config::default_path(false)?)?;
     cfg.validate()?;
+    let beans_serve = cfg.resolve_beans_serve()?;
 
     crate::logging::init(&cfg.log_level)?;
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "beansd starting");
     tracing::info!(
-        ?cfg.beans_serve_path,
+        ?beans_serve,
         port = cfg.launcher_port,
         lru_cap = cfg.lru_cap,
         "loaded config"
@@ -25,7 +26,7 @@ pub async fn run() -> anyhow::Result<()> {
 
     let registry = Arc::new(Mutex::new(Registry::new()));
     let spawner = BeansServeSpawner {
-        binary: cfg.beans_serve_path.clone(),
+        binary: beans_serve,
     };
     let supervisor = crate::supervisor::new(registry.clone(), spawner, HttpHealthChecker);
     let daemon = Arc::new(Daemon {

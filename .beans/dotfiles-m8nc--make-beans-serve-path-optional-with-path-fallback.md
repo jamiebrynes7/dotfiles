@@ -1,11 +1,11 @@
 ---
 # dotfiles-m8nc
 title: Make beans_serve_path optional with $PATH fallback
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-30T18:32:43Z
-updated_at: 2026-05-30T18:33:45Z
+updated_at: 2026-05-31T14:21:45Z
 parent: dotfiles-i5zy
 blocked_by:
     - dotfiles-uc8x
@@ -18,7 +18,7 @@ Make `beans_serve_path` optional. When set (prod, rendered by home-manager) use 
 - Modify: `crates/beansd/src/run.rs:27-29` (spawner uses resolved path)
 - Test: `crates/beansd/src/config.rs` (colocated test modules)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to the `mod load_tests` (it already imports `tempfile::tempdir` and `super::*`) in `crates/beansd/src/config.rs`:
 
@@ -56,12 +56,12 @@ exit 0
 }
 ```
 
-- [ ] **Step 2: Run them, expect failure**
+- [x] **Step 2: Run them, expect failure**
 
 Run: `cargo test -p beansd resolve_`
 Expected: FAILS to compile — `beans_serve_path` is not `Option`, `resolve_beans_serve` does not exist.
 
-- [ ] **Step 3: Make the field optional**
+- [x] **Step 3: Make the field optional**
 
 In `crates/beansd/src/config.rs`, change the struct field from:
 
@@ -82,7 +82,7 @@ to:
 
 (Serde treats an `Option` field as optional automatically, so a missing key now yields `None` instead of erroring.)
 
-- [ ] **Step 4: Add `resolve_beans_serve` and route `validate` through it**
+- [x] **Step 4: Add `resolve_beans_serve` and route `validate` through it**
 
 In the `impl Config` block, add:
 
@@ -120,7 +120,7 @@ Then change `validate` to check the resolved path. Replace its first line
     }
 ```
 
-- [ ] **Step 5: Update existing tests for the `Option` field**
+- [x] **Step 5: Update existing tests for the `Option` field**
 
 In `crates/beansd/src/config.rs`, fix the now-broken assertions/literals:
 
@@ -140,7 +140,7 @@ In `crates/beansd/src/config.rs`, fix the now-broken assertions/literals:
   ```
 - In every `Config { .. }` literal in `mod load_tests` (`validate_passes_for_executable`, `validate_fails_for_missing_file`, `validate_fails_for_non_executable`), wrap the path: `beans_serve_path: Some(bin)` / `Some(PathBuf::from("/no/such/binary"))` / `Some(f)`.
 
-- [ ] **Step 6: Use the resolved path when building the spawner**
+- [x] **Step 6: Use the resolved path when building the spawner**
 
 In `crates/beansd/src/run.rs`, change lines 27-29 from:
 
@@ -158,14 +158,20 @@ to:
     };
 ```
 
-- [ ] **Step 7: Run the config tests, expect pass**
+- [x] **Step 7: Run the config tests, expect pass**
 
 Run: `cargo test -p beansd`
 Expected: PASS (new `resolve_*` tests and all updated existing tests).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add crates/beansd/src/config.rs crates/beansd/src/run.rs
 git commit -m "crates beansd: resolve beans_serve_path from \$PATH when omitted (dotfiles-z3aj)"
 ```
+
+## Summary of Changes
+
+`Config::beans_serve_path` is now `Option<PathBuf>`: prod (home-manager-rendered) sets it and uses it verbatim; dev omits it. Added `resolve_beans_serve()` which returns the explicit path or falls back to the first `beans-serve` on `$PATH` via the `which` crate. `validate()` now checks the resolved path. `run.rs` resolves once, logs the resolved path, and reuses it for the spawner. Existing tests updated for the `Option` field; `missing_beans_serve_path_errors` replaced by `missing_beans_serve_path_is_none`; added two resolution tests.
+
+Review follow-ups applied: generalized the not-found error message (no longer presumes dev-config.toml); resolved the serve path once in run.rs to fix a None-in-dev log + triple-resolution; documented why the omitted-key parse test is distinct from the resolution tests.

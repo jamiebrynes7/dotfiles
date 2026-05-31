@@ -12,9 +12,10 @@ pub struct Config {
     pub heartbeat_secs: u64,
     #[serde(default = "defaults::log_level")]
     pub log_level: String,
-    /// Absolute path to the `beans-serve` binary.
-    /// Required — rendered by the home-manager module.
-    pub beans_serve_path: PathBuf,
+    /// Absolute path to the `beans-serve` binary. Set by the home-manager
+    /// module in prod; omitted in dev-config.toml, where it's resolved from
+    /// `$PATH` (see `resolve_beans_serve`).
+    pub beans_serve_path: Option<PathBuf>,
 }
 
 impl Config {
@@ -39,27 +40,30 @@ impl Config {
         toml::from_str(&raw).map_err(|e| anyhow::anyhow!("parsing {}: {e}", path.display()))
     }
 
-    /// Sanity-check the loaded config. Currently: ensure `beans_serve_path`
-    /// exists and is executable.
+    /// The explicit `beans_serve_path`, or the first `beans-serve` on `$PATH`.
+    pub fn resolve_beans_serve(&self) -> anyhow::Result<PathBuf> {
+        match &self.beans_serve_path {
+            Some(p) => Ok(p.clone()),
+            None => which::which("beans-serve").map_err(|_| {
+                anyhow::anyhow!(
+                    "beans-serve not found on $PATH; set beans_serve_path in the daemon config"
+                )
+            }),
+        }
+    }
+
+    /// Sanity-check the loaded config. Currently: ensure the resolved
+    /// `beans-serve` binary exists and is executable.
     pub fn validate(&self) -> anyhow::Result<()> {
         use std::os::unix::fs::PermissionsExt;
-        let meta = std::fs::metadata(&self.beans_serve_path).map_err(|e| {
-            anyhow::anyhow!(
-                "beans_serve_path {} unreadable: {e}",
-                self.beans_serve_path.display()
-            )
-        })?;
+        let path = self.resolve_beans_serve()?;
+        let meta = std::fs::metadata(&path)
+            .map_err(|e| anyhow::anyhow!("beans_serve_path {} unreadable: {e}", path.display()))?;
         if !meta.is_file() {
-            anyhow::bail!(
-                "beans_serve_path {} is not a file",
-                self.beans_serve_path.display()
-            );
+            anyhow::bail!("beans_serve_path {} is not a file", path.display());
         }
         if meta.permissions().mode() & 0o111 == 0 {
-            anyhow::bail!(
-                "beans_serve_path {} is not executable",
-                self.beans_serve_path.display()
-            );
+            anyhow::bail!("beans_serve_path {} is not executable", path.display());
         }
         Ok(())
     }
@@ -92,7 +96,10 @@ mod tests {
         assert_eq!(cfg.lru_cap, 8);
         assert_eq!(cfg.heartbeat_secs, 15);
         assert_eq!(cfg.log_level, "info");
-        assert_eq!(cfg.beans_serve_path, PathBuf::from("/usr/bin/beans-serve"));
+        assert_eq!(
+            cfg.beans_serve_path,
+            Some(PathBuf::from("/usr/bin/beans-serve"))
+        );
     }
 
     #[test]
@@ -109,11 +116,14 @@ beans_serve_path = "/nix/store/x/bin/beans-serve"
         assert_eq!(cfg.lru_cap, 4);
     }
 
+    // A config omitting `beans_serve_path` must parse (yielding `None`) rather
+    // than error — this is what lets dev-config.toml load and fall back to
+    // resolving `beans-serve` from $PATH.
     #[test]
-    fn missing_beans_serve_path_errors() {
+    fn missing_beans_serve_path_is_none() {
         let toml = r#"launcher_port = 9000"#;
-        let err = toml::from_str::<Config>(toml).unwrap_err();
-        assert!(err.to_string().contains("beans_serve_path"));
+        let cfg: Config = toml::from_str(toml).unwrap();
+        assert_eq!(cfg.beans_serve_path, None);
     }
 
     #[test]
@@ -160,6 +170,42 @@ mod load_tests {
     }
 
     #[test]
+    fn resolve_uses_explicit_path_when_set() {
+        let cfg = Config {
+            launcher_port: 9000,
+            lru_cap: 8,
+            heartbeat_secs: 15,
+            log_level: "info".into(),
+            beans_serve_path: Some(PathBuf::from("/explicit/beans-serve")),
+        };
+        assert_eq!(
+            cfg.resolve_beans_serve().unwrap(),
+            PathBuf::from("/explicit/beans-serve")
+        );
+    }
+
+    #[test]
+    fn resolve_finds_beans_serve_on_path() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempdir().unwrap();
+        let bin = dir.path().join("beans-serve");
+        std::fs::write(&bin, "#!/bin/sh\nexit 0\n").unwrap();
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let old = std::env::var("PATH").unwrap_or_default();
+        std::env::set_var("PATH", format!("{}:{old}", dir.path().display()));
+        let cfg = Config {
+            launcher_port: 9000,
+            lru_cap: 8,
+            heartbeat_secs: 15,
+            log_level: "info".into(),
+            beans_serve_path: None,
+        };
+        let resolved = cfg.resolve_beans_serve();
+        std::env::set_var("PATH", old); // restore before asserting
+        assert_eq!(resolved.unwrap(), bin);
+    }
+
+    #[test]
     fn validate_passes_for_executable() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempdir().unwrap();
@@ -171,7 +217,7 @@ mod load_tests {
             lru_cap: 8,
             heartbeat_secs: 15,
             log_level: "info".into(),
-            beans_serve_path: bin,
+            beans_serve_path: Some(bin),
         };
         cfg.validate().unwrap();
     }
@@ -183,7 +229,7 @@ mod load_tests {
             lru_cap: 8,
             heartbeat_secs: 15,
             log_level: "info".into(),
-            beans_serve_path: PathBuf::from("/no/such/binary"),
+            beans_serve_path: Some(PathBuf::from("/no/such/binary")),
         };
         let err = cfg.validate().unwrap_err();
         assert!(err.to_string().contains("beans_serve_path"));
@@ -202,7 +248,7 @@ mod load_tests {
             lru_cap: 8,
             heartbeat_secs: 15,
             log_level: "info".into(),
-            beans_serve_path: f,
+            beans_serve_path: Some(f),
         };
         let err = cfg.validate().unwrap_err();
         assert!(err.to_string().contains("not executable"));

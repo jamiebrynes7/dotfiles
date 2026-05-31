@@ -35,7 +35,7 @@ pub async fn run() -> anyhow::Result<()> {
         lru_cap: cfg.lru_cap,
     });
 
-    let uds_path = default_socket_path()?;
+    let uds_path = default_socket_path(false)?;
     let uds_listener = bind_uds(&uds_path)?;
     tracing::info!(path = %uds_path.display(), "UDS bound");
     let uds_task = {

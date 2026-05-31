@@ -1,10 +1,11 @@
 ---
 # dotfiles-3531
 title: 'default_socket_path: add dev flag + -dev suffix'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-30T18:32:06Z
-updated_at: 2026-05-30T18:32:06Z
+updated_at: 2026-05-31T14:25:19Z
 parent: dotfiles-vupf
 ---
 
@@ -16,7 +17,7 @@ Make the shared socket helper flavor-aware. Both binaries call this, so the dev 
 - Modify: `crates/beansd/src/run.rs:37` (caller passes `false`)
 - Test: `crates/beansd-rpc/src/socket.rs` (colocated `#[cfg(test)] mod tests`)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to the existing `mod tests` in `crates/beansd-rpc/src/socket.rs`:
 
@@ -34,12 +35,12 @@ fn default_socket_path_dev_differs_from_prod() {
 }
 ```
 
-- [ ] **Step 2: Run the test, expect a compile error**
+- [x] **Step 2: Run the test, expect a compile error**
 
 Run: `cargo test -p beansd-rpc default_socket_path_dev_differs_from_prod`
 Expected: FAILS to compile — `default_socket_path` takes no arguments yet.
 
-- [ ] **Step 3: Add the `dev` parameter and suffix logic**
+- [x] **Step 3: Add the `dev` parameter and suffix logic**
 
 Replace `default_socket_path` in `crates/beansd-rpc/src/socket.rs` with:
 
@@ -57,7 +58,7 @@ pub fn default_socket_path(dev: bool) -> anyhow::Result<PathBuf> {
 }
 ```
 
-- [ ] **Step 4: Update the two existing call sites to pass `false`**
+- [x] **Step 4: Update the two existing call sites to pass `false`**
 
 In `crates/beansd-rpc/src/client.rs:19`, inside `connect()`:
 
@@ -71,19 +72,23 @@ In `crates/beansd/src/run.rs:37`:
 let uds_path = default_socket_path(false)?;
 ```
 
-- [ ] **Step 5: Run the test, expect pass**
+- [x] **Step 5: Run the test, expect pass**
 
 Run: `cargo test -p beansd-rpc default_socket_path_dev_differs_from_prod`
 Expected: PASS.
 
-- [ ] **Step 6: Build the workspace to confirm call sites compile**
+- [x] **Step 6: Build the workspace to confirm call sites compile**
 
 Run: `cargo build --workspace`
 Expected: success, no errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add crates/beansd-rpc/src/socket.rs crates/beansd-rpc/src/client.rs crates/beansd/src/run.rs
 git commit -m "crates beansd-rpc: add dev flag to default_socket_path (dotfiles-z3aj)"
 ```
+
+## Summary of Changes
+
+`default_socket_path` now takes `dev: bool` and appends a `-dev` flavor to the socket file name (macOS `sock` → `sock-dev`; Linux `beans-daemon.sock` → `beans-daemon-dev.sock`). `bind_uds` is unchanged. Both existing callers (`client.rs::connect` and `beansd::run`) pass `false` for now. A colocated test locks the dev/prod contract.

@@ -3,13 +3,19 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tokio::net::UnixListener;
 
-pub fn default_socket_path() -> anyhow::Result<PathBuf> {
+pub fn default_socket_path(dev: bool) -> anyhow::Result<PathBuf> {
     if cfg!(target_os = "macos") {
         let home = std::env::var("HOME").context("HOME unset")?;
-        Ok(PathBuf::from(home).join("Library/Caches/beans-daemon/sock"))
+        let name = if dev { "sock-dev" } else { "sock" };
+        Ok(PathBuf::from(home).join(format!("Library/Caches/beans-daemon/{name}")))
     } else {
         let xdg = std::env::var("XDG_RUNTIME_DIR").context("XDG_RUNTIME_DIR unset")?;
-        Ok(PathBuf::from(xdg).join("beans-daemon.sock"))
+        let name = if dev {
+            "beans-daemon-dev.sock"
+        } else {
+            "beans-daemon.sock"
+        };
+        Ok(PathBuf::from(xdg).join(name))
     }
 }
 
@@ -33,6 +39,18 @@ pub fn bind_uds(path: &Path) -> anyhow::Result<UnixListener> {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[test]
+    fn default_socket_path_dev_differs_from_prod() {
+        // Set both vars so the call succeeds regardless of target_os.
+        std::env::set_var("HOME", "/tmp/h");
+        std::env::set_var("XDG_RUNTIME_DIR", "/tmp/r");
+        let prod = default_socket_path(false).unwrap();
+        let dev = default_socket_path(true).unwrap();
+        assert_ne!(prod, dev);
+        assert!(dev.file_name().unwrap().to_str().unwrap().contains("dev"));
+        assert!(!prod.file_name().unwrap().to_str().unwrap().contains("dev"));
+    }
 
     #[tokio::test]
     async fn bind_uds_creates_socket_with_0600() {

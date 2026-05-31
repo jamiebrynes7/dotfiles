@@ -16,7 +16,7 @@ impl Client {
     /// Probe the daemon at the default socket path. Returns Err if the
     /// daemon isn't reachable.
     pub fn connect() -> anyhow::Result<Self> {
-        let path = default_socket_path()?;
+        let path = default_socket_path(false)?;
         Self::connect_to(path)
     }
 

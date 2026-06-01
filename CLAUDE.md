@@ -94,4 +94,4 @@ Subject format is `<area>: <imperative summary>`. The area names the part of the
 
 ## Boundaries
 
-`home/programs/claude-code/CLAUDE.md` is deployed as the **global** `~/.claude/CLAUDE.md` via home-manager. Edits there affect every project, not just this repo. Repo-specific guidance belongs in this file instead.
+`home/lib/ai/global-instructions.md` is deployed verbatim as the **global** agent instructions to `~/.claude/CLAUDE.md` (via the claude-code module) and `~/.codex/AGENTS.md` (via the codex module). Cursor is not wired up to it. Edits there affect every project for those assistants, not just this repo. Keep it assistant-agnostic; repo-specific guidance belongs in this file instead.

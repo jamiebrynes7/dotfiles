@@ -148,7 +148,7 @@ in {
     }];
 
     home.file = {
-      ".claude/CLAUDE.md".source = ./CLAUDE.md;
+      ".claude/CLAUDE.md".source = ../../lib/ai/global-instructions.md;
       ".claude/settings.json".source = settingsJson;
     } // skills.files;
 

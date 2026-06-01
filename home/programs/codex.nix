@@ -34,6 +34,10 @@ in {
     # Linux only, `bubblewrap` for sandboxing. Neither is added here — codex
     # relies on those being on PATH (the base profile already provides ripgrep).
     home.packages = [ pkgs.dotfiles.codex ];
-    home.file = skills.files;
+
+    # Shared global agent instructions (also deployed to ~/.claude/CLAUDE.md).
+    home.file = skills.files // {
+      ".codex/AGENTS.md".source = ../lib/ai/global-instructions.md;
+    };
   };
 }

@@ -11,6 +11,8 @@ Provide shared skills that work across AI assistants. A single markdown file can
 ## Structure
 
 ```
+global-instructions.md  # Assistant-agnostic global instructions, deployed verbatim to
+                         # ~/.claude/CLAUDE.md (claude-code) and ~/.codex/AGENTS.md (codex)
 skills/            # Skill subdirectories, each containing SKILL.md + optional supporting files
   default.nix      # mkSkillFiles { variant, targetDir, skillsDirs } -> { files, conflicts }
 tools/

@@ -1,7 +1,7 @@
 # The pinned beans frontend lockfile was authored under pnpm 9; pnpm 10's
 # fetcher (26.05 default) produces a deps store its own build step can't
 # consume offline. Pin both fetch and build to pnpm_9 so they agree.
-{ lib, stdenv, buildGoModule, fetchFromGitHub, pnpm_9, nodejs_22 }:
+{ lib, stdenv, buildGoModule, fetchFromGitHub, pnpm_9, nodejs }:
 
 let
   data = builtins.fromJSON (builtins.readFile ./data.json);
@@ -32,10 +32,7 @@ let
     version = data.version;
     src = "${src}/frontend";
 
-    # nodejs_22, not the 26.05 default (24.15.0): Node 24 aborts at event-loop
-    # teardown under the build sandbox on darwin (libuv kqueue EINTR assertion),
-    # after the site is already written. Node 22 builds cleanly.
-    nativeBuildInputs = [ pnpm_9 nodejs_22 pnpm_9.configHook ];
+    nativeBuildInputs = [ pnpm_9 nodejs pnpm_9.configHook ];
 
     inherit pnpmDeps;
 

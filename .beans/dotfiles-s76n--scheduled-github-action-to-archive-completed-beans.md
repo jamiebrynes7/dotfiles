@@ -1,10 +1,11 @@
 ---
 # dotfiles-s76n
 title: Scheduled GitHub Action to archive completed beans
-status: todo
+status: in-progress
 type: feature
+priority: normal
 created_at: 2026-05-31T19:21:06Z
-updated_at: 2026-05-31T19:21:06Z
+updated_at: 2026-06-01T16:54:49Z
 ---
 
 Add a scheduled GitHub Actions workflow that periodically archives completed (and scrapped) beans by running `beans archive`, then commits and pushes the resulting changes.
@@ -15,12 +16,12 @@ Completed and scrapped beans accumulate in the working set over time. The `beans
 
 ## Todo
 
-- [ ] Decide on a schedule (e.g. daily/weekly cron) and whether to also allow manual `workflow_dispatch` triggering
-- [ ] Add a GitHub Actions workflow that installs/provides the `beans` CLI in CI
-- [ ] Run `beans archive` in the workflow
-- [ ] Commit and push any resulting changes (archived bean files) back to the repo, with an appropriate commit message and author
-- [ ] Handle the no-op case (no beans to archive) so the workflow doesn't fail or create empty commits
-- [ ] Ensure the workflow has the permissions needed to push to the repo
+- [x] Decide on a schedule (e.g. daily/weekly cron) and whether to also allow manual `workflow_dispatch` triggering
+- [x] Add a GitHub Actions workflow that installs/provides the `beans` CLI in CI
+- [x] Run `beans archive` in the workflow
+- [x] Commit and push any resulting changes (archived bean files) back to the repo, with an appropriate commit message and author
+- [x] Handle the no-op case (no beans to archive) so the workflow doesn't fail or create empty commits
+- [x] Ensure the workflow has the permissions needed to push to the repo
 
 ## Open Questions
 

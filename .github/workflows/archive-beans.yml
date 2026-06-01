@@ -1,0 +1,66 @@
+name: Archive completed beans
+
+on:
+  schedule:
+    - cron: "0 5 * * 1" # Run every Monday at 5 AM UTC
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  archive-beans:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.POPPET_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.POPPET_BOT_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v21
+
+      - name: Archive completed beans
+        run: nix run .#beans -- archive
+
+      - name: Check for changes
+        id: check
+        run: |
+          # beans archive *moves* files (deletes from .beans/, creates new
+          # files under .beans/archive/), so the new files are untracked.
+          # git diff --quiet ignores untracked files; use status --porcelain.
+          if [ -z "$(git status --porcelain -- .beans)" ]; then
+            echo "archive_needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "archive_needed=true" >> "$GITHUB_OUTPUT"
+            echo "timestamp=$(date -u +%Y-%m-%dT%H-%M-%SZ)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.check.outputs.archive_needed == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: "beans: archive completed beans"
+          title: "beans: archive completed beans"
+          body: |
+            Moves completed and scrapped beans into `.beans/archive/` via `beans archive`.
+          branch: archive-beans-${{ steps.check.outputs.timestamp }}
+          delete-branch: true
+
+      - name: Merge Pull Request
+        if: steps.check.outputs.archive_needed == 'true' && steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --rebase --delete-branch

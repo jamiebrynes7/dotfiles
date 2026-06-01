@@ -5,7 +5,7 @@ status: completed
 type: task
 priority: normal
 created_at: 2026-06-01T16:36:29Z
-updated_at: 2026-06-01T20:32:08Z
+updated_at: 2026-06-01T21:10:54Z
 ---
 
 Bump the flake's stable channel inputs from 25.11 to 26.05 once 26.05 is released.
@@ -36,3 +36,17 @@ Bumped the flake's four stable-channel inputs from 25.11 to 26.05:
 Ran `nix flake update` to regenerate `flake.lock` (overlay/tool inputs — alacritty-themes, rust-overlay, claude-code, sprites-cli — follow nixpkgs and updated automatically). `nix flake check` passes (builds + Rust workspace tests, no eval warnings).
 
 Reviewed the 26.05 release notes for breaking changes; none are actionable for this repo: `programs.zsh.dotDir` is already pinned to `~/.config/zsh` and `programs.neovim.withPython3/withRuby` are already set to `false`, so the changed defaults are no-ops here. The repo targets aarch64-darwin/x86_64-linux, so the x86_64-darwin deprecation does not apply.
+
+## Follow-up: beans-frontend build fallout
+
+The bump's newer pnpm (10.33.4) and node (24.15.0) broke the vendored
+`packages/beans` frontend build. Fixed in a follow-up commit:
+
+- Pinned fetch + build to `pnpm_9` (the upstream lockfile is pnpm 9; pnpm 10's
+  fetchDeps produced a store its own offline build couldn't consume), plus the
+  `packages: []` workspace patch pnpm 9 requires.
+- Pinned the frontend build to `nodejs_22`; node 24 aborts at libuv kqueue
+  teardown on this darwin host (macOS 14.4.1) — a known macOS-version-sensitive
+  libuv assertion, likely resolvable by a macOS upgrade.
+
+Verified locally (`nix build .#beans`, `nix flake check`) and on CI (linux green).

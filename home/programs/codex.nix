@@ -7,6 +7,9 @@ let
     variant = "codex";
     targetDir = ".codex/skills";
     skillsDirs = cfg.skillsDirs;
+    # Codex follows symlinked skill directories but ignores symlinked SKILL.md
+    # files, so symlink the directory itself rather than recreating the tree.
+    recursive = false;
   };
 in {
   options.dotfiles.programs.codex = {

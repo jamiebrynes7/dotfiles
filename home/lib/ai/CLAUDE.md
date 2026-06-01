@@ -14,14 +14,14 @@ Provide shared skills that work across AI assistants. A single markdown file can
 global-instructions.md  # Assistant-agnostic global instructions, deployed verbatim to
                          # ~/.claude/CLAUDE.md (claude-code) and ~/.codex/AGENTS.md (codex)
 skills/            # Skill subdirectories, each containing SKILL.md + optional supporting files
-  default.nix      # mkSkillFiles { variant, targetDir, skillsDirs } -> { files, conflicts }
+  default.nix      # mkSkillFiles { variant, targetDir, skillsDirs, recursive ? true } -> { files, conflicts }
 tools/
   process-frontmatter/  # Python script: filters YAML frontmatter by variant
 ```
 
 ## Contracts
 
-- `mkSkillFiles` accepts `{ variant, targetDir, skillsDirs }` where `skillsDirs` is a list of paths. The built-in skills directory is exported as `builtinSkillsDir` and must be included by consumers.
+- `mkSkillFiles` accepts `{ variant, targetDir, skillsDirs, recursive ? true }` where `skillsDirs` is a list of paths. The built-in skills directory is exported as `builtinSkillsDir` and must be included by consumers. `recursive` controls the `home.file` install shape: the default `true` recreates the directory tree with symlinked files; `false` symlinks the skill directory itself. Codex requires `recursive = false` because it ignores symlinked `SKILL.md` files but follows symlinked skill directories.
 - Returns `{ files, conflicts }` where `files` is an attrset for `home.file` and `conflicts` is a list of colliding names (detected across all provided directories).
 - Consumers (e.g. `home/programs/claude-code/default.nix`, `home/programs/cursor/default.nix`, `home/programs/codex.nix`) use NixOS assertions to fail evaluation when conflicts are non-empty. Codex reads skills from `~/.codex/skills/<name>/SKILL.md` (its native skills directory), so its consumer uses `variant = "codex"` and `targetDir = ".codex/skills"`.
 

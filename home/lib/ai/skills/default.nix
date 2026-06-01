@@ -21,12 +21,16 @@ in {
   #   variant: Target variant ("cc", "cursor", or "codex") for frontmatter filtering
   #   targetDir: Target directory relative to home (e.g., ".claude/skills")
   #   skillsDirs: List of paths to skill directories
+  #   recursive: When true (default), home.file recreates the directory tree with
+  #     symlinked files inside a real directory. When false, the skill directory
+  #     itself is symlinked. Codex requires the latter: it follows symlinked skill
+  #     directories but ignores symlinked SKILL.md files.
   #
   # Returns: {
   #   files: Attribute set suitable for home.file
   #   conflicts: List of conflicting skill names (for assertions)
   # }
-  mkSkillFiles = { variant, targetDir, skillsDirs }:
+  mkSkillFiles = { variant, targetDir, skillsDirs, recursive ? true }:
     let
       merged = builtins.foldl' (acc: dir:
         let
@@ -43,7 +47,10 @@ in {
         } skillsDirs;
 
       # Process a single skill directory: copy all files, then overwrite SKILL.md
-      # with the variant-filtered version.
+      # with the variant-filtered version. The output is a real directory holding
+      # real files (not symlinks) — load-bearing for the codex `recursive = false`
+      # case, where the directory itself is symlinked but SKILL.md must stay a real
+      # file (codex ignores symlinked SKILL.md files).
       processSkill = name: path:
         pkgs.runCommand "skill-${variant}-${name}" { } ''
           mkdir -p $out
@@ -55,7 +62,7 @@ in {
       skillFiles = lib.mapAttrs' (name: path:
         lib.nameValuePair "${targetDir}/${name}" {
           source = processSkill name path;
-          recursive = true;
+          inherit recursive;
         }) merged.skills;
     in {
       files = skillFiles;

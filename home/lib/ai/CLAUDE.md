@@ -1,12 +1,12 @@
 # AI Assistant Library
 
-Single source of truth for AI assistant skills, deployed via home-manager to both Claude Code and Cursor.
+Single source of truth for AI assistant skills, deployed via home-manager to Claude Code, Cursor, and Codex.
 
-Freshness: 2026-03-20
+Freshness: 2026-06-01
 
 ## Purpose
 
-Provide shared skills that work across AI assistants. A single markdown file can carry variant-specific YAML frontmatter keys (prefixed `cc:` or `cursor:`), and `process-frontmatter` strips the irrelevant ones at build time.
+Provide shared skills that work across AI assistants. A single markdown file can carry variant-specific YAML frontmatter keys (prefixed `cc:`, `cursor:`, or `codex:`), and `process-frontmatter` strips the irrelevant ones at build time.
 
 ## Structure
 
@@ -21,7 +21,7 @@ tools/
 
 - `mkSkillFiles` accepts `{ variant, targetDir, skillsDirs }` where `skillsDirs` is a list of paths. The built-in skills directory is exported as `builtinSkillsDir` and must be included by consumers.
 - Returns `{ files, conflicts }` where `files` is an attrset for `home.file` and `conflicts` is a list of colliding names (detected across all provided directories).
-- Consumers (e.g. `home/programs/claude-code/default.nix`, `home/programs/cursor/default.nix`) use NixOS assertions to fail evaluation when conflicts are non-empty.
+- Consumers (e.g. `home/programs/claude-code/default.nix`, `home/programs/cursor/default.nix`, `home/programs/codex.nix`) use NixOS assertions to fail evaluation when conflicts are non-empty. Codex reads skills from `~/.codex/skills/<name>/SKILL.md` (its native skills directory), so its consumer uses `variant = "codex"` and `targetDir = ".codex/skills"`.
 
 ## Key Decisions
 

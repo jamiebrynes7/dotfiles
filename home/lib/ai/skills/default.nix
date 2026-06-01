@@ -18,7 +18,7 @@ in {
   # Build skill files for home.file, checking for conflicts.
   #
   # Arguments:
-  #   variant: Target variant ("cc" or "cursor") for frontmatter filtering
+  #   variant: Target variant ("cc", "cursor", or "codex") for frontmatter filtering
   #   targetDir: Target directory relative to home (e.g., ".claude/skills")
   #   skillsDirs: List of paths to skill directories
   #

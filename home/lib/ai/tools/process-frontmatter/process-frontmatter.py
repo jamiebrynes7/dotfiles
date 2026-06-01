@@ -5,6 +5,7 @@ Filters frontmatter keys based on variant prefix:
 - Unprefixed keys are kept for all variants
 - 'cc:key' is only kept for 'cc' variant (prefix stripped)
 - 'cursor:key' is only kept for 'cursor' variant (prefix stripped)
+- 'codex:key' is only kept for 'codex' variant (prefix stripped)
 """
 
 import sys
@@ -12,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-KNOWN_VARIANTS = {"cc", "cursor"}
+KNOWN_VARIANTS = {"cc", "cursor", "codex"}
 
 
 def parse_frontmatter(content: str) -> tuple[dict | None, str]:

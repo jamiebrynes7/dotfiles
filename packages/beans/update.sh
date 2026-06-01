@@ -57,10 +57,13 @@ fi
 echo "Vendor hash: $VENDOR_HASH"
 
 echo "Computing pnpm deps hash..."
+# Must mirror packages/beans/default.nix: pnpm_9 (the lockfile is pnpm 9) and
+# the `packages: []` workspace patch (pnpm 9 rejects the upstream
+# pnpm-workspace.yaml otherwise). Keep these in sync or the hash will be stale.
 PNPM_DEPS_HASH=$(
   nix-build --no-out-link -I "nixpkgs=$NIXPKGS" -E "
     with import <nixpkgs> {};
-    fetchPnpmDeps {
+    pnpm_9.fetchDeps {
       pname = \"beans-frontend\";
       version = \"$VERSION\";
       src = \"\${fetchFromGitHub {
@@ -71,6 +74,7 @@ PNPM_DEPS_HASH=$(
       }}/frontend\";
       hash = \"\";
       fetcherVersion = 3;
+      postPatch = \"echo 'packages: []' >> pnpm-workspace.yaml\";
     }
   " 2>&1 | grep -oP 'got:\s+\K\S+' || true
 )

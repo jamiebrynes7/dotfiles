@@ -1,4 +1,7 @@
-{ lib, stdenv, buildGoModule, fetchFromGitHub, fetchPnpmDeps, pnpm_10, nodejs, pnpmConfigHook }:
+# The pinned beans frontend lockfile was authored under pnpm 9; pnpm 10's
+# fetcher (26.05 default) produces a deps store its own build step can't
+# consume offline. Pin both fetch and build to pnpm_9 so they agree.
+{ lib, stdenv, buildGoModule, fetchFromGitHub, pnpm_9, nodejs_22 }:
 
 let
   data = builtins.fromJSON (builtins.readFile ./data.json);
@@ -10,12 +13,18 @@ let
     hash = data.hash;
   };
 
-  pnpmDeps = fetchPnpmDeps {
+  # pnpm 9 rejects a pnpm-workspace.yaml without a `packages` field; the
+  # upstream file only sets onlyBuiltDependencies. Add an empty packages list
+  # here too so the fetch and the build (below) see the same workspace config.
+  pnpmDeps = pnpm_9.fetchDeps {
     pname = "beans-frontend";
     version = data.version;
     src = "${src}/frontend";
     hash = data.pnpmDepsHash;
     fetcherVersion = 3;
+    postPatch = ''
+      echo 'packages: []' >> pnpm-workspace.yaml
+    '';
   };
 
   frontend = stdenv.mkDerivation {
@@ -23,7 +32,10 @@ let
     version = data.version;
     src = "${src}/frontend";
 
-    nativeBuildInputs = [ pnpm_10 nodejs pnpmConfigHook ];
+    # nodejs_22, not the 26.05 default (24.15.0): Node 24 aborts at event-loop
+    # teardown under the build sandbox on darwin (libuv kqueue EINTR assertion),
+    # after the site is already written. Node 22 builds cleanly.
+    nativeBuildInputs = [ pnpm_9 nodejs_22 pnpm_9.configHook ];
 
     inherit pnpmDeps;
 

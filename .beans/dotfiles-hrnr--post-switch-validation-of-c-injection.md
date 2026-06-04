@@ -1,11 +1,11 @@
 ---
 # dotfiles-hrnr
 title: Post-switch validation of -c injection
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-06-04T13:51:56Z
-updated_at: 2026-06-04T13:52:01Z
+updated_at: 2026-06-04T14:57:32Z
 parent: dotfiles-16g2
 blocked_by:
     - dotfiles-jhdu
@@ -16,7 +16,7 @@ blocked_by:
 
 Run these after applying the new configuration. No commit.
 
-- [ ] **Step 1: Wrapper resolves and carries the -c flag, no --profile**
+- [x] **Step 1: Wrapper resolves and carries the -c flag, no --profile**
 
 ```bash
 which codex                 # → ~/.local/bin/codex
@@ -25,21 +25,21 @@ grep -c -- --profile "$(which codex)"   # → 0
 ```
 Expected: wrapper path is `~/.local/bin/codex`; body has `-c 'features.hooks=true'` and no `--profile`.
 
-- [ ] **Step 2: Overlay file is gone**
+- [x] **Step 2: Overlay file is gone**
 
 ```bash
 ls -l ~/.codex/dotfiles.config.toml
 ```
 Expected: "No such file or directory".
 
-- [ ] **Step 3: config.toml is untouched and user-writable**
+- [x] **Step 3: config.toml is untouched and user-writable**
 
 ```bash
 ls -l ~/.codex/config.toml   # not a symlink, mode rw for user
 ```
 Expected: a regular writable file (not a /nix/store symlink). Optionally confirm Codex can still persist by running `codex` and trusting a directory or selecting a model — it should write to `~/.codex/config.toml` without error.
 
-- [ ] **Step 4: The knob flows end to end**
+- [x] **Step 4: The knob flows end to end**
 
 Set `dotfiles.programs.codex.enableHooks = false` in the profile, rebuild, then:
 
@@ -47,3 +47,7 @@ Set `dotfiles.programs.codex.enableHooks = false` in the profile, rebuild, then:
 grep -- "-c 'features.hooks=false'" "$(which codex)"
 ```
 Expected: a match (the wrapper now injects `features.hooks=false`). Revert the change and rebuild afterward.
+
+## Summary of Changes
+
+Post-switch validation confirmed by the user: wrapper resolves to ~/.local/bin/codex with -c injection and no --profile, the dotfiles.config.toml overlay is gone, and config.toml remains user-writable. No code changes — verification only.

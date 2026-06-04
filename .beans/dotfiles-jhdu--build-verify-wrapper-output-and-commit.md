@@ -1,11 +1,11 @@
 ---
 # dotfiles-jhdu
 title: Build, verify wrapper output, and commit
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-06-04T13:51:47Z
-updated_at: 2026-06-04T13:55:01Z
+updated_at: 2026-06-04T14:12:18Z
 parent: dotfiles-16g2
 blocked_by:
     - dotfiles-js9n
@@ -48,3 +48,7 @@ MSG
 ```
 
 Also `git add` the bean files created/modified for this work alongside the commit.
+
+## Summary of Changes
+
+Folded into the `dotfiles-js9n` implementation commit (57f4bba). `nix flake check` passed there, no `--profile`/`codexConfig` references remain, and the code + bean were committed together. No separate work needed.

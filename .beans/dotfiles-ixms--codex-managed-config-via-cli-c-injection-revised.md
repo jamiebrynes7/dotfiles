@@ -1,11 +1,11 @@
 ---
 # dotfiles-ixms
 title: Codex managed config via CLI -c injection (revised)
-status: todo
+status: completed
 type: epic
 priority: normal
 created_at: 2026-06-04T13:51:14Z
-updated_at: 2026-06-04T13:55:01Z
+updated_at: 2026-06-04T14:57:32Z
 ---
 
 **Goal:** Manage selected Codex settings declaratively from Nix by injecting `-c key=value` overrides from the `~/.local/bin/codex` wrapper, replacing the broken `--profile` overlay approach.
@@ -17,3 +17,7 @@ updated_at: 2026-06-04T13:55:01Z
 **Spec:** docs/specs/2026-06-04-codex-config-c-injection.md
 
 Supersedes the broken `--profile` overlay approach from completed epic dotfiles-ywp9.
+
+## Summary of Changes
+
+Shipped the `-c` injection vehicle for Codex managed config in 57f4bba, replacing the broken `--profile` overlay. `features.hooks` flows end to end via wrapper-injected `-c 'features.hooks=<bool>'`; config.toml stays fully Codex-owned. Spec: docs/specs/2026-06-04-codex-config-c-injection.md.

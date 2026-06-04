@@ -2,7 +2,7 @@
 with lib;
 let
   cfg = config.dotfiles.programs.codex;
-  aiSkills = import ../lib/ai/skills { inherit lib pkgs; };
+  aiSkills = import ../../lib/ai/skills { inherit lib pkgs; };
   skills = aiSkills.mkSkillFiles {
     variant = "codex";
     targetDir = ".codex/skills";
@@ -49,7 +49,7 @@ in {
     # Shared global agent instructions (also deployed to ~/.claude/CLAUDE.md) and
     # the Nix-managed profile overlay codex always loads via --profile dotfiles.
     home.file = skills.files // {
-      ".codex/AGENTS.md".source = ../lib/ai/global-instructions.md;
+      ".codex/AGENTS.md".source = ../../lib/ai/global-instructions.md;
       ".codex/dotfiles.config.toml".source = codexConfig;
     };
 

@@ -29,7 +29,7 @@ let
     skillOverrides = cfg.skillOverrides;
   }));
 in {
-  imports = [ ./hooks ./plannotator ./cship ];
+  imports = [ ./hooks ./cship ];
 
   options.dotfiles.programs.claude-code = {
     enable = mkEnableOption "Enable claude-code";

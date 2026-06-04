@@ -1,10 +1,11 @@
 ---
 # dotfiles-bvj4
 title: Top-level plannotator module
-status: todo
+status: completed
 type: feature
+priority: normal
 created_at: 2026-06-04T12:56:49Z
-updated_at: 2026-06-04T12:56:49Z
+updated_at: 2026-06-04T13:12:18Z
 parent: dotfiles-wxve
 ---
 

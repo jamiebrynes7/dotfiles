@@ -1,10 +1,11 @@
 ---
 # dotfiles-e8zz
 title: Shared extraSessionPaths option on the zsh module
-status: todo
+status: completed
 type: feature
+priority: normal
 created_at: 2026-06-04T10:10:28Z
-updated_at: 2026-06-04T10:10:28Z
+updated_at: 2026-06-04T10:29:24Z
 parent: dotfiles-ywp9
 ---
 

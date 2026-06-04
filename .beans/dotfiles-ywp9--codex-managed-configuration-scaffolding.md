@@ -1,10 +1,11 @@
 ---
 # dotfiles-ywp9
 title: Codex managed configuration scaffolding
-status: todo
+status: completed
 type: epic
+priority: normal
 created_at: 2026-06-04T10:10:22Z
-updated_at: 2026-06-04T10:10:22Z
+updated_at: 2026-06-04T10:29:24Z
 ---
 
 **Goal:** Manage selected Codex config declaratively from Nix via a profile-overlay file + wrapped binary, without clobbering the Codex-written `~/.codex/config.toml`.

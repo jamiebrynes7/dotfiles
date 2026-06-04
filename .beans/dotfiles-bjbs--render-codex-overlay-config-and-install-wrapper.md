@@ -1,11 +1,11 @@
 ---
 # dotfiles-bjbs
 title: Render codex overlay config and install wrapper
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-06-04T10:11:12Z
-updated_at: 2026-06-04T10:11:42Z
+updated_at: 2026-06-04T10:29:10Z
 parent: dotfiles-kan2
 blocked_by:
     - dotfiles-g31z
@@ -16,7 +16,7 @@ blocked_by:
 
 Context: the module uses `with lib;` and has `let cfg = config.dotfiles.programs.codex; aiSkills = ...; skills = ...; in`. Args already include `pkgs`. Today it sets `home.packages = [ pkgs.dotfiles.codex ];` and a `home.file` attrset with `.codex/AGENTS.md` plus `skills.files`. Mirror the `home/programs/claude-code/default.nix` wrapper pattern (writeShellScript + `home.activation` `install -m755` into `~/.local/bin`). Depends on the zsh `extraSessionPaths` option (sibling task) already existing.
 
-- [ ] **Step 1: Add the `hooks` option**
+- [x] **Step 1: Add the `hooks` option**
 
 Inside `options.dotfiles.programs.codex = { ... }`, after `skillsDirs`:
 
@@ -29,7 +29,7 @@ Inside `options.dotfiles.programs.codex = { ... }`, after `skillsDirs`:
     };
 ```
 
-- [ ] **Step 2: Add `let` bindings for the rendered config and wrapper**
+- [x] **Step 2: Add `let` bindings for the rendered config and wrapper**
 
 In the `let ... in` block (after `skills = ...;`):
 
@@ -42,7 +42,7 @@ In the `let ... in` block (after `skills = ...;`):
   '';
 ```
 
-- [ ] **Step 3: Deploy the overlay file and drop the direct package**
+- [x] **Step 3: Deploy the overlay file and drop the direct package**
 
 Remove these lines:
 
@@ -64,7 +64,7 @@ Add `.codex/dotfiles.config.toml` to the existing `home.file` attrset so it read
 
 (Codex is now delivered via the wrapper, whose closure references `pkgs.dotfiles.codex`, so it is still realised. ripgrep still comes from the base profile.)
 
-- [ ] **Step 4: Install the wrapper and contribute to PATH**
+- [x] **Step 4: Install the wrapper and contribute to PATH**
 
 Inside the `config = mkIf cfg.enable { ... }` block, alongside the existing `dotfiles.programs.codex.skillsDirs` line, add the PATH contribution:
 
@@ -82,17 +82,17 @@ And add the activation entry (e.g. after the `home.file` attrset):
       '';
 ```
 
-- [ ] **Step 5: Format the file**
+- [x] **Step 5: Format the file**
 
 Run: `nixfmt home/programs/codex.nix`
 Expected: no errors.
 
-- [ ] **Step 6: Build/eval the flake**
+- [x] **Step 6: Build/eval the flake**
 
 Run: `nix flake check`
 Expected: PASS.
 
-- [ ] **Step 7: Confirm the build covers the rendered config**
+- [x] **Step 7: Confirm the build covers the rendered config**
 
 `nix flake check` (Step 6) already evaluates the module and realises `codexConfig` (it is referenced by `home.file`), so a green check means the TOML rendered without error. The actual file *content* (`[features]` / `hooks = true`) and symlink-ness are verified post-switch in Step 8 — there is no host-independent way to inspect the deployed file from this repo alone.
 
@@ -124,3 +124,12 @@ Bean: dotfiles-kan2
 MSG
 )"
 ```
+
+## Summary of Changes
+
+Added `dotfiles.programs.codex.hooks` (bool, default true) and rendered `~/.codex/dotfiles.config.toml` from `pkgs.formats.toml` as `[features]
+hooks = <bool>` (verified render). Installed a `~/.local/bin/codex` wrapper (`home.activation.codexStableLink`, mirroring claude-code) that execs the store-path codex with `--profile dotfiles "$@"`, and dropped `pkgs.dotfiles.codex` from `home.packages` — the wrapper's closure still realises codex (verified against the live store). PATH wiring goes through the shared `dotfiles.programs.zsh.extraSessionPaths`.
+
+Codex only ever writes `config.toml`; the profile overlay is a read-only Nix symlink, so no clobbering. `nix flake check` passes. Subagent + user reviews passed with no required changes.
+
+Operational note (rollout): if `~/.codex/dotfiles.config.toml` already exists as a real file, remove it once before switching so home-manager can link it.

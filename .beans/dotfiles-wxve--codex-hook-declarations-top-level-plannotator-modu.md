@@ -1,10 +1,11 @@
 ---
 # dotfiles-wxve
 title: Codex hook declarations + top-level plannotator module
-status: todo
+status: completed
 type: epic
+priority: normal
 created_at: 2026-06-04T12:56:41Z
-updated_at: 2026-06-04T12:56:41Z
+updated_at: 2026-06-04T13:12:19Z
 ---
 
 **Goal:** Let the codex home module declare lifecycle hooks (rendered to ~/.codex/hooks.json) and add a plannotator plan-review option, inverted into a single top-level module shared by codex and claude-code.

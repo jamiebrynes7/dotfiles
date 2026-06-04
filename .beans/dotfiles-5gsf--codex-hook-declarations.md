@@ -1,10 +1,11 @@
 ---
 # dotfiles-5gsf
 title: Codex hook declarations
-status: todo
+status: completed
 type: feature
+priority: normal
 created_at: 2026-06-04T12:56:49Z
-updated_at: 2026-06-04T12:56:49Z
+updated_at: 2026-06-04T13:10:07Z
 parent: dotfiles-wxve
 ---
 

@@ -1,11 +1,11 @@
 ---
 # dotfiles-3eue
 title: Create top-level plannotator module and remove the claude-code one
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-06-04T12:58:09Z
-updated_at: 2026-06-04T12:58:16Z
+updated_at: 2026-06-04T13:12:18Z
 parent: dotfiles-bvj4
 blocked_by:
     - dotfiles-s98h
@@ -19,14 +19,14 @@ Invert plannotator into one shared module and delete the claude-code-specific on
 - Delete: `home/programs/claude-code/plannotator/default.nix`
 - Modify: `home/programs/claude-code/default.nix` (drop `./plannotator` from imports)
 
-- [ ] **Step 1: Move the skill directory under the new module**
+- [x] **Step 1: Move the skill directory under the new module**
 
 ```bash
 mkdir -p home/programs/plannotator
 git mv home/programs/claude-code/plannotator/skills home/programs/plannotator/skills
 ```
 
-- [ ] **Step 2: Create the top-level module**
+- [x] **Step 2: Create the top-level module**
 
 `home/programs/plannotator/default.nix`:
 
@@ -90,7 +90,7 @@ in {
 }
 ```
 
-- [ ] **Step 3: Delete the old claude-code plannotator module**
+- [x] **Step 3: Delete the old claude-code plannotator module**
 
 ```bash
 git rm home/programs/claude-code/plannotator/default.nix
@@ -98,7 +98,7 @@ git rm home/programs/claude-code/plannotator/default.nix
 
 (The directory is now empty and removed by git.)
 
-- [ ] **Step 4: Drop it from claude-code's imports**
+- [x] **Step 4: Drop it from claude-code's imports**
 
 In `home/programs/claude-code/default.nix`, change:
 
@@ -112,16 +112,16 @@ to:
   imports = [ ./hooks ./cship ];
 ```
 
-- [ ] **Step 5: Format**
+- [x] **Step 5: Format**
 
 Run: `nixfmt home/programs/plannotator/default.nix home/programs/claude-code/default.nix`
 
-- [ ] **Step 6: Validate**
+- [x] **Step 6: Validate**
 
 Run: `nix flake check`
 Expected: PASS. Nothing in-repo enables plannotator (it is enabled downstream), so both assistant toggles default off; the module just defines options. The moved skill is no longer contributed twice.
 
-- [ ] **Step 7: Commit (note the breaking migration in the body)**
+- [x] **Step 7: Commit (note the breaking migration in the body)**
 
 ```bash
 git add -A home/programs/plannotator home/programs/claude-code
@@ -139,3 +139,9 @@ enable codex via dotfiles.programs.plannotator.codex.enable. No alias provided.
 
 Bean: <this-task-id>"
 ```
+
+## Summary of Changes
+
+Inverted plannotator into a single top-level module home/programs/plannotator/default.nix exposing dotfiles.programs.plannotator.{remote,port,claude-code.enable,codex.enable}. It owns the remote/port-aware wrapper, the plannotator package, and the plannotator-user-code-review skill (moved here from claude-code), and injects the plan-review hook per enabled assistant: claude-code on PermissionRequest/ExitPlanMode, codex on Stop (timeout 345600). Removed home/programs/claude-code/plannotator/ and dropped it from claude-code imports. No stale references remain; nix flake check passes.
+
+BREAKING (downstream repos): dotfiles.programs.claude-code.plannotator.{enable,remote,port} becomes dotfiles.programs.plannotator.{claude-code.enable,remote,port}; enable codex via dotfiles.programs.plannotator.codex.enable. No alias provided.

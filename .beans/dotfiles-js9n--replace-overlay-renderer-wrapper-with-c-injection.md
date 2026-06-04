@@ -1,10 +1,11 @@
 ---
 # dotfiles-js9n
 title: Replace overlay renderer + wrapper with -c injection
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-06-04T13:51:35Z
-updated_at: 2026-06-04T13:51:35Z
+updated_at: 2026-06-04T14:06:59Z
 parent: dotfiles-16g2
 ---
 
@@ -13,7 +14,7 @@ parent: dotfiles-16g2
 
 Goal: render managed settings into `-c` flags and inject them from the wrapper; remove the `--profile` overlay file entirely. The module uses `with lib;` so `lib.`-prefixed calls also resolve unprefixed — keep the `lib.` prefix for clarity.
 
-- [ ] **Step 1: Replace the overlay renderer with the managedConfig/configArgs flattener and rewrite the wrapper**
+- [x] **Step 1: Replace the overlay renderer with the managedConfig/configArgs flattener and rewrite the wrapper**
 
 Find this block:
 
@@ -43,7 +44,7 @@ Replace it with:
   '';
 ```
 
-- [ ] **Step 2: Remove the overlay file from `home.file`**
+- [x] **Step 2: Remove the overlay file from `home.file`**
 
 Find this entry inside the `home.file = skills.files // { ... }` attrset:
 
@@ -53,7 +54,17 @@ Find this entry inside the `home.file = skills.files // { ... }` attrset:
 
 Delete that line entirely. The surrounding `".codex/AGENTS.md".source = ...;` line and the `lib.optionalAttrs (mergedHooks != { }) { ".codex/hooks.json" ... }` block stay as-is. home-manager removes the now-orphaned `~/.codex/dotfiles.config.toml` symlink automatically on the next switch.
 
-- [ ] **Step 3: Format the file**
+- [x] **Step 3: Format the file**
 
 Run: `nixfmt home/programs/codex/default.nix`
 Expected: exits 0, no diff beyond your edits.
+
+## Summary of Changes
+
+Replaced the broken `--profile dotfiles` overlay-file mechanism with wrapper-injected `-c key=value` session flags in `home/programs/codex/default.nix`:
+
+- Removed the `codexConfig` (`pkgs.formats.toml`) renderer and the `home.file.".codex/dotfiles.config.toml"` deployment.
+- Added a dotted-key `managedConfig` attrset and a `configArgs` flattener (`-c ${escapeShellArg "key=value"}`); the wrapper now execs `codex ${configArgs} "$@"` instead of `--profile dotfiles`.
+- Updated the `enableHooks` option description and two block comments that referenced the removed overlay/profile.
+
+Validated with `nix flake check` (passes). Subagent review found one stale comment (fixed); user review requested no changes.

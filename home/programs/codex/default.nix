@@ -13,11 +13,16 @@ let
   };
   hookTypes = import ./hooks/types.nix { inherit lib; };
   mergedHooks = hookTypes.mergeHooks cfg.hooks;
-  codexConfig = (pkgs.formats.toml { }).generate "codex-dotfiles.toml" {
-    features.hooks = cfg.enableHooks;
-  };
+  # Managed Codex settings, injected as session-only `-c key=value` overrides
+  # (precedence 30). Codex never persists `-c` flags, so there is no managed file
+  # for it to clobber. Dotted keys map straight to Codex config paths; bool values
+  # render as bare TOML `true`/`false`.
+  managedConfig = { "features.hooks" = lib.boolToString cfg.enableHooks; };
+  configArgs = lib.concatStringsSep " "
+    (lib.mapAttrsToList (k: v: "-c ${lib.escapeShellArg "${k}=${v}"}")
+      managedConfig);
   codexWrapper = pkgs.writeShellScript "codex-wrapper" ''
-    exec ${pkgs.dotfiles.codex}/bin/codex --profile dotfiles "$@"
+    exec ${pkgs.dotfiles.codex}/bin/codex ${configArgs} "$@"
   '';
 in {
   options.dotfiles.programs.codex = {
@@ -32,7 +37,7 @@ in {
       type = types.bool;
       default = true;
       description =
-        "Enable Codex lifecycle hooks ([features].hooks) via the dotfiles profile overlay.";
+        "Enable Codex lifecycle hooks ([features].hooks), injected as a -c session flag by the codex wrapper.";
     };
     hooks = mkOption {
       type = types.attrsOf hookTypes.hookType;
@@ -57,20 +62,20 @@ in {
     warnings = lib.optional (cfg.hooks != { } && !cfg.enableHooks)
       "codex: hooks are declared but dotfiles.programs.codex.enableHooks is false; they will never fire.";
 
-    # Shared global agent instructions (also deployed to ~/.claude/CLAUDE.md) and
-    # the Nix-managed profile overlay codex always loads via --profile dotfiles.
+    # Shared global agent instructions (also deployed to ~/.claude/CLAUDE.md).
+    # Managed settings are injected at runtime via the wrapper's `-c` flags, not a
+    # config file, so there is nothing here for codex to clobber.
     home.file = skills.files // {
       ".codex/AGENTS.md".source = ../../lib/ai/global-instructions.md;
-      ".codex/dotfiles.config.toml".source = codexConfig;
     } // lib.optionalAttrs (mergedHooks != { }) {
       ".codex/hooks.json".source = pkgs.writeText "codex-hooks.json"
         (builtins.toJSON { hooks = mergedHooks; });
     };
 
-    # Wrap codex so it always loads the dotfiles profile overlay. The wrapper
-    # references the unbundled codex by store path (it shells out to an ambient
-    # `rg`, provided by the base profile), so codex is realised without being a
-    # bare entry on PATH.
+    # Wrap codex so it always runs with the managed `-c` overrides injected. The
+    # wrapper references the unbundled codex by store path (it shells out to an
+    # ambient `rg`, provided by the base profile), so codex is realised without
+    # being a bare entry on PATH.
     home.activation.codexStableLink =
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         mkdir -p $HOME/.local/bin

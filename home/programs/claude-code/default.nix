@@ -160,10 +160,7 @@ in {
         install -m755 ${claudeWrapper} "$HOME/.local/bin/claude"
       '';
 
-    # Add to PATH
-    programs.zsh.envExtra = ''
-      export PATH="$HOME/.local/bin:$PATH"
-    '';
+    dotfiles.programs.zsh.extraSessionPaths = [ "$HOME/.local/bin" ];
 
     # Preserve config during switches
     home.activation.preserveClaudeConfig =

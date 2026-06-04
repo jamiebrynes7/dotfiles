@@ -11,6 +11,12 @@ in {
       default = null;
       description = "Path to extra zsh config to include";
     };
+    extraSessionPaths = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description =
+        "Extra entries prepended to PATH via home.sessionPath (de-duplicated).";
+    };
   };
 
   config.programs.zsh = mkIf cfg.enable {
@@ -39,4 +45,6 @@ in {
       (optionalString (cfg.extra != null) "source ${cfg.extra}")
     ];
   };
+
+  config.home.sessionPath = mkIf cfg.enable (unique cfg.extraSessionPaths);
 }

@@ -1,7 +1,10 @@
 # Codex managed configuration — scaffolding
 
 **Date:** 2026-06-04
-**Status:** approved design, ready for planning
+**Status:** superseded — the profile-overlay approach below was found to be broken
+(Codex writes runtime state to the active profile file, clobbering the read-only
+Nix symlink). Replaced by `2026-06-04-codex-config-c-injection.md`. Retained for
+context.
 
 ## Problem
 

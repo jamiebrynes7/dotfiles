@@ -1,10 +1,11 @@
 ---
 # dotfiles-rzxu
 title: Convert codex.nix into a directory module
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-06-04T12:57:05Z
-updated_at: 2026-06-04T12:57:05Z
+updated_at: 2026-06-04T13:05:05Z
 parent: dotfiles-5gsf
 ---
 
@@ -14,14 +15,14 @@ Pure refactor, no behavior change. Convert the single-file codex module into a d
 - Move: `home/programs/codex.nix` -> `home/programs/codex/default.nix`
 - Modify: `home/programs/codex/default.nix` (relative-path fixups)
 
-- [ ] **Step 1: Move the file**
+- [x] **Step 1: Move the file**
 
 ```bash
 mkdir -p home/programs/codex
 git mv home/programs/codex.nix home/programs/codex/default.nix
 ```
 
-- [ ] **Step 2: Fix the two relative paths (one dir deeper now)**
+- [x] **Step 2: Fix the two relative paths (one dir deeper now)**
 
 In `home/programs/codex/default.nix`, change the skills import:
 
@@ -37,16 +38,16 @@ In `home/programs/codex/default.nix`, change the skills import:
 
 (was `../lib/ai/global-instructions.md`). No other paths change.
 
-- [ ] **Step 3: Format**
+- [x] **Step 3: Format**
 
 Run: `nixfmt home/programs/codex/default.nix`
 
-- [ ] **Step 4: Validate the flake still evaluates and builds**
+- [x] **Step 4: Validate the flake still evaluates and builds**
 
 Run: `nix flake check`
 Expected: PASS (no behavior change; codex module evaluates from its new location).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A home/programs/codex
@@ -54,3 +55,7 @@ git commit -m "home/programs/codex: convert to directory module
 
 Bean: <this-task-id>"
 ```
+
+## Summary of Changes
+
+Moved `home/programs/codex.nix` to `home/programs/codex/default.nix` via `git mv` (no coexistence with the old file) and fixed the two now-deeper relative paths (`../lib/ai/...` -> `../../lib/ai/...`) for the skills import and the AGENTS.md source. Pure refactor; `nix flake check` passes. Plannotator user review: no changes requested.

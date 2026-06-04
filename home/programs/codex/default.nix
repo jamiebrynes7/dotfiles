@@ -11,8 +11,10 @@ let
     # files, so symlink the directory itself rather than recreating the tree.
     recursive = false;
   };
+  hookTypes = import ./hooks/types.nix { inherit lib; };
+  mergedHooks = hookTypes.mergeHooks cfg.hooks;
   codexConfig = (pkgs.formats.toml { }).generate "codex-dotfiles.toml" {
-    features.hooks = cfg.hooks;
+    features.hooks = cfg.enableHooks;
   };
   codexWrapper = pkgs.writeShellScript "codex-wrapper" ''
     exec ${pkgs.dotfiles.codex}/bin/codex --profile dotfiles "$@"
@@ -26,11 +28,17 @@ in {
       description =
         "List of paths to skill directories to symlink into ~/.codex/skills.";
     };
-    hooks = mkOption {
+    enableHooks = mkOption {
       type = types.bool;
       default = true;
       description =
         "Enable Codex lifecycle hooks ([features].hooks) via the dotfiles profile overlay.";
+    };
+    hooks = mkOption {
+      type = types.attrsOf hookTypes.hookType;
+      default = { };
+      description =
+        "Named Codex hook definitions rendered to ~/.codex/hooks.json.";
     };
   };
 
@@ -46,11 +54,17 @@ in {
         }";
     }];
 
+    warnings = lib.optional (cfg.hooks != { } && !cfg.enableHooks)
+      "codex: hooks are declared but dotfiles.programs.codex.enableHooks is false; they will never fire.";
+
     # Shared global agent instructions (also deployed to ~/.claude/CLAUDE.md) and
     # the Nix-managed profile overlay codex always loads via --profile dotfiles.
     home.file = skills.files // {
       ".codex/AGENTS.md".source = ../../lib/ai/global-instructions.md;
       ".codex/dotfiles.config.toml".source = codexConfig;
+    } // lib.optionalAttrs (mergedHooks != { }) {
+      ".codex/hooks.json".source = pkgs.writeText "codex-hooks.json"
+        (builtins.toJSON { hooks = mergedHooks; });
     };
 
     # Wrap codex so it always loads the dotfiles profile overlay. The wrapper

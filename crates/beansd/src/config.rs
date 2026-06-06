@@ -8,6 +8,9 @@ pub struct Config {
     pub launcher_port: u16,
     #[serde(default = "defaults::lru_cap")]
     pub lru_cap: usize,
+    // Parsed from config (and defaulted) but not yet wired into a heartbeat
+    // loop; kept so the knob is documented and stable ahead of its consumer.
+    #[allow(dead_code)]
     #[serde(default = "defaults::heartbeat_secs")]
     pub heartbeat_secs: u64,
     #[serde(default = "defaults::log_level")]

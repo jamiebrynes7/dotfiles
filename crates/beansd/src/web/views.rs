@@ -13,9 +13,9 @@ pub(in crate::web) fn project_views(reg: &Registry) -> Vec<ProjectView> {
     reg.iter()
         .map(|p| {
             let (state, port) = match &p.state {
-                ProjectState::Spawning { .. } => ("spawning", None),
+                ProjectState::Spawning => ("spawning", None),
                 ProjectState::Healthy { port, .. } => ("healthy", Some(*port)),
-                ProjectState::Evicting { .. } => ("evicting", None),
+                ProjectState::Evicting => ("evicting", None),
                 ProjectState::Dead { .. } => ("dead", None),
             };
             ProjectView {

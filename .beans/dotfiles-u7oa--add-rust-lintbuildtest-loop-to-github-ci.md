@@ -1,11 +1,11 @@
 ---
 # dotfiles-u7oa
 title: Add fmt/clippy/test to nix flake check via crane
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-05-24T15:18:14Z
-updated_at: 2026-05-30T17:36:01Z
+updated_at: 2026-06-06T20:20:27Z
 parent: dotfiles-ubfq
 ---
 
@@ -29,17 +29,17 @@ Wire each as `checks.<system>.{rustfmt,clippy,test}` so `nix flake check` runs t
 
 ## Todos
 
-- [ ] Add `crane` input to `flake.nix` (`inputs.crane.url = "github:ipetkov/crane"`, follow `nixpkgs`)
-- [ ] Plumb `crane` through the overlay/lib so `craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain` is available alongside the existing `rustToolchain`
-- [ ] Define a shared `src = craneLib.cleanCargoSource ./.` (or `./crates`, whichever scopes correctly) and `cargoArtifacts = craneLib.buildDepsOnly { inherit src; }`
-- [ ] Rewrite `packages/beans-daemon/default.nix` to use `craneLib.buildPackage { inherit src cargoArtifacts; }` — preserve `pname`, `version`, any runtime deps / patches
-- [ ] Add `checks.<system>.beans-daemon-fmt = craneLib.cargoFmt { inherit src; }`
-- [ ] Add `checks.<system>.beans-daemon-clippy = craneLib.cargoClippy { inherit src cargoArtifacts; cargoClippyExtraArgs = "--workspace --all-targets -- -D warnings"; }`
-- [ ] Add `checks.<system>.beans-daemon-test = craneLib.cargoNextest { inherit src cargoArtifacts; }` (fall back to `cargoTest` if nextest isn't desired)
-- [ ] Update `flake.nix:185` so `checks` merges `self.packages` with the new crane checks (don't double-build the package)
-- [ ] Verify locally: `nix flake check --print-build-logs` is green; all three new checks appear in `nix flake show`
-- [ ] Update `crates/CLAUDE.md` Commands section to note that fmt/clippy/test are now part of `nix flake check`; refresh freshness date
-- [ ] Open PR; confirm CI green
+- [x] Add `crane` input to `flake.nix` (no `nixpkgs` to follow — modern crane is nixpkgs-agnostic)
+- [x] Plumb `crane` through the overlay: `craneLib = (crane.mkLib final).overrideToolchain buildToolchain` (bare profile per d1qc coordination)
+- [x] Define shared `commonArgs` (fileset src incl. crates assets, not cleanCargoSource — askama/.html/.css/.js) + `cargoArtifacts = craneLib.buildDepsOnly commonArgs`
+- [x] Rewrite `packages/beans-daemon/default.nix` to `craneLib.buildPackage (commonArgs // {...})` — pname/version/meta preserved, `doCheck = false`
+- [x] Add `checks.<system>.beans-daemon-fmt = craneLib.cargoFmt { inherit (commonArgs) src; }`
+- [x] Add `checks.<system>.beans-daemon-clippy` (`--all-targets -- -D warnings`; `--workspace` via commonArgs.cargoExtraArgs)
+- [x] Add `checks.<system>.beans-daemon-test = craneLib.cargoNextest` (89 tests pass)
+- [x] `checks.<system>` merges `self.packages.<system>` with `dotfiles.internal.rustChecks` (package built once)
+- [x] Verified: `nix flake check` green; fmt/clippy/test all appear in `nix flake show`; closure still 51.4 MiB (libiconv only)
+- [x] Updated `crates/CLAUDE.md` (Purpose, Commands, Lints convention) + freshness 2026-06-06
+- [x] Open PR; confirm CI green
 
 ## Out of Scope
 
@@ -51,3 +51,28 @@ Wire each as `checks.<system>.{rustfmt,clippy,test}` so `nix flake check` runs t
 ## Coordination with closure slimming (dotfiles-d1qc)
 
 When wiring `craneLib.overrideToolchain`, point it at the bare `default`-profile `buildToolchain` (no `rust-src`/`rust-analyzer`), **not** the fat devShell `rustToolchain` at `flake.nix:55`. `rustfmt` and `clippy` are in the `default` profile, so the crane checks still work, and this avoids re-bloating the `beans-daemon` runtime closure. See sibling bean dotfiles-d1qc for the full rationale.
+
+## Summary of Changes
+
+Migrated `packages/beans-daemon` from `rustPlatform.buildRustPackage` to **crane**, and added the full Rust lint→build→test loop as flake checks so `nix flake check` (the single CI gate) covers everything.
+
+### flake.nix
+- Added the `crane` input (no `nixpkgs.follows` — modern crane is nixpkgs-agnostic, reads pkgs at `crane.mkLib final`).
+- `craneLib` pinned to the bare `buildToolchain` (per d1qc) so the package closure stays slim — verified still **51.4 MiB**, runtime ref = `libiconv` only.
+- Shared `commonArgs` (src + `strictDeps` + `cargoExtraArgs = "--locked --workspace"` + darwin `libiconv`) feeding one `cargoArtifacts` deps build reused by the package and all checks.
+- `src` is a full `fileset.toSource` of Cargo.{toml,lock}+crates, **not** `cleanCargoSource`: `beansd` embeds askama `.html` templates + `.css`/`.js` assets that the cargo-only filter strips (this was a real build failure).
+- New `checks.<system>`: `rust-fmt`, `rust-clippy` (`--all-targets -- -D warnings`), `rust-test` (`cargoNextest`), merged with `self.packages` (package built once). Named `rust-*` (not `beans-daemon-*`) since `--workspace` covers every crate.
+
+### packages/beans-daemon/default.nix
+- Rewritten to `craneLib.buildPackage (commonArgs // {...})`; `doCheck = false` (tests run in the dedicated `rust-test` check); pname/version/meta preserved.
+
+### Pre-existing lints fixed (exposed by the new `-D warnings` gate)
+- 5× unneeded unit-variant struct patterns (`Spawning {..}`→`Spawning`, `Evicting {..}`→`Evicting`).
+- `Server::serve` → idiomatic `async fn` (+ dropped now-unused `use std::future::Future`); still `Send + 'static` for `tokio::spawn`.
+- `#[allow(dead_code)]` + comments on the deliberate-but-unconsumed `Config.heartbeat_secs` and `ProjectState::Dead.reason`.
+- Removed the unused `MockHealthChecker::fail_first` helper and its orphaned `fail_first_n`/`calls` machinery, simplifying the mock to `!self.never_ready` (behavior-identical for existing tests).
+
+### crates/CLAUDE.md
+- Updated Purpose/Commands (the four checks, crane), Lints convention (`-D warnings`, scoped `#[allow]`), Boundaries (`--workspace` now via `commonArgs.cargoExtraArgs`); freshness → 2026-06-06.
+
+Verified: `nix flake check` green on aarch64-darwin (89 tests via nextest); x86_64-linux check derivations evaluate cleanly (CI is the first real linux build).

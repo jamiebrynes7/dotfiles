@@ -1,13 +1,14 @@
 # Rust Workspace (`crates/`)
 
-Freshness: 2026-05-31
+Freshness: 2026-06-06
 
 ## Purpose
 
 Cargo workspace housing the `beans` issue tracker referenced throughout this repo:
 a daemon, its control CLI, and a shared RPC library. Built and shipped via Nix
-(`packages/beans-daemon/default.nix`); CI runs `nix flake check`, which builds and
-tests the whole workspace.
+(`packages/beans-daemon/default.nix`, using [crane](https://github.com/ipetkov/crane));
+CI runs `nix flake check`, which formats, lints, builds, and tests the whole
+workspace (see Commands).
 
 ## Workspace Layout
 
@@ -29,8 +30,18 @@ tests the whole workspace.
 
 - `cargo build --workspace` / `cargo test --workspace` — run from repo root.
 - `cargo test -p <crate>` — single crate.
-- `nix flake check` — what CI runs (`.github/workflows/ci.yml`); builds and tests
-  the whole workspace via `packages/beans-daemon/default.nix`.
+- `nix flake check` — what CI runs (`.github/workflows/ci.yml`). Via crane, it runs
+  the full loop as separate flake checks, sharing one `cargoArtifacts` deps build:
+  - `beans-daemon` — `cargo build --workspace` (the shipped package; `doCheck = false`)
+  - `rust-fmt` — `cargo fmt --check`
+  - `rust-clippy` — `cargo clippy --workspace --all-targets -- -D warnings`
+  - `rust-test` — `cargo nextest run --workspace`
+
+  The `rust-*` checks are workspace-wide (every crate), not specific to the
+  `beans-daemon` package.
+
+  Reproduce a single gate locally with `cargo fmt --check` / `cargo clippy
+  --workspace --all-targets -- -D warnings` in the devShell.
 
 No `justfile` / `Makefile`; don't introduce one unless asked.
 
@@ -70,13 +81,15 @@ never pass `--dev`, so they're untouched.
   when shared across crates) rather than being redefined inline in each test
   file.
 - **Lints / formatting:** no `rustfmt.toml`, no `clippy.toml`, no
-  `[workspace.lints]`. Defaults only. Raise it with the user before introducing
-  one.
+  `[workspace.lints]`. Defaults only, but CI runs `clippy` with `-D warnings`
+  (all warnings, including rustc lints like `dead_code`, are hard errors). Use a
+  scoped `#[allow(...)]` with a comment for deliberate exceptions. Raise
+  introducing a config file with the user first.
 
 ## Boundaries
 
-- The Nix build (`packages/beans-daemon/default.nix`) pins
-  `cargoBuildFlags = ["--workspace"]`. Adding a new crate that shouldn't ship in
-  the package means updating that file too.
+- The Nix build (`packages/beans-daemon/default.nix`) builds the whole workspace
+  (`--workspace`, set via `commonArgs.cargoExtraArgs` in `flake.nix`). Adding a
+  new crate that shouldn't ship in the package means scoping that down.
 - Check `[workspace.dependencies]` before adding a dep to a single crate's
   `Cargo.toml` — prefer inheriting over re-pinning.

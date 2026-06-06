@@ -35,39 +35,19 @@ impl HealthChecker for HttpHealthChecker {
 #[cfg(test)]
 pub(crate) mod testing {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    /// Mock checker for tests. Configurable: always ready, never ready,
-    /// or fail the first N calls before reporting ready.
+    /// Mock checker for tests: reports either always ready or never ready.
     pub(crate) struct MockHealthChecker {
-        calls: AtomicUsize,
-        fail_first_n: usize,
         never_ready: bool,
     }
 
     impl MockHealthChecker {
         pub(crate) fn always_ready() -> Self {
-            Self {
-                calls: AtomicUsize::new(0),
-                fail_first_n: 0,
-                never_ready: false,
-            }
+            Self { never_ready: false }
         }
 
         pub(crate) fn never_ready() -> Self {
-            Self {
-                calls: AtomicUsize::new(0),
-                fail_first_n: 0,
-                never_ready: true,
-            }
-        }
-
-        pub(crate) fn fail_first(n: usize) -> Self {
-            Self {
-                calls: AtomicUsize::new(0),
-                fail_first_n: n,
-                never_ready: false,
-            }
+            Self { never_ready: true }
         }
     }
 
@@ -79,11 +59,7 @@ pub(crate) mod testing {
             _attempts: u32,
             _interval: Duration,
         ) -> bool {
-            if self.never_ready {
-                return false;
-            }
-            let n = self.calls.fetch_add(1, Ordering::SeqCst);
-            n >= self.fail_first_n
+            !self.never_ready
         }
     }
 }

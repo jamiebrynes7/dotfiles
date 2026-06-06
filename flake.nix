@@ -22,6 +22,9 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # crane is nixpkgs-agnostic (no `nixpkgs` input to follow); it reads pkgs
+    # from `crane.mkLib pkgs` at call sites.
+    crane.url = "github:ipetkov/crane";
 
     # Tools
     claude-code = {
@@ -71,20 +74,62 @@
               "rust-analyzer"
             ];
           };
-          rustPlatform = final.makeRustPlatform {
-            cargo = buildToolchain;
-            rustc = buildToolchain;
+
+          # crane, pinned to the bare `buildToolchain` (not the fat devShell
+          # `rustToolchain`) so dev-only extensions stay out of the package
+          # closure. `rustfmt` and `clippy` are in the `default` profile, so the
+          # fmt/clippy checks work without extra components.
+          craneLib = (inputs.crane.mkLib final).overrideToolchain buildToolchain;
+          # Args shared by the package build, its dependency-only artifact cache,
+          # and the clippy/test checks — so cargo deps compile once and every
+          # derivation reuses the same `cargoArtifacts`.
+          commonArgs = {
+            # Full workspace tree, not `cleanCargoSource`: `beansd` embeds
+            # non-Rust assets (askama `.html` templates compiled by the derive
+            # macro, plus `.css`/`.js` static files) that the cargo-only filter
+            # would strip. `buildDepsOnly` keys its cache off Cargo.{toml,lock}
+            # only, so including assets here doesn't churn the artifact cache.
+            src = final.lib.fileset.toSource {
+              root = ./.;
+              fileset = final.lib.fileset.unions [
+                ./Cargo.toml
+                ./Cargo.lock
+                ./crates
+              ];
+            };
+            strictDeps = true;
+            cargoExtraArgs = "--locked --workspace";
+            buildInputs = final.lib.optionals final.stdenv.isDarwin [ final.libiconv ];
           };
+          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+
           packageArgs = {
-            beans-daemon = { inherit rustPlatform; };
+            beans-daemon = { inherit craneLib commonArgs cargoArtifacts; };
           };
           packages = builtins.mapAttrs (
             name: path: final.callPackage path (packageArgs.${name} or { })
           ) packagePaths;
+
+          # Workspace-wide Rust lint/test gates surfaced as flake checks. Named
+          # `rust-*` (not `beans-daemon-*`) because `--workspace` means they
+          # cover every crate, not just the shipped package. Wired into
+          # `checks.<system>` below so `nix flake check` runs fmt → clippy → test
+          # alongside the package build, sharing `cargoArtifacts`.
+          rustChecks = {
+            rust-fmt = craneLib.cargoFmt { inherit (commonArgs) src; };
+            rust-clippy = craneLib.cargoClippy (
+              commonArgs
+              // {
+                inherit cargoArtifacts;
+                cargoClippyExtraArgs = "--all-targets -- -D warnings";
+              }
+            );
+            rust-test = craneLib.cargoNextest (commonArgs // { inherit cargoArtifacts; });
+          };
         in
         {
           dotfiles = packages // {
-            internal = { inherit rustToolchain; };
+            internal = { inherit rustToolchain rustChecks; };
           };
         };
 
@@ -266,7 +311,11 @@
           system = "x86_64-linux";
         });
       };
-      checks = self.packages;
+      checks = {
+        aarch64-darwin = self.packages.aarch64-darwin // (nixDarwinPkgs { }).dotfiles.internal.rustChecks;
+        x86_64-linux =
+          self.packages.x86_64-linux // (nixOsPkgs { system = "x86_64-linux"; }).dotfiles.internal.rustChecks;
+      };
       templates = {
         "system/darwin" = {
           path = ./templates/systems/darwin;

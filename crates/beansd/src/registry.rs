@@ -41,6 +41,9 @@ pub enum ProjectState {
     },
     Evicting,
     Dead {
+        // Captured when a project dies for diagnostics; not yet surfaced via
+        // the RPC/web views, so allow it to sit unread for now.
+        #[allow(dead_code)]
         reason: String,
     },
 }

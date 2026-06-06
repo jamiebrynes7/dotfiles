@@ -57,9 +57,9 @@ impl Handler for Daemon {
             .iter()
             .map(|p| {
                 let (state, port) = match &p.state {
-                    ProjectState::Spawning { .. } => (RpcState::Spawning, None),
+                    ProjectState::Spawning => (RpcState::Spawning, None),
                     ProjectState::Healthy { port, .. } => (RpcState::Healthy, Some(*port)),
-                    ProjectState::Evicting { .. } => (RpcState::Evicting, None),
+                    ProjectState::Evicting => (RpcState::Evicting, None),
                     ProjectState::Dead { .. } => (RpcState::Dead, None),
                 };
                 ProjectSummary {
@@ -76,7 +76,7 @@ impl Handler for Daemon {
     async fn start(&self, key: PathBuf) -> anyhow::Result<StartResponse> {
         let mut reg = self.registry.lock().await;
         match reg.get(&key).map(|p| &p.state) {
-            Some(ProjectState::Healthy { .. } | ProjectState::Spawning { .. }) => {
+            Some(ProjectState::Healthy { .. } | ProjectState::Spawning) => {
                 return Ok(StartResponse::AlreadyActive);
             }
             Some(_) => {

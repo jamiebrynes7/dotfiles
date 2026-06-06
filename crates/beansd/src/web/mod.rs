@@ -1,7 +1,6 @@
 use crate::daemon::Daemon;
 use crate::registry::Registry;
 use axum::Router;
-use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -47,7 +46,7 @@ impl Server {
             .expect("bound listener has a local address")
     }
 
-    pub fn serve(self) -> impl Future<Output = std::io::Result<()>> + Send + 'static {
-        async move { axum::serve(self.listener, self.router).await }
+    pub async fn serve(self) -> std::io::Result<()> {
+        axum::serve(self.listener, self.router).await
     }
 }

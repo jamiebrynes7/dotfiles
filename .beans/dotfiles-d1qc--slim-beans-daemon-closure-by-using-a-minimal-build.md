@@ -1,10 +1,11 @@
 ---
 # dotfiles-d1qc
 title: Slim beans-daemon closure by using a minimal build toolchain
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-05-30T17:35:50Z
-updated_at: 2026-05-30T17:35:50Z
+updated_at: 2026-06-06T19:50:00Z
 parent: dotfiles-ubfq
 ---
 
@@ -41,12 +42,29 @@ This shrinks the retained closure (drops rust-docs ~634MB, rust-analyzer ~38MB, 
 
 ## Todos
 
-- [ ] Add a `buildToolchain` (bare `default` profile) in the overlay at `flake.nix:55`; derive the devShell `rustToolchain` from it via `.override` with the `rust-src`/`rust-analyzer` extensions
-- [ ] Point `makeRustPlatform` (`flake.nix:58-61`) at `buildToolchain`
-- [ ] Confirm devShell still exposes `rust-src` (`flake.nix:175,178`) and `rust-analyzer`
-- [ ] Rebuild and verify: `nix-store -q --references result` no longer pulls rust-docs / rust-analyzer / rust-src; capture before/after closure size with `nix path-info -Sh result`
-- [ ] If the crane migration (dotfiles-u7oa) lands first, point `craneLib.overrideToolchain` at `buildToolchain` instead — coordinate so the two changes don't conflict
+- [x] Add a `buildToolchain` (bare `default` profile) in the overlay at `flake.nix:55`; derive the devShell `rustToolchain` from it via `.override` with the `rust-src`/`rust-analyzer` extensions
+- [x] Point `makeRustPlatform` (`flake.nix:58-61`) at `buildToolchain`
+- [x] Confirm devShell still exposes `rust-src` (`flake.nix:175,178`) and `rust-analyzer`
+- [x] Rebuild and verify: `nix-store -q --references result` no longer pulls rust-docs / rust-analyzer / rust-src; capture before/after closure size with `nix path-info -Sh result`
+- [x] ~~If the crane migration (dotfiles-u7oa) lands first, point `craneLib.overrideToolchain` at `buildToolchain` instead~~ — N/A: d1qc landing first, crane will consume `buildToolchain` per its own bean
 
 ## Out of Scope
 
 - Fully eliminating the toolchain reference (would require `--remap-path-prefix` on std paths or `removeReferencesTo` post-build) — only pursue if the smaller bundle is still too large.
+
+## Summary of Changes
+
+Split the Rust build toolchain from the devShell toolchain in `flake.nix`:
+
+- Added `buildToolchain = rustyPkgs.rust-bin.stable.latest.default` (bare `default` profile: rustc, cargo, clippy, rustfmt).
+- Derived the devShell `rustToolchain` from it via `.override` with the `rust-src`/`rust-analyzer` extensions.
+- Pointed `makeRustPlatform` (the package build platform) at `buildToolchain`.
+
+### Result (better than predicted)
+
+The `rust-default` runtime reference is **eliminated entirely**, not merely slimmed — the only embedded paths pointing into the toolchain store path came from the `rust-src` extension's `lib/rustlib/src/rust/library` tree, so dropping that extension removed the last reference. The "Out of Scope" `--remap-path-prefix`/`removeReferencesTo` workaround was unnecessary.
+
+- beans-daemon closure: **2.7 GiB → 51.6 MiB**
+- References: `rust-default-1.96.0` + `libiconv` → `libiconv` only
+- devShell unchanged: `RUST_SRC_PATH` valid, `rust-analyzer`/`rustfmt`/`clippy` present
+- `nix flake check` green

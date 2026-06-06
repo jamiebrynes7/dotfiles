@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-05-30
+Freshness: 2026-06-06
 
 ## Tech Stack
 
@@ -20,6 +20,8 @@ No justfile at the repo root. Common operations:
 - `nix flake show` — list outputs (systems, templates, lib)
 - `nixfmt <file>` — format Nix files (available in the devShell)
 - `cargo test --workspace` — run Rust tests directly without going through Nix (see `crates/CLAUDE.md`)
+
+A `.githooks/pre-commit` formatting gate (Nix + Rust) is auto-wired via `core.hooksPath` by the devShell `shellHook` — commit from inside the devShell (the `direnv` shell) so `nixfmt`/`cargo` are on `PATH`.
 
 Host-specific build/switch commands live in downstream system repos created from `templates/systems/`.
 
@@ -75,7 +77,7 @@ Defined in `home/profiles.nix` under `dotfiles.profiles`:
 
 ### Formatting
 
-All Nix files are formatted with `nixfmt` (the official RFC 166-style formatter).
+All Nix files are formatted with `nixfmt` (the official RFC 166-style formatter). A `.githooks/pre-commit` hook blocks commits that leave `*.nix` or `*.rs` files unformatted (`nixfmt --check` / `cargo fmt --all --check`); CI's `nix flake check` remains the authoritative gate.
 
 ### Commit messages
 

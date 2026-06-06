@@ -5,7 +5,7 @@ status: todo
 type: feature
 priority: normal
 created_at: 2026-05-24T14:36:19Z
-updated_at: 2026-06-06T17:13:42Z
+updated_at: 2026-06-06T17:17:55Z
 ---
 
 Replace the originally-planned Claude Code agent (`PostToolUse`) hook with a version-controlled **git pre-commit hook** that blocks commits containing unformatted Nix or Rust. Applies to any committer (human or agent, any editor); CI's `nix flake check` stays the authoritative gate.
@@ -17,7 +17,7 @@ Replace the originally-planned Claude Code agent (`PostToolUse`) hook with a ver
 ## Behavior
 
 - On staged `*.nix` → `nixfmt --check` on all tracked `.nix` files.
-- On staged `*.rs` → `cargo fmt --manifest-path crates/Cargo.toml --all --check`.
+- On staged `*.rs` → `cargo fmt --all --check`.
 - Check-only (never mutates/re-stages). `set -e`: any violation OR a missing formatter exits non-zero and blocks the commit.
 
 ## Tasks (children)

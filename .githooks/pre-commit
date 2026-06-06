@@ -1,0 +1,30 @@
+#!/bin/sh
+# Pre-commit formatting gate (Nix + Rust).
+# Selected via `core.hooksPath=.githooks` (auto-wired by the devShell shellHook).
+# Check-only: reports + blocks, never mutates the tree.
+set -e
+
+print_fix_hint() {
+  status=$?
+  [ "$status" -eq 0 ] && return 0
+  {
+    echo
+    echo "pre-commit: formatting check failed (or a formatter was missing from PATH)."
+    echo "Commit from inside the devShell, then fix with:"
+    echo "  nixfmt \$(git ls-files '*.nix')"
+    echo "  cargo fmt --all"
+  } >&2
+}
+trap print_fix_hint EXIT
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+if printf '%s\n' "$staged" | grep -q '\.nix$'; then
+  echo "pre-commit: nixfmt --check (all tracked .nix)"
+  git ls-files -z '*.nix' | xargs -0 nixfmt --check
+fi
+
+if printf '%s\n' "$staged" | grep -q '\.rs$'; then
+  echo "pre-commit: cargo fmt --check (workspace)"
+  cargo fmt --all --check
+fi

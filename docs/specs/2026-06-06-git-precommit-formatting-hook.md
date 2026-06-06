@@ -54,13 +54,14 @@ aborts the script and blocks the commit.
    not *what* it checks.
 3. If any `*.nix` file is staged → run `nixfmt --check` on **all tracked `.nix`
    files** (`git ls-files '*.nix'`). Whole-repo, mirroring the Rust behavior.
-4. If any `*.rs` file is staged → run `cargo fmt --check` against the workspace
-   (`--manifest-path crates/Cargo.toml --all`). Whole-workspace, not just the
-   staged files.
+4. If any `*.rs` file is staged → run `cargo fmt --all --check`. Whole-workspace,
+   not just the staged files. The hook runs from the repo top-level, so cargo
+   resolves the root workspace `Cargo.toml` by searching upward — no
+   `--manifest-path` needed.
 5. Any formatter that reports violations exits non-zero, which (via `set -e`)
    aborts the hook and blocks the commit. The hook prints the one-line fix
-   command (`nixfmt $(git ls-files '*.nix')` / `cargo fmt --manifest-path
-   crates/Cargo.toml --all`) to make recovery obvious.
+   command (`nixfmt $(git ls-files '*.nix')` / `cargo fmt --all`) to make
+   recovery obvious.
 6. If all applicable checks pass (or no `.nix`/`.rs` files are staged) → exit 0.
 
 Decisions:
@@ -148,8 +149,8 @@ Manual verification:
 - Hard-fail on missing tools means commits from a non-devShell environment that
   touch `.nix`/`.rs` are blocked. Acceptable given the direnv workflow; revisit
   if it becomes annoying.
-- `cargo fmt --check` requires a resolvable workspace manifest; path is
-  `crates/Cargo.toml`.
+- `cargo fmt --all --check` resolves the workspace manifest at the repo root
+  (`./Cargo.toml`) by searching upward from the hook's cwd.
 - Whole-workspace `cargo fmt --check` could flag a pre-existing unformatted file
   unrelated to the current commit. The repo is expected to stay fully formatted
   (CI enforces it), so this should be rare.

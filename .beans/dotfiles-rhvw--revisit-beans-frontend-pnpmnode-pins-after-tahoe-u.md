@@ -1,11 +1,11 @@
 ---
 # dotfiles-rhvw
 title: Revisit beans frontend pnpm/node pins after Tahoe upgrade
-status: in-progress
+status: completed
 type: task
 priority: low
 created_at: 2026-06-01T21:27:39Z
-updated_at: 2026-06-01T21:53:03Z
+updated_at: 2026-06-06T08:32:28Z
 ---
 
 Follow-up from the 26.05 bump (dotfiles-dqnt). The beans frontend build in

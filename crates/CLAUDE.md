@@ -6,9 +6,14 @@ Freshness: 2026-06-06
 
 Cargo workspace housing the `beans` issue tracker referenced throughout this repo:
 a daemon, its control CLI, and a shared RPC library. Built and shipped via Nix
-(`packages/beans-daemon/default.nix`, using [crane](https://github.com/ipetkov/crane));
-CI runs `nix flake check`, which formats, lints, builds, and tests the whole
-workspace (see Commands).
+using [crane](https://github.com/ipetkov/crane); CI runs `nix flake check`, which
+formats, lints, builds, and tests the whole workspace (see Commands).
+
+The Nix build/check wiring lives in `crates/default.nix` — an overlay fragment
+(kept out of `flake.nix` so the flake stays Rust-agnostic) that holds the toolchain
+split, crane lib, shared `cargoArtifacts`, and the `rust-*` checks, and exports a
+`buildLocalRustBin { pname; bins; ... }` helper. `packages/beans-daemon/default.nix`
+is a one-liner over that helper.
 
 ## Workspace Layout
 
@@ -32,7 +37,7 @@ workspace (see Commands).
 - `cargo test -p <crate>` — single crate.
 - `nix flake check` — what CI runs (`.github/workflows/ci.yml`). Via crane, it runs
   the full loop as separate flake checks, sharing one `cargoArtifacts` deps build:
-  - `beans-daemon` — `cargo build --workspace` (the shipped package; `doCheck = false`)
+  - `beans-daemon` — `cargo build --bin beansd --bin beansctl` (the shipped package; `doCheck = false`)
   - `rust-fmt` — `cargo fmt --check`
   - `rust-clippy` — `cargo clippy --workspace --all-targets -- -D warnings`
   - `rust-test` — `cargo nextest run --workspace`
@@ -88,8 +93,9 @@ never pass `--dev`, so they're untouched.
 
 ## Boundaries
 
-- The Nix build (`packages/beans-daemon/default.nix`) builds the whole workspace
-  (`--workspace`, set via `commonArgs.cargoExtraArgs` in `flake.nix`). Adding a
-  new crate that shouldn't ship in the package means scoping that down.
+- The Nix package (`packages/beans-daemon/default.nix`) is scoped to the named bins
+  it passes to `buildLocalRustBin` (`--bin beansd --bin beansctl`). The fmt/clippy/test
+  checks and the shared `cargoArtifacts` stay `--workspace` (see `crates/default.nix`).
+  A new shipped binary means adding it to that `bins` list.
 - Check `[workspace.dependencies]` before adding a dep to a single crate's
   `Cargo.toml` — prefer inheriting over re-pinning.

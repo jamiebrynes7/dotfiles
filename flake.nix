@@ -54,90 +54,22 @@
 
       packagePaths = discoverPackages ./packages;
 
-      # rust-overlay is applied to `prev` here so `rust-bin.*` doesn't leak
-      # into consumer pkgs via `defaultOverlays`.
-      dotfilesOverlay =
-        final: prev:
-        let
-          rustyPkgs = prev.appendOverlays [ inputs.rust-overlay.overlays.default ];
-          # Bare `default` profile (rustc, cargo, clippy, rustfmt) used to build
-          # packages. The `rust-src` extension lays down a `lib/rustlib/src/rust/library`
-          # tree in the toolchain store path; compiled binaries embed those source
-          # paths (panic/debuginfo metadata), so Nix's scanner records the whole
-          # toolchain as a runtime dep. Excluding `rust-src` here removes the only
-          # such reference, keeping it out of the package's runtime closure.
-          buildToolchain = rustyPkgs.rust-bin.stable.latest.default;
-          # devShell toolchain: build toolchain plus dev-only extensions.
-          rustToolchain = buildToolchain.override {
-            extensions = [
-              "rust-src"
-              "rust-analyzer"
-            ];
-          };
-
-          # crane, pinned to the bare `buildToolchain` (not the fat devShell
-          # `rustToolchain`) so dev-only extensions stay out of the package
-          # closure. `rustfmt` and `clippy` are in the `default` profile, so the
-          # fmt/clippy checks work without extra components.
-          craneLib = (inputs.crane.mkLib final).overrideToolchain buildToolchain;
-          # Args shared by the package build, its dependency-only artifact cache,
-          # and the clippy/test checks — so cargo deps compile once and every
-          # derivation reuses the same `cargoArtifacts`.
-          commonArgs = {
-            # Full workspace tree, not `cleanCargoSource`: `beansd` embeds
-            # non-Rust assets (askama `.html` templates compiled by the derive
-            # macro, plus `.css`/`.js` static files) that the cargo-only filter
-            # would strip. `buildDepsOnly` keys its cache off Cargo.{toml,lock}
-            # only, so including assets here doesn't churn the artifact cache.
-            src = final.lib.fileset.toSource {
-              root = ./.;
-              fileset = final.lib.fileset.unions [
-                ./Cargo.toml
-                ./Cargo.lock
-                ./crates
-              ];
-            };
-            strictDeps = true;
-            cargoExtraArgs = "--locked --workspace";
-            buildInputs = final.lib.optionals final.stdenv.isDarwin [ final.libiconv ];
-          };
-          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-
-          packageArgs = {
-            beans-daemon = { inherit craneLib commonArgs cargoArtifacts; };
-          };
-          packages = builtins.mapAttrs (
-            name: path: final.callPackage path (packageArgs.${name} or { })
-          ) packagePaths;
-
-          # Workspace-wide Rust lint/test gates surfaced as flake checks. Named
-          # `rust-*` (not `beans-daemon-*`) because `--workspace` means they
-          # cover every crate, not just the shipped package. Wired into
-          # `checks.<system>` below so `nix flake check` runs fmt → clippy → test
-          # alongside the package build, sharing `cargoArtifacts`.
-          rustChecks = {
-            rust-fmt = craneLib.cargoFmt { inherit (commonArgs) src; };
-            rust-clippy = craneLib.cargoClippy (
-              commonArgs
-              // {
-                inherit cargoArtifacts;
-                cargoClippyExtraArgs = "--all-targets -- -D warnings";
-              }
-            );
-            rust-test = craneLib.cargoNextest (commonArgs // { inherit cargoArtifacts; });
-          };
-        in
-        {
-          dotfiles = packages // {
-            internal = { inherit rustToolchain rustChecks; };
-          };
-        };
+      # Discovers and builds the packages under ./packages. Plain assignment, not
+      # a merge with `prev` — `dotfiles` deliberately shadows nixpkgs' own
+      # `dotfiles` attribute (a Python tool) with our package set. The `crates`
+      # overlay (applied after this one) extends the result with
+      # `internal.{rustToolchain,rustChecks}`, and `callPackage` auto-fills the
+      # `buildLocalRustBin` helper it exports for the package that declares it.
+      dotfilesOverlay = final: _prev: {
+        dotfiles = builtins.mapAttrs (_name: path: final.callPackage path { }) packagePaths;
+      };
 
       defaultOverlays = [
         inputs.alacritty-themes.overlays.default
         inputs.claude-code.overlays.default
         inputs.sprites-cli.overlays.default
         dotfilesOverlay
+        (import ./crates { inherit inputs; })
       ];
 
       nixOsPkgs =

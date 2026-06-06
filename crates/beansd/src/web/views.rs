@@ -63,7 +63,10 @@ mod tests {
         let missing = PathBuf::from("/c");
 
         assert!(resolve_active(&projects, Some(&a)).is_some());
-        assert!(resolve_active(&projects, Some(&b)).is_none(), "no port -> None");
+        assert!(
+            resolve_active(&projects, Some(&b)).is_none(),
+            "no port -> None"
+        );
         assert!(resolve_active(&projects, Some(&missing)).is_none());
         assert!(resolve_active(&projects, None).is_none());
     }

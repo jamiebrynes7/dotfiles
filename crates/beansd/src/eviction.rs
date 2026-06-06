@@ -188,9 +188,7 @@ mod tests {
         let mut r = Registry::new();
         registry::test_utils::seed_registry(
             &mut r,
-            (0..5)
-                .map(|i| healthy(&format!("/tmp/{i}")))
-                .collect(),
+            (0..5).map(|i| healthy(&format!("/tmp/{i}"))).collect(),
         );
         let (evictor, fake) = build_evictor_with_fake(Arc::new(Mutex::new(r)), 5);
         evictor.run_one_sweep().await;
@@ -202,9 +200,7 @@ mod tests {
         let mut r = Registry::new();
         registry::test_utils::seed_registry(
             &mut r,
-            (0..6)
-                .map(|i| healthy(&format!("/tmp/{i}")))
-                .collect(),
+            (0..6).map(|i| healthy(&format!("/tmp/{i}"))).collect(),
         );
         let t0 = Instant::now();
         for i in 0..6 {
@@ -226,9 +222,7 @@ mod tests {
         let mut r = Registry::new();
         registry::test_utils::seed_registry(
             &mut r,
-            (0..8)
-                .map(|i| healthy(&format!("/tmp/{i}")))
-                .collect(),
+            (0..8).map(|i| healthy(&format!("/tmp/{i}"))).collect(),
         );
         let t0 = Instant::now();
         for i in 0..8 {

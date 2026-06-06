@@ -163,7 +163,10 @@ mod tests {
         )
         .unwrap();
         assert!(body.contains("healthy"));
-        assert!(body.contains("/tmp/p"), "path should appear in the dropdown row");
+        assert!(
+            body.contains("/tmp/p"),
+            "path should appear in the dropdown row"
+        );
     }
 
     #[tokio::test]

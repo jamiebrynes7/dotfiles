@@ -1,10 +1,28 @@
-# The pinned beans frontend lockfile was authored under pnpm 9; pnpm 10's
-# fetcher (26.05 default) produces a deps store its own build step can't
-# consume offline. Pin both fetch and build to pnpm_9 so they agree.
-{ lib, stdenv, buildGoModule, fetchFromGitHub, pnpm_9, nodejs }:
+{ lib, stdenv, buildGoModule, fetchFromGitHub, fetchurl, pnpm_11, fetchPnpmDeps
+, pnpmConfigHook, nodejs }:
 
 let
   data = builtins.fromJSON (builtins.readFile ./data.json);
+
+  # pnpm 10/11's fetcher SIGKILLs during `pnpm install` on aarch64-darwin
+  # (nixpkgs#525627). Root cause: on macOS arm64, pnpm's Worker threads default
+  # to trackUnmanagedFds, and its graceful-fs EAGAIN retry loop churns fds that
+  # libuv recycles for internal pipes; Worker teardown then closes libuv's fds
+  # and crashes as SIGKILL. Patch the WorkerPool to disable trackUnmanagedFds.
+  # See nixpkgs#525627 comment 4635647418 and nodejs/node@7603c7e50c.
+  pnpm = pnpm_11.overrideAttrs (_: {
+    version = "11.5.2";
+    src = fetchurl {
+      url = "https://registry.npmjs.org/pnpm/-/pnpm-11.5.2.tgz";
+      hash = "sha256-dJ3FT709zenkFLquMsF3yoR3DT/NaciBbVea3D5qLJk=";
+    };
+    postPatch = ''
+      substituteInPlace dist/pnpm.mjs \
+        --replace-fail \
+          'resourceLimits: this._workerResourceLimits' \
+          'resourceLimits: this._workerResourceLimits, trackUnmanagedFds: false'
+    '';
+  });
 
   src = fetchFromGitHub {
     owner = "hmans";
@@ -13,32 +31,31 @@ let
     hash = data.hash;
   };
 
-  # pnpm 9 rejects a pnpm-workspace.yaml without a `packages` field; the
-  # upstream file only sets onlyBuiltDependencies. Add an empty packages list
-  # here too so the fetch and the build (below) see the same workspace config.
-  pnpmDeps = pnpm_9.fetchDeps {
+  # Use the top-level fetchPnpmDeps / pnpmConfigHook with our patched pnpm
+  # passed explicitly. The pnpm.fetchDeps / pnpm.configHook passthru attrs
+  # ignore overrideAttrs — they hard-reference buildPackages.pnpm_11 — so the
+  # trackUnmanagedFds patch above would otherwise never reach the fetch/build.
+  pnpmDeps = fetchPnpmDeps {
     pname = "beans-frontend";
     version = data.version;
     src = "${src}/frontend";
     hash = data.pnpmDepsHash;
-    fetcherVersion = 3;
-    postPatch = ''
-      echo 'packages: []' >> pnpm-workspace.yaml
-    '';
+    fetcherVersion = 4;
+    inherit pnpm;
   };
+
+  patchedPnpmConfigHook = pnpmConfigHook.overrideAttrs (prev: {
+    propagatedBuildInputs = prev.propagatedBuildInputs or [ ] ++ [ pnpm ];
+  });
 
   frontend = stdenv.mkDerivation {
     pname = "beans-frontend";
     version = data.version;
     src = "${src}/frontend";
 
-    nativeBuildInputs = [ pnpm_9 nodejs pnpm_9.configHook ];
+    nativeBuildInputs = [ pnpm nodejs patchedPnpmConfigHook ];
 
     inherit pnpmDeps;
-
-    postPatch = ''
-      echo 'packages: []' >> pnpm-workspace.yaml
-    '';
 
     buildPhase = ''
       runHook preBuild
@@ -53,8 +70,7 @@ let
       runHook postInstall
     '';
   };
-in
-buildGoModule {
+in buildGoModule {
   pname = "beans";
   version = data.version;
 

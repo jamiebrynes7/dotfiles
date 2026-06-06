@@ -57,13 +57,30 @@ fi
 echo "Vendor hash: $VENDOR_HASH"
 
 echo "Computing pnpm deps hash..."
-# Must mirror packages/beans/default.nix: pnpm_9 (the lockfile is pnpm 9) and
-# the `packages: []` workspace patch (pnpm 9 rejects the upstream
-# pnpm-workspace.yaml otherwise). Keep these in sync or the hash will be stale.
+# Must mirror packages/beans/default.nix: a pnpm_11 patched to 11.5.2 with
+# trackUnmanagedFds disabled (works around the aarch64-darwin fetch SIGKILL,
+# nixpkgs#525627), wired through the top-level fetchPnpmDeps with that pnpm
+# passed explicitly (pnpm.fetchDeps ignores overrideAttrs), fetcherVersion 4.
+# Keep this in sync with default.nix or the hash will be stale.
 PNPM_DEPS_HASH=$(
   nix-build --no-out-link -I "nixpkgs=$NIXPKGS" -E "
     with import <nixpkgs> {};
-    pnpm_9.fetchDeps {
+    let
+      pnpm = pnpm_11.overrideAttrs (_: {
+        version = \"11.5.2\";
+        src = fetchurl {
+          url = \"https://registry.npmjs.org/pnpm/-/pnpm-11.5.2.tgz\";
+          hash = \"sha256-dJ3FT709zenkFLquMsF3yoR3DT/NaciBbVea3D5qLJk=\";
+        };
+        postPatch = ''
+          substituteInPlace dist/pnpm.mjs \
+            --replace-fail \
+              'resourceLimits: this._workerResourceLimits' \
+              'resourceLimits: this._workerResourceLimits, trackUnmanagedFds: false'
+        '';
+      });
+    in
+    fetchPnpmDeps {
       pname = \"beans-frontend\";
       version = \"$VERSION\";
       src = \"\${fetchFromGitHub {
@@ -73,8 +90,8 @@ PNPM_DEPS_HASH=$(
         hash = \"$SRI_HASH\";
       }}/frontend\";
       hash = \"\";
-      fetcherVersion = 3;
-      postPatch = \"echo 'packages: []' >> pnpm-workspace.yaml\";
+      fetcherVersion = 4;
+      inherit pnpm;
     }
   " 2>&1 | grep -oP 'got:\s+\K\S+' || true
 )

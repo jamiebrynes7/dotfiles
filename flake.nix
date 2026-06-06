@@ -247,6 +247,9 @@
         extraPackages = pkgs: [ pkgs.dotfiles.internal.rustToolchain ];
         extraEnv = pkgs: {
           RUST_SRC_PATH = "${pkgs.dotfiles.internal.rustToolchain}/lib/rustlib/src/rust/library";
+          shellHook = ''
+            git config core.hooksPath .githooks
+          '';
         };
       };
       packages = {

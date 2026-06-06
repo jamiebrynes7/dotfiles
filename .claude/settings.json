@@ -1,5 +1,9 @@
 {
   "permissions": {
-    "allow": ["Bash(nixfmt:*)", "Bash(nix flake check:*)"]
+    "allow": [
+      "Bash(nixfmt:*)",
+      "Bash(nix flake check:*)",
+      "Bash(gh pr merge:*)"
+    ]
   }
 }

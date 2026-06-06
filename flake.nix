@@ -57,15 +57,23 @@
         final: prev:
         let
           rustyPkgs = prev.appendOverlays [ inputs.rust-overlay.overlays.default ];
-          rustToolchain = rustyPkgs.rust-bin.stable.latest.default.override {
+          # Bare `default` profile (rustc, cargo, clippy, rustfmt) used to build
+          # packages. The `rust-src` extension lays down a `lib/rustlib/src/rust/library`
+          # tree in the toolchain store path; compiled binaries embed those source
+          # paths (panic/debuginfo metadata), so Nix's scanner records the whole
+          # toolchain as a runtime dep. Excluding `rust-src` here removes the only
+          # such reference, keeping it out of the package's runtime closure.
+          buildToolchain = rustyPkgs.rust-bin.stable.latest.default;
+          # devShell toolchain: build toolchain plus dev-only extensions.
+          rustToolchain = buildToolchain.override {
             extensions = [
               "rust-src"
               "rust-analyzer"
             ];
           };
           rustPlatform = final.makeRustPlatform {
-            cargo = rustToolchain;
-            rustc = rustToolchain;
+            cargo = buildToolchain;
+            rustc = buildToolchain;
           };
           packageArgs = {
             beans-daemon = { inherit rustPlatform; };

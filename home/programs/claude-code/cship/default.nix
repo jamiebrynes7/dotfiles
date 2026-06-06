@@ -1,6 +1,13 @@
-{ config, lib, pkgs, ... }:
-let cfg = config.dotfiles.programs.claude-code.cship;
-in {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.dotfiles.programs.claude-code.cship;
+in
+{
   options.dotfiles.programs.claude-code.cship = {
     enable = lib.mkEnableOption "Enable cship statusline for Claude Code";
   };

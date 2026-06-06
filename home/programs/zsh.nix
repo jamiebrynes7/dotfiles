@@ -1,9 +1,16 @@
-{ config, lib, pkgs, osConfig, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  osConfig,
+  ...
+}:
 with lib;
 let
   cfg = config.dotfiles.programs.zsh;
   enableBrewIntegration = osConfig.dotfiles.darwin.brew.enable or false;
-in {
+in
+{
   options.dotfiles.programs.zsh = {
     enable = mkEnableOption "Enable zsh";
     extra = mkOption {
@@ -14,8 +21,7 @@ in {
     extraSessionPaths = mkOption {
       type = types.listOf types.str;
       default = [ ];
-      description =
-        "Extra entries prepended to PATH via home.sessionPath (de-duplicated).";
+      description = "Extra entries prepended to PATH via home.sessionPath (de-duplicated).";
     };
   };
 

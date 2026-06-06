@@ -34,37 +34,50 @@
     };
   };
 
-  outputs = { self, nixpkgs, ... }@inputs:
+  outputs =
+    { self, nixpkgs, ... }@inputs:
     let
-      discoverPackages = dir:
-        let entries = builtins.readDir dir;
-        in builtins.listToAttrs (builtins.map (name: {
-          inherit name;
-          value = dir + "/${name}";
-        }) (builtins.filter (name: entries.${name} == "directory")
-          (builtins.attrNames entries)));
+      discoverPackages =
+        dir:
+        let
+          entries = builtins.readDir dir;
+        in
+        builtins.listToAttrs (
+          builtins.map (name: {
+            inherit name;
+            value = dir + "/${name}";
+          }) (builtins.filter (name: entries.${name} == "directory") (builtins.attrNames entries))
+        );
 
       packagePaths = discoverPackages ./packages;
 
       # rust-overlay is applied to `prev` here so `rust-bin.*` doesn't leak
       # into consumer pkgs via `defaultOverlays`.
-      dotfilesOverlay = final: prev:
+      dotfilesOverlay =
+        final: prev:
         let
-          rustyPkgs =
-            prev.appendOverlays [ inputs.rust-overlay.overlays.default ];
+          rustyPkgs = prev.appendOverlays [ inputs.rust-overlay.overlays.default ];
           rustToolchain = rustyPkgs.rust-bin.stable.latest.default.override {
-            extensions = [ "rust-src" "rust-analyzer" ];
+            extensions = [
+              "rust-src"
+              "rust-analyzer"
+            ];
           };
           rustPlatform = final.makeRustPlatform {
             cargo = rustToolchain;
             rustc = rustToolchain;
           };
-          packageArgs = { beans-daemon = { inherit rustPlatform; }; };
-          packages = builtins.mapAttrs
-            (name: path: final.callPackage path (packageArgs.${name} or { }))
-            packagePaths;
-        in {
-          dotfiles = packages // { internal = { inherit rustToolchain; }; };
+          packageArgs = {
+            beans-daemon = { inherit rustPlatform; };
+          };
+          packages = builtins.mapAttrs (
+            name: path: final.callPackage path (packageArgs.${name} or { })
+          ) packagePaths;
+        in
+        {
+          dotfiles = packages // {
+            internal = { inherit rustToolchain; };
+          };
         };
 
       defaultOverlays = [
@@ -74,23 +87,39 @@
         dotfilesOverlay
       ];
 
-      nixOsPkgs = { overlays ? [ ], system }:
+      nixOsPkgs =
+        {
+          overlays ? [ ],
+          system,
+        }:
         import inputs.nixpkgs {
           inherit system;
           overlays = overlays ++ defaultOverlays;
           config.allowUnfree = true;
         };
 
-      nixDarwinPkgs = { overlays ? [ ] }:
+      nixDarwinPkgs =
+        {
+          overlays ? [ ],
+        }:
         import inputs.nixpkgs-darwin {
           system = "aarch64-darwin";
           overlays = overlays ++ defaultOverlays;
           config.allowUnfree = true;
         };
 
-      mkDarwin = { hostname, user, home, modules ? [ ], overlays ? [ ] }@args:
-        let pkgs = nixDarwinPkgs { inherit overlays; };
-        in inputs.darwin.lib.darwinSystem {
+      mkDarwin =
+        {
+          hostname,
+          user,
+          home,
+          modules ? [ ],
+          overlays ? [ ],
+        }@args:
+        let
+          pkgs = nixDarwinPkgs { inherit overlays; };
+        in
+        inputs.darwin.lib.darwinSystem {
           system = "aarch64-darwin";
           modules = [
             {
@@ -107,13 +136,23 @@
             }
             ./darwin
             inputs.home-manager.darwinModules.home-manager
-          ] ++ modules;
+          ]
+          ++ modules;
         };
 
       mkNixosSystem =
-        { system, hostname, user, home, modules ? [ ], overlays ? [ ] }@args:
-        let pkgs = nixOsPkgs { inherit overlays system; };
-        in inputs.nixpkgs.lib.nixosSystem {
+        {
+          system,
+          hostname,
+          user,
+          home,
+          modules ? [ ],
+          overlays ? [ ],
+        }@args:
+        let
+          pkgs = nixOsPkgs { inherit overlays system; };
+        in
+        inputs.nixpkgs.lib.nixosSystem {
           inherit system;
           modules = [
             {
@@ -128,14 +167,23 @@
               };
             }
             inputs.home-manager.nixosModules.home-manager
-          ] ++ modules;
+          ]
+          ++ modules;
           specialArgs = { inherit inputs; };
         };
 
       mkHomeManagerSystem =
-        { system, user, directory, home, overlays ? [ ] }@args:
-        let pkgs = nixOsPkgs { inherit overlays system; };
-        in inputs.home-manager.lib.homeManagerConfiguration {
+        {
+          system,
+          user,
+          directory,
+          home,
+          overlays ? [ ],
+        }@args:
+        let
+          pkgs = nixOsPkgs { inherit overlays system; };
+        in
+        inputs.home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
           modules = [
             {
@@ -154,40 +202,64 @@
           ];
         };
 
-      baseShellPkgs = pkgs: with pkgs; [ just nil nixfmt-classic ];
+      baseShellPkgs =
+        pkgs: with pkgs; [
+          just
+          nil
+          nixfmt
+        ];
 
-      mkShells = { extraPackages ? (_: [ ]), extraEnv ? (_: { }) }:
+      mkShells =
+        {
+          extraPackages ? (_: [ ]),
+          extraEnv ? (_: { }),
+        }:
         let
-          mkOne = pkgs:
-            pkgs.mkShell ({
-              packages = baseShellPkgs pkgs ++ extraPackages pkgs;
-            } // extraEnv pkgs);
-        in {
+          mkOne =
+            pkgs:
+            pkgs.mkShell (
+              {
+                packages = baseShellPkgs pkgs ++ extraPackages pkgs;
+              }
+              // extraEnv pkgs
+            );
+        in
+        {
           aarch64-darwin.default = mkOne (nixDarwinPkgs { });
-          x86_64-linux.default = mkOne (nixOsPkgs { system = "x86_64-linux"; });
+          x86_64-linux.default = mkOne (nixOsPkgs {
+            system = "x86_64-linux";
+          });
         };
 
       mkPackages = pkgs: builtins.removeAttrs pkgs.dotfiles [ "internal" ];
 
-    in {
-      lib = { inherit mkNixosSystem mkDarwin mkHomeManagerSystem mkShells; };
+    in
+    {
+      lib = {
+        inherit
+          mkNixosSystem
+          mkDarwin
+          mkHomeManagerSystem
+          mkShells
+          ;
+      };
       devShells = mkShells {
         extraPackages = pkgs: [ pkgs.dotfiles.internal.rustToolchain ];
         extraEnv = pkgs: {
-          RUST_SRC_PATH =
-            "${pkgs.dotfiles.internal.rustToolchain}/lib/rustlib/src/rust/library";
+          RUST_SRC_PATH = "${pkgs.dotfiles.internal.rustToolchain}/lib/rustlib/src/rust/library";
         };
       };
       packages = {
         aarch64-darwin = mkPackages (nixDarwinPkgs { });
-        x86_64-linux = mkPackages (nixOsPkgs { system = "x86_64-linux"; });
+        x86_64-linux = mkPackages (nixOsPkgs {
+          system = "x86_64-linux";
+        });
       };
       checks = self.packages;
       templates = {
         "system/darwin" = {
           path = ./templates/systems/darwin;
-          description =
-            "A template for a Darwin system managed with nix-darwin";
+          description = "A template for a Darwin system managed with nix-darwin";
         };
         "system/nixos" = {
           path = ./templates/systems/nixos;

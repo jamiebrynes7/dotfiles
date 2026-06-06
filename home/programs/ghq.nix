@@ -1,7 +1,14 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
-let cfg = config.dotfiles.programs.ghq;
-in {
+let
+  cfg = config.dotfiles.programs.ghq;
+in
+{
   options.dotfiles.programs.ghq = {
     enable = mkEnableOption "Enable ghq";
     root = mkOption {

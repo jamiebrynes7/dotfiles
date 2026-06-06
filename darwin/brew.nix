@@ -5,7 +5,9 @@ let
 
   noQuarantine = name: {
     inherit name;
-    args = { no_quarantine = true; };
+    args = {
+      no_quarantine = true;
+    };
   };
 
   default = [
@@ -16,10 +18,19 @@ let
     "rectangle"
     "spotify"
   ];
-  social = [ "discord" "whatsapp" ];
-  productivity = [ "1password" "notion-calendar" "obsidian" "todoist" ];
+  social = [
+    "discord"
+    "whatsapp"
+  ];
+  productivity = [
+    "1password"
+    "notion-calendar"
+    "obsidian"
+    "todoist"
+  ];
   gaming = [ "steam" ];
-in {
+in
+{
   options.dotfiles.darwin.brew = {
     enable = mkEnableOption "Enable brew management through Nix";
     profiles = {

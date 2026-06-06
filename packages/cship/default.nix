@@ -1,16 +1,20 @@
-{ lib, stdenv, fetchurl }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+}:
 
 let
   release = builtins.fromJSON (builtins.readFile ./hashes.json);
   version = release.version;
   platform = release.platforms.${stdenv.hostPlatform.system};
-in stdenv.mkDerivation {
+in
+stdenv.mkDerivation {
   pname = "cship";
   inherit version;
 
   src = fetchurl {
-    url =
-      "https://github.com/stephenleo/cship/releases/download/v${version}/cship-${platform.artifact}";
+    url = "https://github.com/stephenleo/cship/releases/download/v${version}/cship-${platform.artifact}";
     hash = platform.hash;
   };
 

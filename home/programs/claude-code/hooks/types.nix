@@ -58,21 +58,26 @@ let
   # Merge hooks from multiple named hook definitions into the Claude settings format.
   # Input: attrset of named hooks (e.g., { skill-reinforcement = { enable, event, matcher, hooks }; })
   # Output: attrset grouped by event (e.g., { UserPromptSubmit = [ { matcher, hooks } ]; })
-  mergeHooks = hookDefs:
+  mergeHooks =
+    hookDefs:
     let
       enabledHooks = filterAttrs (_: h: h.enable) hookDefs;
 
       # Convert a hook command to JSON-compatible attrset
-      mkHookCommand = cmd:
-        { type = cmd.type; command = cmd.command; }
+      mkHookCommand =
+        cmd:
+        {
+          type = cmd.type;
+          command = cmd.command;
+        }
         // (optionalAttrs (cmd.timeout != null) { timeout = cmd.timeout; });
 
       # Convert a named hook to its entry format
       mkHookEntry = _name: hook: {
         inherit (hook) event;
-        entry =
-          (optionalAttrs (hook.matcher != null) { matcher = hook.matcher; })
-          // { hooks = map mkHookCommand hook.hooks; };
+        entry = (optionalAttrs (hook.matcher != null) { matcher = hook.matcher; }) // {
+          hooks = map mkHookCommand hook.hooks;
+        };
       };
 
       # Group hooks by event
@@ -81,6 +86,12 @@ let
     in
     mapAttrs (_event: entries: map (e: e.entry) entries) groupedByEvent;
 
-in {
-  inherit hookEvents hookCommandType hookType mergeHooks;
+in
+{
+  inherit
+    hookEvents
+    hookCommandType
+    hookType
+    mergeHooks
+    ;
 }

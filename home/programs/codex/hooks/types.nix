@@ -19,8 +19,7 @@ let
       type = mkOption {
         type = types.enum [ "command" ];
         default = "command";
-        description =
-          "The type of hook (currently only 'command' is supported)";
+        description = "The type of hook (currently only 'command' is supported)";
       };
       command = mkOption {
         type = types.str;
@@ -34,8 +33,7 @@ let
       statusMessage = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description =
-          "Optional status text shown in the Codex UI while the hook runs";
+        description = "Optional status text shown in the Codex UI while the hook runs";
       };
     };
   };
@@ -62,30 +60,40 @@ let
   # Merge named hook definitions into Codex's hooks.json structure.
   # Input:  attrset of named hooks ({ name = { enable, event, matcher, hooks }; })
   # Output: attrset grouped by event ({ Stop = [ { matcher?, hooks } ]; })
-  mergeHooks = hookDefs:
+  mergeHooks =
+    hookDefs:
     let
       enabledHooks = filterAttrs (_: h: h.enable) hookDefs;
 
-      mkHookCommand = cmd:
+      mkHookCommand =
+        cmd:
         {
           type = cmd.type;
           command = cmd.command;
-        } // (optionalAttrs (cmd.timeout != null) { timeout = cmd.timeout; })
+        }
+        // (optionalAttrs (cmd.timeout != null) { timeout = cmd.timeout; })
         // (optionalAttrs (cmd.statusMessage != null) {
           statusMessage = cmd.statusMessage;
         });
 
       mkHookEntry = _name: hook: {
         inherit (hook) event;
-        entry =
-          (optionalAttrs (hook.matcher != null) { matcher = hook.matcher; })
-          // {
-            hooks = map mkHookCommand hook.hooks;
-          };
+        entry = (optionalAttrs (hook.matcher != null) { matcher = hook.matcher; }) // {
+          hooks = map mkHookCommand hook.hooks;
+        };
       };
 
       hookEntries = mapAttrsToList mkHookEntry enabledHooks;
       groupedByEvent = groupBy (e: e.event) hookEntries;
-    in mapAttrs (_event: entries: map (e: e.entry) entries) groupedByEvent;
+    in
+    mapAttrs (_event: entries: map (e: e.entry) entries) groupedByEvent;
 
-in { inherit hookEvents hookCommandType hookType mergeHooks; }
+in
+{
+  inherit
+    hookEvents
+    hookCommandType
+    hookType
+    mergeHooks
+    ;
+}

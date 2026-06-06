@@ -1,7 +1,9 @@
 { config, lib, ... }:
 with lib;
-let cfg = config.dotfiles.programs.zellij;
-in {
+let
+  cfg = config.dotfiles.programs.zellij;
+in
+{
   options.dotfiles.programs.zellij = {
     enable = mkEnableOption "Enable zellij";
   };
@@ -13,6 +15,8 @@ in {
     };
 
     # TODO: Convert zellij config into Nix expression.
-    xdg.configFile."zellij/config.kdl" = { source = ./config.kdl; };
+    xdg.configFile."zellij/config.kdl" = {
+      source = ./config.kdl;
+    };
   };
 }

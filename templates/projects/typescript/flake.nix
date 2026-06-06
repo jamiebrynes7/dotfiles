@@ -4,22 +4,33 @@
     systems.url = "github:nix-systems/default";
   };
 
-  outputs = { self, nixpkgs, systems, ... }@inputs:
-    let forEachSystem = nixpkgs.lib.genAttrs (import systems);
-    in {
-      devShells = forEachSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      systems,
+      ...
+    }@inputs:
+    let
+      forEachSystem = nixpkgs.lib.genAttrs (import systems);
+    in
+    {
+      devShells = forEachSystem (
+        system:
         let
           overlays = [ ];
           pkgs = import nixpkgs { inherit system overlays; };
-        in {
+        in
+        {
           default = pkgs.mkShell {
             packages = with pkgs; [
               nodejs
 
               nil
-              nixfmt-classic
+              nixfmt
             ];
           };
-        });
+        }
+      );
     };
 }

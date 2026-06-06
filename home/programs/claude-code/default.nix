@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
 let
   cfg = config.dotfiles.programs.claude-code;
@@ -18,32 +23,40 @@ let
   hookTypes = import ./hooks/types.nix { inherit lib; };
   mergedHooks = hookTypes.mergeHooks cfg.hooks;
 
-  settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON ({
-    alwaysThinkingEnabled = true;
-    autoMemoryEnabled = false;
-    hooks = mergedHooks;
-    permissions = cfg.permissions;
-  } // lib.optionalAttrs (cfg.statusLine != null) {
-    statusLine = cfg.statusLine;
-  } // lib.optionalAttrs (cfg.skillOverrides != { }) {
-    skillOverrides = cfg.skillOverrides;
-  }));
-in {
-  imports = [ ./hooks ./cship ];
+  settingsJson = pkgs.writeText "claude-settings.json" (
+    builtins.toJSON (
+      {
+        alwaysThinkingEnabled = true;
+        autoMemoryEnabled = false;
+        hooks = mergedHooks;
+        permissions = cfg.permissions;
+      }
+      // lib.optionalAttrs (cfg.statusLine != null) {
+        statusLine = cfg.statusLine;
+      }
+      // lib.optionalAttrs (cfg.skillOverrides != { }) {
+        skillOverrides = cfg.skillOverrides;
+      }
+    )
+  );
+in
+{
+  imports = [
+    ./hooks
+    ./cship
+  ];
 
   options.dotfiles.programs.claude-code = {
     enable = mkEnableOption "Enable claude-code";
     extraScript = mkOption {
       type = types.lines;
       default = "";
-      description =
-        "Shell lines to run before execing claude-code (e.g. env tweaks).";
+      description = "Shell lines to run before execing claude-code (e.g. env tweaks).";
     };
     skillsDirs = mkOption {
       type = types.listOf types.path;
       default = [ ];
-      description =
-        "List of paths to skill directories to symlink into ~/.claude/skills.";
+      description = "List of paths to skill directories to symlink into ~/.claude/skills.";
     };
     hooks = mkOption {
       type = types.attrsOf hookTypes.hookType;
@@ -77,8 +90,14 @@ in {
       description = "Permissions configuration for Claude Code.";
     };
     skillOverrides = mkOption {
-      type = types.attrsOf
-        (types.enum [ "on" "name-only" "user-invocable-only" "off" ]);
+      type = types.attrsOf (
+        types.enum [
+          "on"
+          "name-only"
+          "user-invocable-only"
+          "off"
+        ]
+      );
       default = { };
       description = ''
         Per-skill visibility overrides written to settings.json.
@@ -139,38 +158,35 @@ in {
       update-config = "off";
     };
 
-    assertions = [{
-      assertion = skills.conflicts == [ ];
-      message =
-        "claude-code: skill name conflicts between built-in skills and provided skills: ${
-          builtins.concatStringsSep ", " skills.conflicts
-        }";
-    }];
+    assertions = [
+      {
+        assertion = skills.conflicts == [ ];
+        message = "claude-code: skill name conflicts between built-in skills and provided skills: ${builtins.concatStringsSep ", " skills.conflicts}";
+      }
+    ];
 
     home.file = {
       ".claude/CLAUDE.md".source = ../../lib/ai/global-instructions.md;
       ".claude/settings.json".source = settingsJson;
-    } // skills.files;
+    }
+    // skills.files;
 
     programs.git.ignores = [ "**/.claude/settings.local.json" ];
 
-    home.activation.claudeStableLink =
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        mkdir -p $HOME/.local/bin
-        install -m755 ${claudeWrapper} "$HOME/.local/bin/claude"
-      '';
+    home.activation.claudeStableLink = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      mkdir -p $HOME/.local/bin
+      install -m755 ${claudeWrapper} "$HOME/.local/bin/claude"
+    '';
 
     dotfiles.programs.zsh.extraSessionPaths = [ "$HOME/.local/bin" ];
 
     # Preserve config during switches
-    home.activation.preserveClaudeConfig =
-      lib.hm.dag.entryBefore [ "writeBoundary" ] ''
-        [ -f "$HOME/.claude.json" ] && cp -p "$HOME/.claude.json" "$HOME/.claude.json.backup" || true
-      '';
+    home.activation.preserveClaudeConfig = lib.hm.dag.entryBefore [ "writeBoundary" ] ''
+      [ -f "$HOME/.claude.json" ] && cp -p "$HOME/.claude.json" "$HOME/.claude.json.backup" || true
+    '';
 
-    home.activation.restoreClaudeConfig =
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        [ -f "$HOME/.claude.json.backup" ] && [ ! -f "$HOME/.claude.json" ] && cp -p "$HOME/.claude.json.backup" "$HOME/.claude.json" || true
-      '';
+    home.activation.restoreClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      [ -f "$HOME/.claude.json.backup" ] && [ ! -f "$HOME/.claude.json" ] && cp -p "$HOME/.claude.json.backup" "$HOME/.claude.json" || true
+    '';
   };
 }

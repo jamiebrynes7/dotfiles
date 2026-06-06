@@ -1,7 +1,9 @@
 { lib, config, ... }:
 with lib;
-let cfg = config.dotfiles.programs.git;
-in {
+let
+  cfg = config.dotfiles.programs.git;
+in
+{
   options.dotfiles.programs.git = {
     enable = mkEnableOption "Enable git";
     email = mkOption {
@@ -27,8 +29,7 @@ in {
         new = "checkout -b";
 
         # View abbreviated history of the current branch
-        lg =
-          "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
+        lg = "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
 
         # View current tree format in shortened format.
         s = "status -s";
@@ -40,8 +41,7 @@ in {
         ff = "!ff() { git pull --rebase origin \${1:-HEAD}; }; ff";
 
         # Interactive branch selector
-        open = ''
-          !open() { git branch "$@" | grep -v "^[*+]" | sed 's/^ *//' | fzf --height 20% --reverse --border --info inline | xargs git checkout; }; open'';
+        open = ''!open() { git branch "$@" | grep -v "^[*+]" | sed 's/^ *//' | fzf --height 20% --reverse --border --info inline | xargs git checkout; }; open'';
 
         # List contributors and the number of commits.
         contributors = "shortlog --summary --numbered";
@@ -53,13 +53,18 @@ in {
         pf = "push --force";
         c = "commit";
 
-        fomo =
-          "!fomo() { branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@') && git fetch origin $branch && git rebase $@ origin/$branch; }; fomo";
+        fomo = "!fomo() { branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@') && git fetch origin $branch && git rebase $@ origin/$branch; }; fomo";
       };
 
-      init = { defaultBranch = "master"; };
-      pull = { rebase = true; };
-      rebase = { autostash = true; };
+      init = {
+        defaultBranch = "master";
+      };
+      pull = {
+        rebase = true;
+      };
+      rebase = {
+        autostash = true;
+      };
     };
   };
 }

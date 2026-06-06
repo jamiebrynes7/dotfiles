@@ -1,7 +1,9 @@
 { config, lib, ... }:
 with lib;
-let cfg = config.dotfiles.darwin;
-in {
+let
+  cfg = config.dotfiles.darwin;
+in
+{
   imports = [ ./brew.nix ];
 
   options.dotfiles.darwin = {

@@ -1,11 +1,15 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.dotfiles.programs.plannotator;
 
   plannotatorWrapper = pkgs.writeShellScriptBin "plannotator" ''
     ${lib.optionalString cfg.remote "export PLANNOTATOR_REMOTE=1"}
-    ${lib.optionalString (cfg.port != null)
-    "export PLANNOTATOR_PORT=${toString cfg.port}"}
+    ${lib.optionalString (cfg.port != null) "export PLANNOTATOR_PORT=${toString cfg.port}"}
     exec ${pkgs.dotfiles.plannotator}/bin/plannotator "$@"
   '';
 
@@ -16,19 +20,21 @@ let
   plannotatorHook = event: matcher: {
     enable = true;
     inherit event matcher;
-    hooks = [{
-      type = "command";
-      command = "${plannotatorWrapper}/bin/plannotator";
-      timeout = 345600;
-    }];
+    hooks = [
+      {
+        type = "command";
+        command = "${plannotatorWrapper}/bin/plannotator";
+        timeout = 345600;
+      }
+    ];
   };
-in {
+in
+{
   options.dotfiles.programs.plannotator = {
     remote = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description =
-        "Enable plannotator remote mode (sets PLANNOTATOR_REMOTE=1)";
+      description = "Enable plannotator remote mode (sets PLANNOTATOR_REMOTE=1)";
     };
     port = lib.mkOption {
       type = lib.types.nullOr lib.types.int;
@@ -50,8 +56,7 @@ in {
     })
     (lib.mkIf cfg.codex.enable {
       dotfiles.programs.codex.skillsDirs = [ ./skills ];
-      dotfiles.programs.codex.hooks.plannotator-review =
-        plannotatorHook "Stop" null;
+      dotfiles.programs.codex.hooks.plannotator-review = plannotatorHook "Stop" null;
     })
   ];
 }

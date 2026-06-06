@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
 let
   cfg = config.dotfiles.programs.cursor;
@@ -12,25 +17,25 @@ let
   mcpTypes = import ./mcp-types.nix { inherit lib; };
   mergedMcpServers = mcpTypes.mergeMcpServers cfg.mcpServers;
   hasMcpServers = mergedMcpServers != { };
-  mcpJson = pkgs.writeText "mcp.json"
-    (builtins.toJSON { mcpServers = mergedMcpServers; });
+  mcpJson = pkgs.writeText "mcp.json" (builtins.toJSON { mcpServers = mergedMcpServers; });
 
   # Validation: each enabled server must set exactly one of command or url.
   mcpAssertions =
-    let enabledServers = filterAttrs (_: s: s.enable) cfg.mcpServers;
-    in mapAttrsToList (name: server: {
+    let
+      enabledServers = filterAttrs (_: s: s.enable) cfg.mcpServers;
+    in
+    mapAttrsToList (name: server: {
       assertion = (server.command != null) != (server.url != null);
-      message =
-        "cursor: MCP server '${name}' must set exactly one of 'command' (stdio) or 'url' (remote), not both or neither.";
+      message = "cursor: MCP server '${name}' must set exactly one of 'command' (stdio) or 'url' (remote), not both or neither.";
     }) enabledServers;
-in {
+in
+{
   options.dotfiles.programs.cursor = {
     enable = mkEnableOption "Enable cursor";
     skillsDirs = mkOption {
       type = types.listOf types.path;
       default = [ ];
-      description =
-        "List of paths to skill directories to symlink into ~/.cursor/skills.";
+      description = "List of paths to skill directories to symlink into ~/.cursor/skills.";
     };
     mcpServers = mkOption {
       type = types.attrsOf mcpTypes.mcpServerType;
@@ -42,15 +47,14 @@ in {
   config = mkIf cfg.enable {
     dotfiles.programs.cursor.skillsDirs = [ aiSkills.builtinSkillsDir ];
 
-    assertions = [{
-      assertion = skills.conflicts == [ ];
-      message =
-        "cursor: skill name conflicts between built-in skills and provided skills: ${
-          builtins.concatStringsSep ", " skills.conflicts
-        }";
-    }] ++ mcpAssertions;
+    assertions = [
+      {
+        assertion = skills.conflicts == [ ];
+        message = "cursor: skill name conflicts between built-in skills and provided skills: ${builtins.concatStringsSep ", " skills.conflicts}";
+      }
+    ]
+    ++ mcpAssertions;
 
-    home.file = skills.files
-      // (optionalAttrs hasMcpServers { ".cursor/mcp.json".source = mcpJson; });
+    home.file = skills.files // (optionalAttrs hasMcpServers { ".cursor/mcp.json".source = mcpJson; });
   };
 }

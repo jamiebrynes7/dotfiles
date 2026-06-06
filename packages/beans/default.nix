@@ -1,5 +1,14 @@
-{ lib, stdenv, buildGoModule, fetchFromGitHub, fetchurl, pnpm_11, fetchPnpmDeps
-, pnpmConfigHook, nodejs }:
+{
+  lib,
+  stdenv,
+  buildGoModule,
+  fetchFromGitHub,
+  fetchurl,
+  pnpm_11,
+  fetchPnpmDeps,
+  pnpmConfigHook,
+  nodejs,
+}:
 
 let
   data = builtins.fromJSON (builtins.readFile ./data.json);
@@ -53,7 +62,11 @@ let
     version = data.version;
     src = "${src}/frontend";
 
-    nativeBuildInputs = [ pnpm nodejs patchedPnpmConfigHook ];
+    nativeBuildInputs = [
+      pnpm
+      nodejs
+      patchedPnpmConfigHook
+    ];
 
     inherit pnpmDeps;
 
@@ -70,7 +83,8 @@ let
       runHook postInstall
     '';
   };
-in buildGoModule {
+in
+buildGoModule {
   pname = "beans";
   version = data.version;
 
@@ -84,7 +98,10 @@ in buildGoModule {
     cp -r ${frontend}/. internal/web/dist/
   '';
 
-  subPackages = [ "cmd/beans" "cmd/beans-serve" ];
+  subPackages = [
+    "cmd/beans"
+    "cmd/beans-serve"
+  ];
 
   meta = with lib; {
     description = "A CLI-based, flat-file issue tracker for humans and robots";

@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
 let
   cfg = config.dotfiles.programs.claude-code;
@@ -34,14 +39,16 @@ let
       END OF INSTRUCTION
     EOF
   '';
-in {
-  config.dotfiles.programs.claude-code.hooks.skill-reinforcement =
-    mkIf cfg.enable {
-      enable = true;
-      event = "UserPromptSubmit";
-      hooks = [{
+in
+{
+  config.dotfiles.programs.claude-code.hooks.skill-reinforcement = mkIf cfg.enable {
+    enable = true;
+    event = "UserPromptSubmit";
+    hooks = [
+      {
         type = "command";
         command = "${script}";
-      }];
-    };
+      }
+    ];
+  };
 }

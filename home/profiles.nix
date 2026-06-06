@@ -1,7 +1,14 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
-let cfg = config.dotfiles.profiles;
-in {
+let
+  cfg = config.dotfiles.profiles;
+in
+{
   options.dotfiles.profiles = {
     base = mkOption {
       type = types.bool;
@@ -26,7 +33,12 @@ in {
         zsh.enable = true;
       };
 
-      home.packages = with pkgs; [ fzf lazygit jq ripgrep ];
+      home.packages = with pkgs; [
+        fzf
+        lazygit
+        jq
+        ripgrep
+      ];
     })
     (mkIf cfg.desktop {
       dotfiles.programs = {

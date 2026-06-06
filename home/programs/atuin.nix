@@ -1,8 +1,12 @@
 { config, lib, ... }:
 with lib;
-let cfg = config.dotfiles.programs.atuin;
-in {
-  options.dotfiles.programs.atuin = { enable = mkEnableOption "Enable atuin"; };
+let
+  cfg = config.dotfiles.programs.atuin;
+in
+{
+  options.dotfiles.programs.atuin = {
+    enable = mkEnableOption "Enable atuin";
+  };
 
   config.programs.atuin = mkIf cfg.enable {
     enable = true;

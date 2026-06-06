@@ -75,7 +75,7 @@ Defined in `home/profiles.nix` under `dotfiles.profiles`:
 
 ### Formatting
 
-All Nix files are formatted with `nixfmt-classic`.
+All Nix files are formatted with `nixfmt` (the official RFC 166-style formatter).
 
 ### Commit messages
 

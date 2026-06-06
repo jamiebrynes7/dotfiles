@@ -1,7 +1,9 @@
 { config, lib, ... }:
 with lib;
-let cfg = config.dotfiles.programs.direnv;
-in {
+let
+  cfg = config.dotfiles.programs.direnv;
+in
+{
   options.dotfiles.programs.direnv = {
     enable = mkEnableOption "Enable direnv";
   };

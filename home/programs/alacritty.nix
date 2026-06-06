@@ -1,11 +1,18 @@
-{ config, osConfig, lib, pkgs, ... }:
+{
+  config,
+  osConfig,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
 let
   cfg = config.dotfiles.programs.alacritty;
 
   # When we are using brew, we are installing Alacritty via brew.
   useDummyPkg = osConfig.dotfiles.darwin.brew.enable;
-in {
+in
+{
   options.dotfiles.programs.alacritty = {
     enable = mkEnableOption "Enable alacritty config";
     fontSize = mkOption {

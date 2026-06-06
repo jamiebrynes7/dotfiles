@@ -1,9 +1,15 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
 let
   cfg = config.dotfiles.programs.nvim;
 
-  gitHubPlugin = repo: ref: rev:
+  gitHubPlugin =
+    repo: ref: rev:
     pkgs.vimUtils.buildVimPlugin {
       pname = "${lib.strings.sanitizeDerivationName repo}";
       version = ref;
@@ -13,8 +19,11 @@ let
         rev = rev;
       };
     };
-in {
-  options.dotfiles.programs.nvim = { enable = mkEnableOption "Enable nvim"; };
+in
+{
+  options.dotfiles.programs.nvim = {
+    enable = mkEnableOption "Enable nvim";
+  };
 
   config = mkIf cfg.enable {
     programs.neovim = {

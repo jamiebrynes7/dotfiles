@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
 let
   cfg = config.dotfiles.programs.claude-code;
@@ -31,15 +36,22 @@ let
   '';
 
   # Generate one hook definition per event type
-  debugHooks = builtins.listToAttrs (map (event: {
-    name = "debug-${event}";
-    value = mkIf cfg.enable {
-      enable = true;
-      inherit event;
-      hooks = [{
-        type = "command";
-        command = "${script}";
-      }];
-    };
-  }) hookTypes.hookEvents);
-in { config.dotfiles.programs.claude-code.hooks = debugHooks; }
+  debugHooks = builtins.listToAttrs (
+    map (event: {
+      name = "debug-${event}";
+      value = mkIf cfg.enable {
+        enable = true;
+        inherit event;
+        hooks = [
+          {
+            type = "command";
+            command = "${script}";
+          }
+        ];
+      };
+    }) hookTypes.hookEvents
+  );
+in
+{
+  config.dotfiles.programs.claude-code.hooks = debugHooks;
+}

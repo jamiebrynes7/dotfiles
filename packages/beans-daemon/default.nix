@@ -10,7 +10,8 @@ let
       (root + "/crates")
     ];
   };
-in rustPlatform.buildRustPackage {
+in
+rustPlatform.buildRustPackage {
   pname = "beans-daemon";
   version = "0.1.0";
   inherit src;
@@ -20,8 +21,7 @@ in rustPlatform.buildRustPackage {
   # Both binaries are installed to $out/bin.
   cargoBuildFlags = [ "--workspace" ];
   meta = with lib; {
-    description =
-      "Background daemon (beansd) and control CLI (beansctl) for the beans issue tracker";
+    description = "Background daemon (beansd) and control CLI (beansctl) for the beans issue tracker";
     mainProgram = "beansd";
     license = licenses.mit;
   };

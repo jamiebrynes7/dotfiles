@@ -1,16 +1,20 @@
-{ lib, stdenv, fetchurl }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+}:
 
 let
   release = builtins.fromJSON (builtins.readFile ./hashes.json);
   version = release.version;
   platform = release.platforms.${stdenv.hostPlatform.system};
-in stdenv.mkDerivation {
+in
+stdenv.mkDerivation {
   pname = "codex";
   inherit version;
 
   src = fetchurl {
-    url =
-      "https://github.com/openai/codex/releases/download/rust-v${version}/codex-${platform.artifact}.tar.gz";
+    url = "https://github.com/openai/codex/releases/download/rust-v${version}/codex-${platform.artifact}.tar.gz";
     hash = platform.hash;
   };
 

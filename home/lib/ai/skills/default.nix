@@ -6,12 +6,18 @@ let
 
   # Read skill subdirectories from a directory, returning an attrset of name -> path.
   # A valid skill is a subdirectory containing a SKILL.md file.
-  readSkillDir = dir:
-    let entries = builtins.readDir dir;
-    in lib.mapAttrs (name: _: dir + "/${name}") (lib.filterAttrs (name: type:
-      type == "directory" && builtins.pathExists (dir + "/${name}/SKILL.md"))
-      entries);
-in {
+  readSkillDir =
+    dir:
+    let
+      entries = builtins.readDir dir;
+    in
+    lib.mapAttrs (name: _: dir + "/${name}") (
+      lib.filterAttrs (
+        name: type: type == "directory" && builtins.pathExists (dir + "/${name}/SKILL.md")
+      ) entries
+    );
+in
+{
   # Path to the built-in skills directory, for consumers to include in skillsDirs.
   builtinSkillsDir = ./.;
 
@@ -30,28 +36,41 @@ in {
   #   files: Attribute set suitable for home.file
   #   conflicts: List of conflicting skill names (for assertions)
   # }
-  mkSkillFiles = { variant, targetDir, skillsDirs, recursive ? true }:
+  mkSkillFiles =
+    {
+      variant,
+      targetDir,
+      skillsDirs,
+      recursive ? true,
+    }:
     let
-      merged = builtins.foldl' (acc: dir:
-        let
-          dirSkills = readSkillDir dir;
-          dirNames = builtins.attrNames dirSkills;
-          newConflicts =
-            builtins.filter (name: builtins.hasAttr name acc.skills) dirNames;
-        in {
-          skills = acc.skills // dirSkills;
-          conflicts = acc.conflicts ++ newConflicts;
-        }) {
-          skills = { };
-          conflicts = [ ];
-        } skillsDirs;
+      merged =
+        builtins.foldl'
+          (
+            acc: dir:
+            let
+              dirSkills = readSkillDir dir;
+              dirNames = builtins.attrNames dirSkills;
+              newConflicts = builtins.filter (name: builtins.hasAttr name acc.skills) dirNames;
+            in
+            {
+              skills = acc.skills // dirSkills;
+              conflicts = acc.conflicts ++ newConflicts;
+            }
+          )
+          {
+            skills = { };
+            conflicts = [ ];
+          }
+          skillsDirs;
 
       # Process a single skill directory: copy all files, then overwrite SKILL.md
       # with the variant-filtered version. The output is a real directory holding
       # real files (not symlinks) — load-bearing for the codex `recursive = false`
       # case, where the directory itself is symlinked but SKILL.md must stay a real
       # file (codex ignores symlinked SKILL.md files).
-      processSkill = name: path:
+      processSkill =
+        name: path:
         pkgs.runCommand "skill-${variant}-${name}" { } ''
           mkdir -p $out
           cp -r ${path}/* $out/
@@ -59,12 +78,15 @@ in {
           ${processFrontmatter}/bin/process-frontmatter ${variant} ${path}/SKILL.md > $out/SKILL.md
         '';
 
-      skillFiles = lib.mapAttrs' (name: path:
+      skillFiles = lib.mapAttrs' (
+        name: path:
         lib.nameValuePair "${targetDir}/${name}" {
           source = processSkill name path;
           inherit recursive;
-        }) merged.skills;
-    in {
+        }
+      ) merged.skills;
+    in
+    {
       files = skillFiles;
       inherit (merged) conflicts;
     };

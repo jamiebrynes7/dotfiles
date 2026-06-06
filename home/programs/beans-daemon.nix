@@ -1,6 +1,13 @@
-{ config, lib, pkgs, ... }:
-let cfg = config.dotfiles.programs.beans-daemon;
-in {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.dotfiles.programs.beans-daemon;
+in
+{
   options.dotfiles.programs.beans-daemon = {
     enable = lib.mkEnableOption "Enable the beans daemon";
     launcherPort = lib.mkOption {
@@ -21,8 +28,7 @@ in {
     enableZshIntegration = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description =
-        "Install the zsh chpwd hook that pings the daemon on each cd.";
+      description = "Install the zsh chpwd hook that pings the daemon on each cd.";
     };
   };
 
@@ -43,10 +49,8 @@ in {
         ProgramArguments = [ "${pkgs.dotfiles.beans-daemon}/bin/beansd" ];
         KeepAlive = true;
         RunAtLoad = true;
-        StandardOutPath =
-          "${config.home.homeDirectory}/Library/Logs/beans-daemon.log";
-        StandardErrorPath =
-          "${config.home.homeDirectory}/Library/Logs/beans-daemon.log";
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/beans-daemon.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/beans-daemon.log";
       };
     };
 
@@ -63,13 +67,13 @@ in {
       Install.WantedBy = [ "default.target" ];
     };
 
-    programs.zsh.initContent =
-      lib.mkIf (cfg.enableZshIntegration && config.programs.zsh.enable)
-      (lib.mkAfter ''
+    programs.zsh.initContent = lib.mkIf (cfg.enableZshIntegration && config.programs.zsh.enable) (
+      lib.mkAfter ''
         beans_daemon_chpwd() {
           (${pkgs.dotfiles.beans-daemon}/bin/beansctl cd "$PWD" &) >/dev/null 2>&1
         }
         chpwd_functions+=(beans_daemon_chpwd)
-      '');
+      ''
+    );
   };
 }

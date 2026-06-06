@@ -71,8 +71,11 @@ let
 
   # Convert an auth submodule value to JSON-compatible attrset with the
   # CLIENT_ID / CLIENT_SECRET / scopes keys Cursor expects.
-  mkAuth = auth:
-    { CLIENT_ID = auth.clientId; }
+  mkAuth =
+    auth:
+    {
+      CLIENT_ID = auth.clientId;
+    }
     // (optionalAttrs (auth.clientSecret != null) {
       CLIENT_SECRET = auth.clientSecret;
     })
@@ -80,20 +83,31 @@ let
 
   # Convert a single MCP server definition to its JSON-compatible attrset,
   # omitting fields that are null or empty.
-  mkServerEntry = _name: server:
+  mkServerEntry =
+    _name: server:
     if server.command != null then
-      { inherit (server) command; }
+      {
+        inherit (server) command;
+      }
       // (optionalAttrs (server.args != [ ]) { inherit (server) args; })
       // (optionalAttrs (server.env != { }) { inherit (server) env; })
       // (optionalAttrs (server.envFile != null) { inherit (server) envFile; })
     else
-      { inherit (server) url; }
+      {
+        inherit (server) url;
+      }
       // (optionalAttrs (server.headers != { }) { inherit (server) headers; })
       // (optionalAttrs (server.auth != null) { auth = mkAuth server.auth; });
 
   # Filter to enabled servers and build the top-level mcpServers attrset.
-  mergeMcpServers = serverDefs:
-    let enabledServers = filterAttrs (_: s: s.enable) serverDefs;
-    in mapAttrs mkServerEntry enabledServers;
+  mergeMcpServers =
+    serverDefs:
+    let
+      enabledServers = filterAttrs (_: s: s.enable) serverDefs;
+    in
+    mapAttrs mkServerEntry enabledServers;
 
-in { inherit mcpAuthType mcpServerType mergeMcpServers; }
+in
+{
+  inherit mcpAuthType mcpServerType mergeMcpServers;
+}

@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
 let
   cfg = config.dotfiles.programs.codex;
@@ -17,33 +22,33 @@ let
   # (precedence 30). Codex never persists `-c` flags, so there is no managed file
   # for it to clobber. Dotted keys map straight to Codex config paths; bool values
   # render as bare TOML `true`/`false`.
-  managedConfig = { "features.hooks" = lib.boolToString cfg.enableHooks; };
-  configArgs = lib.concatStringsSep " "
-    (lib.mapAttrsToList (k: v: "-c ${lib.escapeShellArg "${k}=${v}"}")
-      managedConfig);
+  managedConfig = {
+    "features.hooks" = lib.boolToString cfg.enableHooks;
+  };
+  configArgs = lib.concatStringsSep " " (
+    lib.mapAttrsToList (k: v: "-c ${lib.escapeShellArg "${k}=${v}"}") managedConfig
+  );
   codexWrapper = pkgs.writeShellScript "codex-wrapper" ''
     exec ${pkgs.dotfiles.codex}/bin/codex ${configArgs} "$@"
   '';
-in {
+in
+{
   options.dotfiles.programs.codex = {
     enable = mkEnableOption "Enable codex";
     skillsDirs = mkOption {
       type = types.listOf types.path;
       default = [ ];
-      description =
-        "List of paths to skill directories to symlink into ~/.codex/skills.";
+      description = "List of paths to skill directories to symlink into ~/.codex/skills.";
     };
     enableHooks = mkOption {
       type = types.bool;
       default = true;
-      description =
-        "Enable Codex lifecycle hooks ([features].hooks), injected as a -c session flag by the codex wrapper.";
+      description = "Enable Codex lifecycle hooks ([features].hooks), injected as a -c session flag by the codex wrapper.";
     };
     hooks = mkOption {
       type = types.attrsOf hookTypes.hookType;
       default = { };
-      description =
-        "Named Codex hook definitions rendered to ~/.codex/hooks.json.";
+      description = "Named Codex hook definitions rendered to ~/.codex/hooks.json.";
     };
   };
 
@@ -51,35 +56,38 @@ in {
     dotfiles.programs.codex.skillsDirs = [ aiSkills.builtinSkillsDir ];
     dotfiles.programs.zsh.extraSessionPaths = [ "$HOME/.local/bin" ];
 
-    assertions = [{
-      assertion = skills.conflicts == [ ];
-      message =
-        "codex: skill name conflicts between built-in skills and provided skills: ${
-          builtins.concatStringsSep ", " skills.conflicts
-        }";
-    }];
+    assertions = [
+      {
+        assertion = skills.conflicts == [ ];
+        message = "codex: skill name conflicts between built-in skills and provided skills: ${builtins.concatStringsSep ", " skills.conflicts}";
+      }
+    ];
 
-    warnings = lib.optional (cfg.hooks != { } && !cfg.enableHooks)
-      "codex: hooks are declared but dotfiles.programs.codex.enableHooks is false; they will never fire.";
+    warnings =
+      lib.optional (cfg.hooks != { } && !cfg.enableHooks)
+        "codex: hooks are declared but dotfiles.programs.codex.enableHooks is false; they will never fire.";
 
     # Shared global agent instructions (also deployed to ~/.claude/CLAUDE.md).
     # Managed settings are injected at runtime via the wrapper's `-c` flags, not a
     # config file, so there is nothing here for codex to clobber.
-    home.file = skills.files // {
-      ".codex/AGENTS.md".source = ../../lib/ai/global-instructions.md;
-    } // lib.optionalAttrs (mergedHooks != { }) {
-      ".codex/hooks.json".source = pkgs.writeText "codex-hooks.json"
-        (builtins.toJSON { hooks = mergedHooks; });
-    };
+    home.file =
+      skills.files
+      // {
+        ".codex/AGENTS.md".source = ../../lib/ai/global-instructions.md;
+      }
+      // lib.optionalAttrs (mergedHooks != { }) {
+        ".codex/hooks.json".source = pkgs.writeText "codex-hooks.json" (
+          builtins.toJSON { hooks = mergedHooks; }
+        );
+      };
 
     # Wrap codex so it always runs with the managed `-c` overrides injected. The
     # wrapper references the unbundled codex by store path (it shells out to an
     # ambient `rg`, provided by the base profile), so codex is realised without
     # being a bare entry on PATH.
-    home.activation.codexStableLink =
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        mkdir -p $HOME/.local/bin
-        install -m755 ${codexWrapper} "$HOME/.local/bin/codex"
-      '';
+    home.activation.codexStableLink = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      mkdir -p $HOME/.local/bin
+      install -m755 ${codexWrapper} "$HOME/.local/bin/codex"
+    '';
   };
 }

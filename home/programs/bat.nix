@@ -1,12 +1,23 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 with lib;
-let cfg = config.dotfiles.programs.bat;
-in {
-  options.dotfiles.programs.bat = { enable = mkEnableOption "Enable bat"; };
+let
+  cfg = config.dotfiles.programs.bat;
+in
+{
+  options.dotfiles.programs.bat = {
+    enable = mkEnableOption "Enable bat";
+  };
 
   config.programs.bat = mkIf cfg.enable {
     enable = true;
-    config = { theme = "tokyonight-night"; };
+    config = {
+      theme = "tokyonight-night";
+    };
 
     themes = {
       tokyonight-night = {

@@ -56,6 +56,10 @@ in
     dotfiles.programs.codex.skillsDirs = [ aiSkills.builtinSkillsDir ];
     dotfiles.programs.zsh.extraSessionPaths = [ "$HOME/.local/bin" ];
 
+    # On Linux, Codex sandboxes commands with bubblewrap (`bwrap`), expecting it
+    # on PATH. macOS uses Seatbelt instead, so it is only needed here.
+    home.packages = lib.optionals pkgs.stdenv.isLinux [ pkgs.bubblewrap ];
+
     assertions = [
       {
         assertion = skills.conflicts == [ ];

@@ -29,7 +29,12 @@ let
         alwaysThinkingEnabled = true;
         autoMemoryEnabled = false;
         hooks = mergedHooks;
-        permissions = cfg.permissions;
+        permissions = {
+          inherit (cfg.permissions) allow deny;
+        }
+        // lib.optionalAttrs (cfg.permissions.defaultMode != null) {
+          inherit (cfg.permissions) defaultMode;
+        };
       }
       // lib.optionalAttrs (cfg.statusLine != null) {
         statusLine = cfg.statusLine;
@@ -80,6 +85,25 @@ in
             type = types.listOf types.str;
             default = [ ];
             description = "List of permissions to deny.";
+          };
+          defaultMode = mkOption {
+            type = types.nullOr (
+              types.enum [
+                "default"
+                "acceptEdits"
+                "plan"
+                "auto"
+                "dontAsk"
+                "bypassPermissions"
+              ]
+            );
+            default = "auto";
+            description = ''
+              Default permission mode written to settings.json as
+              permissions.defaultMode. Defaults to "auto". Set to null to
+              omit the key entirely. See
+              https://code.claude.com/docs/en/permission-modes#switch-permission-modes.
+            '';
           };
         };
       };

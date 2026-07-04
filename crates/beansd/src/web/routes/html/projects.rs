@@ -149,7 +149,7 @@ mod tests {
         let app = router().with_state(build_state(Arc::new(Mutex::new(r))));
         let resp = app
             .oneshot(
-                Request::get("/partials/topbar")
+                Request::get("/partials/topbar?active=/tmp/p")
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )
@@ -166,6 +166,17 @@ mod tests {
         assert!(
             body.contains("/tmp/p"),
             "path should appear in the dropdown row"
+        );
+        // The placeholder is always rendered as a disabled/hidden fallback for
+        // the button label; the active project's option carries `selected` and,
+        // being later in document order, wins over the placeholder.
+        assert!(
+            body.contains(r#"<option value="" disabled selected hidden>"#),
+            "placeholder option should be a disabled/hidden fallback"
+        );
+        assert!(
+            body.contains(r#"<option value="/tmp/p" selected>"#),
+            "active project option should be marked selected"
         );
     }
 

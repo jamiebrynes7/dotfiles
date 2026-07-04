@@ -1,19 +1,18 @@
-<details class="project-switcher">
-  <summary>
-    {% if let Some(p) = active_project %}{{ p.display_name }}{% else %}Select a project{% endif %}
+<select class="project-switcher" aria-label="Select a project"
+        onchange="if (this.value) location.assign('/?project=' + encodeURIComponent(this.value));">
+  <button>
+    <selectedcontent></selectedcontent>
     <span class="caret">▾</span>
-  </summary>
-  <div class="panel">
-    {% for p in projects %}
-    <a class="project-row{% if Some(p.key.clone()) == active_key %} active{% endif %}"
-       href="/?project={{ p.key.display() }}">
-      <div class="name">{{ p.display_name }}</div>
-      <div class="path">{{ p.key.display() }}</div>
-      <span class="badge {{ p.state }}">{{ p.state }}</span>
-    </a>
-    {% endfor %}
-  </div>
-</details>
+  </button>
+  <option value="" disabled selected hidden>Select a project</option>
+  {% for p in projects %}
+  <option value="{{ p.key.display() }}"{% if Some(p.key.clone()) == active_key %} selected{% endif %}>
+    <span class="name">{{ p.display_name }}</span>
+    <span class="path">{{ p.key.display() }}</span>
+    <span class="badge {{ p.state }}">{{ p.state }}</span>
+  </option>
+  {% endfor %}
+</select>
 {% if let Some(p) = active_project %}
 <div class="topbar-detail">
   <span class="badge {{ p.state }}">{{ p.state }}</span>

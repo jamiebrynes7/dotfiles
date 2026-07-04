@@ -16,52 +16,78 @@ body {
   gap: 1rem;
 }
 
-details.project-switcher { position: relative; }
-details.project-switcher > summary {
-  list-style: none;
-  padding: 0.35rem 0.6rem;
-  border-radius: 4px;
-  cursor: pointer;
+/* Customizable <select> (appearance: base-select). Where the API is
+   unsupported the browser falls back to a native select; the extra
+   <button>/<selectedcontent> markup may render imperfectly, but the options
+   remain selectable. Targeting evergreen Chromium; not tested on older engines. */
+select.project-switcher {
+  appearance: base-select;
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: transparent;
+  padding: 0;
 }
-details.project-switcher > summary::-webkit-details-marker { display: none; }
-details.project-switcher > summary:hover { background: #313244; }
 
-.caret { opacity: 0.6; margin-left: 0.3rem; }
-
-details[open] > .panel {
-  position: absolute;
-  top: 100%;
-  left: 0;
+select.project-switcher::picker(select) {
+  appearance: base-select;
   min-width: 280px;
   max-width: 480px;
   background: #1e1e2e;
   border: 1px solid #313244;
   border-radius: 4px;
-  z-index: 10;
   max-height: 60vh;
   overflow-y: auto;
   margin-top: 0.25rem;
+  padding: 0;
 }
 
-.project-row {
+select.project-switcher > button {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+select.project-switcher > button:hover { background: #313244; }
+
+/* Suppress the UA's default picker arrow — we render our own .caret. */
+select.project-switcher::picker-icon { display: none; }
+
+/* The button mirrors the selected option; show only its name, not path/badge. */
+select.project-switcher selectedcontent .path,
+select.project-switcher selectedcontent .badge { display: none; }
+
+.caret { opacity: 0.6; margin-left: 0.3rem; }
+
+select.project-switcher option {
   display: grid;
   grid-template-columns: 1fr auto;
   column-gap: 0.75rem;
   padding: 0.5rem 0.75rem;
-  color: inherit;
-  text-decoration: none;
+  color: #cdd6f4;
+  cursor: pointer;
 }
-.project-row .name { grid-column: 1; grid-row: 1; font-weight: 500; }
-.project-row .path {
+select.project-switcher option::checkmark { display: none; }
+/* The placeholder option is a fallback for the button label only; keep it out
+   of the picker (the base-select picker ignores the `hidden` attribute). */
+select.project-switcher option[hidden] { display: none; }
+select.project-switcher option .name { grid-column: 1; grid-row: 1; font-weight: 500; }
+select.project-switcher option .path {
   grid-column: 1;
   grid-row: 2;
   font-family: ui-monospace, monospace;
   font-size: 0.7rem;
   opacity: 0.6;
 }
-.project-row .badge { grid-column: 2; grid-row: 1 / 3; align-self: center; }
-.project-row:hover { background: #313244; }
-.project-row.active { background: #45475a; }
+select.project-switcher option .badge { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+select.project-switcher option:hover { background: #313244; }
+select.project-switcher option:checked { background: #45475a; }
 
 .topbar-detail {
   display: flex;

@@ -218,6 +218,22 @@
 
       mkPackages = pkgs: builtins.removeAttrs pkgs.dotfiles [ "internal" ];
 
+      # `nixfmt --check` gate as a flake check, mirroring crates/'s `rust-fmt`.
+      # `fileFilter` over the git-filtered flake source keeps vendored `.direnv`
+      # Nix out; `-exec` passes files explicitly (nixfmt 1.2.0 deprecates dir args).
+      mkNixfmtCheck =
+        pkgs:
+        let
+          src = pkgs.lib.fileset.toSource {
+            root = ./.;
+            fileset = pkgs.lib.fileset.fileFilter (file: file.hasExt "nix") ./.;
+          };
+        in
+        pkgs.runCommandLocal "nixfmt-check" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
+          find ${src} -name '*.nix' -exec nixfmt --check {} +
+          touch $out
+        '';
+
     in
     {
       lib = {
@@ -243,11 +259,25 @@
           system = "x86_64-linux";
         });
       };
-      checks = {
-        aarch64-darwin = self.packages.aarch64-darwin // (nixDarwinPkgs { }).dotfiles.internal.rustChecks;
-        x86_64-linux =
-          self.packages.x86_64-linux // (nixOsPkgs { system = "x86_64-linux"; }).dotfiles.internal.rustChecks;
-      };
+      checks =
+        let
+          darwinPkgs = nixDarwinPkgs { };
+          linuxPkgs = nixOsPkgs { system = "x86_64-linux"; };
+        in
+        {
+          aarch64-darwin =
+            self.packages.aarch64-darwin
+            // darwinPkgs.dotfiles.internal.rustChecks
+            // {
+              nixfmt = mkNixfmtCheck darwinPkgs;
+            };
+          x86_64-linux =
+            self.packages.x86_64-linux
+            // linuxPkgs.dotfiles.internal.rustChecks
+            // {
+              nixfmt = mkNixfmtCheck linuxPkgs;
+            };
+        };
       templates = {
         "system/darwin" = {
           path = ./templates/systems/darwin;

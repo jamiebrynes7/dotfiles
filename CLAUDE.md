@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-06-06
+Freshness: 2026-07-04
 
 ## Tech Stack
 
@@ -16,7 +16,7 @@ Freshness: 2026-06-06
 
 No justfile at the repo root. Common operations:
 
-- `nix flake check` — validate the flake; also builds and tests the Rust workspace (this is what CI runs)
+- `nix flake check` — validate the flake; also checks Nix formatting (the `nixfmt` check) and builds/tests the Rust workspace (this is what CI runs)
 - `nix flake show` — list outputs (systems, templates, lib)
 - `nixfmt <file>` — format Nix files (available in the devShell)
 - `cargo test --workspace` — run Rust tests directly without going through Nix (see `crates/CLAUDE.md`)

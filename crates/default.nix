@@ -33,6 +33,13 @@ let
   # clippy/test checks — so cargo deps compile once and every derivation reuses the
   # same `cargoArtifacts`.
   commonArgs = {
+    # The root Cargo.toml is a virtual workspace manifest (`[workspace]`, no
+    # `[package].name`), so crane can't infer a crate name for the deps cache /
+    # checks and warns while substituting a placeholder. Naming the shared args
+    # explicitly silences that. `buildLocalRustBin` overrides pname/version with
+    # the shipped package's own values, so this only labels the deps/check derivations.
+    pname = "dotfiles-rs-workspace";
+    version = "0.1.0";
     # Full workspace tree, not `cleanCargoSource`: `beansd` embeds non-Rust assets
     # (askama `.html` templates compiled by the derive macro, plus `.css`/`.js`
     # static files) that the cargo-only filter would strip. `buildDepsOnly` keys
@@ -56,7 +63,7 @@ let
   # (not `beans-daemon-*`) because `--workspace` means they cover every crate, not
   # just the shipped package.
   rustChecks = {
-    rust-fmt = craneLib.cargoFmt { inherit (commonArgs) src; };
+    rust-fmt = craneLib.cargoFmt { inherit (commonArgs) src pname version; };
     rust-clippy = craneLib.cargoClippy (
       commonArgs
       // {

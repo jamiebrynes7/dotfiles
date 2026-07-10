@@ -11,13 +11,39 @@ declare -A PLATFORM_MAP=(
   ["x86_64-linux"]="linux-x64"
 )
 
+# Parse args: optional VERSION positional, optional --force to recompute hashes
+# even when the recorded version already matches.
+FORCE=0
+VERSION=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f | --force)
+      FORCE=1
+      shift
+      ;;
+    -*)
+      echo "Error: unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      VERSION="$1"
+      shift
+      ;;
+  esac
+done
+
 # Resolve version
-if [[ $# -ge 1 ]]; then
-  VERSION="$1"
-else
+if [[ -z "$VERSION" ]]; then
   VERSION=$(curl -sf "https://api.github.com/repos/${REPO}/releases/latest" \
     | jq -r '.tag_name | ltrimstr("v")')
   echo "Latest version: ${VERSION}"
+fi
+
+# Skip all hash work when the recorded version already matches (unless --force).
+CURRENT_VERSION=$(jq -r '.version // empty' "${SCRIPT_DIR}/hashes.json" 2>/dev/null || true)
+if [[ "$FORCE" -ne 1 && -n "$CURRENT_VERSION" && "$CURRENT_VERSION" == "$VERSION" ]]; then
+  echo "plannotator already at ${VERSION}, skipping"
+  exit 0
 fi
 
 # Validate the tag exists as a GitHub release

@@ -8,12 +8,21 @@ FLAKE_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 OWNER="hmans"
 REPO="beans"
 
-# Evaluate against the flake's pinned nixpkgs so the hashes we write match
-# what `nix flake check` will recompute. `<nixpkgs>` from NIX_PATH can resolve
-# to a different channel and a different `pnpm`, producing a stale
-# `pnpmDepsHash`.
-echo "Resolving flake nixpkgs..."
-NIXPKGS=$(nix eval --raw --impure --expr "(builtins.getFlake \"$FLAKE_ROOT\").inputs.nixpkgs.outPath")
+# Parse args: --force recomputes hashes even when the recorded version already
+# matches the latest main commit.
+FORCE=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f | --force)
+      FORCE=1
+      shift
+      ;;
+    *)
+      echo "Error: unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
 
 echo "Fetching latest commit from $OWNER/$REPO..."
 COMMIT_INFO=$(curl -sf "https://api.github.com/repos/$OWNER/$REPO/commits/main")
@@ -24,6 +33,22 @@ VERSION="unstable-${DATE}-${SHORT_SHA}"
 
 echo "Latest commit: $REV ($DATE)"
 echo "Version: $VERSION"
+
+# Skip all hash work when the recorded version already matches (unless --force).
+# The version embeds the commit SHA, so this equality also means "main has not
+# moved since the last update".
+CURRENT_VERSION=$(jq -r '.version // empty' "$DATA_FILE" 2>/dev/null || true)
+if [[ "$FORCE" -ne 1 && -n "$CURRENT_VERSION" && "$CURRENT_VERSION" == "$VERSION" ]]; then
+  echo "beans already at ${VERSION}, skipping"
+  exit 0
+fi
+
+# Evaluate against the flake's pinned nixpkgs so the hashes we write match
+# what `nix flake check` will recompute. `<nixpkgs>` from NIX_PATH can resolve
+# to a different channel and a different `pnpm`, producing a stale
+# `pnpmDepsHash`.
+echo "Resolving flake nixpkgs..."
+NIXPKGS=$(nix eval --raw --impure --expr "(builtins.getFlake \"$FLAKE_ROOT\").inputs.nixpkgs.outPath")
 
 echo "Prefetching source..."
 HASH=$(nix-prefetch-url --unpack "https://github.com/$OWNER/$REPO/archive/$REV.tar.gz" 2>/dev/null)

@@ -1,10 +1,12 @@
 ---
 # dotfiles-ubfq
 title: Rust build improvements
-status: todo
+status: completed
 type: epic
+priority: normal
 created_at: 2026-05-30T17:35:24Z
-updated_at: 2026-05-30T17:35:24Z
+updated_at: 2026-07-04T21:03:43Z
+order: c
 ---
 
 Thematic container for improvements to how the Rust workspace (`crates/`) is built and gated under Nix.

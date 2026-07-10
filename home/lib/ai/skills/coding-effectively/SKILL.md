@@ -147,10 +147,13 @@ return value;
 
 ### Code comments
 
-- Comments should communicate purpose and intention, not merely be a description of what the code does.
-- Consider the perspective of a future reader: **why** is far more important than **what**. The 'what' can be determined by reading the code.
-- Obvious comments should be omitted entirely.
-- Avoid comments that are likely to churn if the code structure is changed.
+Every comment must earn its place. The only comments worth keeping explain **why** the code does something, never **what** — code is the single source of truth for "what", so a comment that restates it is redundant at best and a future lie at worst.
+
+- Explain *why*: why a non-obvious approach was chosen over the obvious one, why a workaround exists (link the issue when possible), why a particular value or threshold was picked, or domain/business context the code cannot express.
+- Omit "what" comments entirely. If code is too opaque to follow without one, fix the code (better names, extracted functions, clearer structure) rather than paper over it with a comment.
+- Never leave comments that are artifacts of the change itself — the plan, the discussion, or how the code got here (`// as discussed`, `// new approach`, `// per the plan`). They are temporally coupled to a moment that the reader wasn't present for and can't recover.
+- Never describe what the code **used to do** (`// previously returned null`, `// no longer uses the cache`). Comments describe what *is*; historical narration is actively harmful because it contradicts the code the instant it's read.
+- Avoid comments that are likely to churn when the code structure changes.
 
 ## Property-Driven Design
 

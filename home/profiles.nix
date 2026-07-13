@@ -24,6 +24,7 @@ in
     (mkIf cfg.base {
       dotfiles.programs = {
         atuin.enable = true;
+        adhoc-pf.enable = true;
         bat.enable = true;
         spark.enable = true;
         direnv.enable = true;

@@ -21,9 +21,11 @@ let
   # Managed Codex settings, injected as session-only `-c key=value` overrides
   # (precedence 30). Codex never persists `-c` flags, so there is no managed file
   # for it to clobber. Dotted keys map straight to Codex config paths; bool values
-  # render as bare TOML `true`/`false`.
+  # render as bare TOML `true`/`false`; string values embed their own TOML quotes
+  # (e.g. `''"auto_review"''`).
   managedConfig = {
     "features.hooks" = lib.boolToString cfg.enableHooks;
+    "approvals_reviewer" = ''"${cfg.approvalsReviewer}"'';
   };
   configArgs = lib.concatStringsSep " " (
     lib.mapAttrsToList (k: v: "-c ${lib.escapeShellArg "${k}=${v}"}") managedConfig
@@ -44,6 +46,11 @@ in
       type = types.bool;
       default = true;
       description = "Enable Codex lifecycle hooks ([features].hooks), injected as a -c session flag by the codex wrapper.";
+    };
+    approvalsReviewer = mkOption {
+      type = types.str;
+      default = "auto_review";
+      description = "Value for Codex's approvals_reviewer setting, injected as a -c session flag by the codex wrapper.";
     };
     hooks = mkOption {
       type = types.attrsOf hookTypes.hookType;

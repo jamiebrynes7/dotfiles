@@ -28,6 +28,22 @@ let
       }
     ];
   };
+
+  # Code-review "denied" feedback: keep triage + concreteness, drop the
+  # "independently review the diff yourself" instruction from the default.
+  reviewDeniedPrompt = ''
+    The findings above are reviewer comments on the current changes.
+
+    Triage each incoming finding — open the code it points at and give a verdict (Confirmed / Partly / Not a bug / Intended) with evidence (file:line + what the code actually does). Say whether it's introduced by these changes, pre-existing, or a deliberate scope decision. Rank by real user impact.
+
+    For each confirmed issue, describe it concretely: the exact place it lives and the real-world trigger that hits it — the specific call, endpoint, command, input, or user action — plus the conditions under which it goes wrong. Not an abstract description.'';
+
+  configJson = pkgs.writeText "plannotator-config.json" (
+    builtins.toJSON {
+      diffOptions.defaultDiffType = "uncommitted";
+      prompts.review.denied = reviewDeniedPrompt;
+    }
+  );
 in
 {
   options.dotfiles.programs.plannotator = {
@@ -48,6 +64,7 @@ in
   config = lib.mkMerge [
     (lib.mkIf (cfg.claude-code.enable || cfg.codex.enable) {
       home.packages = [ plannotatorWrapper ];
+      home.file.".plannotator/config.json".source = configJson;
     })
     (lib.mkIf cfg.claude-code.enable {
       dotfiles.programs.claude-code.skillsDirs = [ ./skills ];

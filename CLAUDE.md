@@ -42,10 +42,16 @@ templates/
   systems/           # darwin, nixos, home-manager
 modules/             # Shared NixOS/nix-darwin modules (currently empty)
 crates/              # Rust workspace: beansd + beansctl + beansd-rpc — see crates/CLAUDE.md
-packages/            # Nix packages built from this repo (e.g. beans-daemon)
+packages/            # Nix packages — built from this repo (beans-daemon) or vendored upstream binaries
 ```
 
 ## Conventions
+
+### Packages
+
+Every directory under `packages/` is auto-discovered by `flake.nix` and exposed as `pkgs.dotfiles.<dir>` — **only** there, never as a top-level `pkgs.<name>`. Reference them as `pkgs.dotfiles.claude-code`, not `pkgs.claude-code`.
+
+Vendored upstream binaries (`claude-code`, `codex`, `cship`, `plannotator`, `sprite`) follow a fixed shape: a `hashes.json` recording the version plus a per-platform artifact name and hash, a `default.nix` that reads it, and an `update.sh` that refreshes it. `update.sh` must be idempotent — re-running it when the recorded version already matches should exit 0 without touching `hashes.json`, since `.github/workflows/auto-update.yml` runs every script nightly and opens a PR only if `packages/` changed.
 
 ### Program module pattern
 

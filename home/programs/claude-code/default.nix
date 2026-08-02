@@ -17,7 +17,7 @@ let
   claudeWrapper = pkgs.writeShellScript "claude-wrapper" ''
     ${cfg.extraScript}
     export BASH_MAX_TIMEOUT_MS=1800000
-    exec ${pkgs.claude-code}/bin/claude "$@"
+    exec ${pkgs.dotfiles.claude-code}/bin/claude "$@"
   '';
 
   hookTypes = import ./hooks/types.nix { inherit lib; };

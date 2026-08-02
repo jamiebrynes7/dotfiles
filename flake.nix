@@ -25,16 +25,6 @@
     # crane is nixpkgs-agnostic (no `nixpkgs` input to follow); it reads pkgs
     # from `crane.mkLib pkgs` at call sites.
     crane.url = "github:ipetkov/crane";
-
-    # Tools
-    claude-code = {
-      url = "github:jamiebrynes7/claude-code-native-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    sprites-cli = {
-      url = "github:jamiebrynes7/sprite-cli-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -66,8 +56,6 @@
 
       defaultOverlays = [
         inputs.alacritty-themes.overlays.default
-        inputs.claude-code.overlays.default
-        inputs.sprites-cli.overlays.default
         dotfilesOverlay
         (import ./crates { inherit inputs; })
       ];

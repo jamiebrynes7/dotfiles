@@ -5,7 +5,7 @@ status: todo
 type: task
 priority: normal
 created_at: 2026-08-02T12:18:09Z
-updated_at: 2026-08-02T12:18:09Z
+updated_at: 2026-08-02T13:59:31Z
 parent: dotfiles-gq4t
 blocked_by:
     - dotfiles-36nb
@@ -41,7 +41,7 @@ Insert after `mkHomeEvalCheck` in the same `let` block:
             ) hm.config.home.file
           );
         in
-        pkgs.runCommandLocal "plugin-validate" { nativeBuildInputs = [ pkgs.claude-code ]; } ''
+        pkgs.runCommandLocal "plugin-validate" { nativeBuildInputs = [ pkgs.dotfiles.claude-code ]; } ''
           export HOME=$TMPDIR
           for plugin in ${lib.escapeShellArgs pluginPaths}; do
             echo "validating $plugin"

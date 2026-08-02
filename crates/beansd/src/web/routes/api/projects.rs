@@ -16,7 +16,7 @@ async fn start_project(
     }
     let reg = state.registry.lock().await;
     let tmpl = TopBarPartial {
-        projects: project_views(&reg),
+        projects: project_views(&reg, state.home.as_deref().map(|h| h.as_path())),
         active_key: None,
         active_project: None,
     };
@@ -32,7 +32,7 @@ async fn stop_project(
     }
     let reg = state.registry.lock().await;
     let tmpl = TopBarPartial {
-        projects: project_views(&reg),
+        projects: project_views(&reg, state.home.as_deref().map(|h| h.as_path())),
         active_key: None,
         active_project: None,
     };

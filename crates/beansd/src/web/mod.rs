@@ -2,6 +2,7 @@ use crate::daemon::Daemon;
 use crate::registry::Registry;
 use axum::Router;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
@@ -16,6 +17,7 @@ mod test_utils;
 pub(in crate::web) struct State {
     pub(in crate::web) registry: Arc<Mutex<Registry>>,
     pub(in crate::web) daemon: Arc<Daemon>,
+    pub(in crate::web) home: Option<Arc<PathBuf>>,
 }
 
 fn router(state: State) -> Router {
@@ -33,7 +35,11 @@ impl Server {
         daemon: Arc<Daemon>,
         port: u16,
     ) -> anyhow::Result<Self> {
-        let state = State { registry, daemon };
+        let state = State {
+            registry,
+            daemon,
+            home: views::home_dir().map(Arc::new),
+        };
         let router = router(state);
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
         let listener = TcpListener::bind(addr).await?;

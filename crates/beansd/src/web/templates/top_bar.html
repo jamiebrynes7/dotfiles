@@ -8,7 +8,7 @@
   {% for p in projects %}
   <option value="{{ p.key.display() }}"{% if Some(p.key.clone()) == active_key %} selected{% endif %}>
     <span class="name">{{ p.display_name }}</span>
-    <span class="path">{{ p.key.display() }}</span>
+    <span class="path" title="{{ p.key.display() }}">{{ p.display_path }}</span>
     <span class="badge {{ p.state }}">{{ p.state }}</span>
   </option>
   {% endfor %}
@@ -16,7 +16,7 @@
 {% if let Some(p) = active_project %}
 <div class="topbar-detail">
   <span class="badge {{ p.state }}">{{ p.state }}</span>
-  <span class="path">{{ p.key.display() }}</span>
+  <span class="path" title="{{ p.key.display() }}">{{ p.display_path }}</span>
   {% if let Some(port) = p.port %}<span class="port">:{{ port }}</span>{% endif %}
 </div>
 {% endif %}

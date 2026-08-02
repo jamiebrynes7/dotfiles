@@ -24,7 +24,7 @@ async fn index(
     axum::extract::State(state): axum::extract::State<State>,
 ) -> impl IntoResponse {
     let reg = state.registry.lock().await;
-    let projects = project_views(&reg);
+    let projects = project_views(&reg, state.home.as_deref().map(|h| h.as_path()));
     let active_project = crate::web::views::resolve_active(&projects, q.project.as_deref());
     let tmpl = IndexTemplate {
         projects,
@@ -52,7 +52,7 @@ async fn topbar_partial(
     axum::extract::State(state): axum::extract::State<State>,
 ) -> impl IntoResponse {
     let reg = state.registry.lock().await;
-    let projects = project_views(&reg);
+    let projects = project_views(&reg, state.home.as_deref().map(|h| h.as_path()));
     let active_project = crate::web::views::resolve_active(&projects, q.active.as_deref());
     let tmpl = TopBarPartial {
         projects,
@@ -73,7 +73,7 @@ mod tests {
     use super::*;
     use crate::registry::{self, Project, ProjectState, Registry};
     use crate::spawner::testing::FakeChildHandle;
-    use crate::web::test_utils::{build_state, empty_state};
+    use crate::web::test_utils::{build_state, empty_state, state_with_home};
     use axum::http::{Request, StatusCode};
     use std::sync::Arc;
     use tokio::sync::Mutex;
@@ -177,6 +177,51 @@ mod tests {
         assert!(
             body.contains(r#"<option value="/tmp/p" selected>"#),
             "active project option should be marked selected"
+        );
+    }
+
+    #[tokio::test]
+    async fn partial_renders_home_paths_with_a_tilde_but_keys_verbatim() {
+        let mut r = Registry::new();
+        registry::test_utils::seed_registry(
+            &mut r,
+            vec![Project::new(
+                "/home/jo/workspace/p".into(),
+                "p".into(),
+                ProjectState::Healthy {
+                    port: 4242,
+                    child: Box::new(FakeChildHandle::new(1)),
+                },
+            )],
+        );
+        let state = state_with_home(Arc::new(Mutex::new(r)), Some("/home/jo"));
+        let app = router().with_state(state);
+        let resp = app
+            .oneshot(
+                Request::get("/partials/topbar?active=/home/jo/workspace/p")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = String::from_utf8(
+            axum::body::to_bytes(resp.into_body(), 64 * 1024)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(
+            body.contains(r#"title="/home/jo/workspace/p">~/workspace/p</span>"#),
+            "path span should show the tilde form with the full path as its tooltip, got: {body}"
+        );
+        assert!(
+            !body.contains(">/home/jo/workspace/p</span>"),
+            "no display span should render the full path as its visible text"
+        );
+        assert!(
+            body.contains(r#"<option value="/home/jo/workspace/p" selected>"#),
+            "the option value must stay the real absolute path"
         );
     }
 

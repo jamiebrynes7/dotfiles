@@ -42,7 +42,7 @@ let
 in
 {
   config.dotfiles.programs.claude-code.hooks.skill-reinforcement = mkIf cfg.enable {
-    enable = true;
+    enable = mkDefault false;
     event = "UserPromptSubmit";
     hooks = [
       {

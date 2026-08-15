@@ -1,272 +1,115 @@
 ---
 name: writing-claude-directives
-description: Use when writing instructions that guide Claude behavior - skills, CLAUDE.md files, agent prompts, system prompts. Covers token efficiency, compliance techniques, and discovery optimization.
+description: Use when writing instructions that guide Claude behavior - skills, CLAUDE.md files, agent prompts, system prompts. Covers what earns a place in a directive, token budgets, compliance techniques, discovery, and skill portability.
 cc:user-invocable: false
 ---
 
 # Writing Claude Directives
 
-## Core Principles
+Modern Claude models are more often over-constrained than under-constrained. Guardrails written for older generations now cost more than they buy: they narrow exploration, and when the same rule appears in several places at different strictness levels, effort goes into reconciling them rather than into the work.
 
-**1. Claude is smart.** Only write what it doesn't already know. Challenge each line: does this justify its token cost?
+## What earns a place
 
-**2. Positive > Negative framing.** "Don't do X" triggers thinking about X (pink elephant problem). Say what TO do, not what to avoid.
+Three tests. A directive should pass at least one.
 
-```markdown
-# Bad: triggers the behavior
+**1. Taste, not consensus.** Nothing else tells the model which side of a contested choice you are on. "Declare close to usage", "rule of three before abstracting", "lowercase `failed to X` error fragments" earn their tokens precisely because reasonable codebases disagree about them.
 
-Don't create duplicate files
+**2. Counteracts a default rather than restating one.** Rules that resist a known tendency — happy-path bias, agreeableness in review, implementing before researching — are the most valuable thing a directive can hold. Rules describing what would have happened anyway are ceremony.
 
-# Good: directs to correct behavior
+**3. Cheap to say.** Most bloat is elaboration, not rules. "Keep the happy path left-aligned" is one line and does not need a before/after code pair. Cut worked examples and justification paragraphs; keep the rule.
 
-Update existing files in place
-```
+Do not justify a cut with "Claude already knows this." Training data sets the model's prior, and the corpus average includes plenty of code you would reject on sight. Knowing a principle and defaulting to it are different claims.
 
-**3. Context motivates compliance.** Explain WHY, not just WHAT. Claude generalizes from motivation.
+**When unsure, demote rather than delete.** Moving something into `references/` (see Progressive disclosure, below) is a much cheaper way to be wrong than deleting it.
 
-```markdown
-# Less effective
+## Two further grounds for cutting
 
-NEVER use ellipses
+- **Factually stale** — guidance calibrated to an older model generation that is now wrong, not merely redundant.
+- **Duplicated across sources** — the same rule in several files at several strictness levels. State each rule in exactly one place. Conflicting copies force deliberation regardless of whether any single copy is worth keeping.
 
-# More effective
+## Structural rules
 
-Your response will be read aloud by a text-to-speech engine, so never use ellipses since the TTS engine cannot pronounce them.
-```
+**Portability.** A skill is installed independently of any project and runs against arbitrary ones, so it may reference only files shipped inside its own directory. A path pointing into one particular repo resolves nowhere else, and the failure is quiet rather than loud: the model absorbs the read error and carries on without the guidance.
 
-**4. Placement matters.** Instructions at prompt start and end receive higher attention. Critical rules go at boundaries.
+This constrains *skills*. A CLAUDE.md file ships inside the repo it describes, so repo-relative paths are correct there.
 
-**5. ~150 instruction limit.** More instructions = uniform degradation across ALL rules. Prune ruthlessly.
+**Shared policy gets its own skill.** When two or more skills need the same rule, extract it and have each load it explicitly. Do not nominate one as owner and have the others cross-reference it: load order and co-presence are not guaranteed, and a review skill may well run without the write-code skill ever loading.
 
-**6. Repetition enforces critical rules.** For high-stakes requirements, repeat with different framings.
+## Discovery
 
-## Token Efficiency
+The `description` field decides whether Claude finds the skill at all, which makes it the highest-leverage line in the file.
 
-**Targets:**
-
-- Frequently-loaded directives: <200 words
-- Skills/CLAUDE.md: <500 lines total
-- Reference --help instead of documenting flags
-- Cross-reference other skills instead of repeating
-
-**Progressive disclosure:** Main file is overview + links. Reference files load on-demand.
-
-## Discovery (for Skills)
-
-The `description` field determines if Claude finds your skill.
-
-**Format:** Start with "Use when..." + specific triggers + what it does.
-
-**Write in third person.** Injected into system prompt.
+Start with "Use when...", name specific triggers, and write in third person — it is injected into the system prompt. Include the symptoms, error messages, and tool names someone would actually search for.
 
 ```yaml
-# Bad: vague, first person
+# Vague, first person
 description: I help with async testing
 
-# Good: triggers + action, third person
+# Triggers + action, third person
 description: Use when tests have race conditions or timing dependencies - replaces arbitrary timeouts with condition polling
 ```
 
-**Keywords:** Include error messages, symptoms, tool names Claude might search for.
+## Compliance
 
-## Compliance Techniques
+**Context over authority.** Explain why a rule exists; the model generalizes from the explanation. "Run tests before committing" carries less than "Run tests before committing — untested commits break CI for the whole team and block other people from merging."
 
-Claude 4.x models are highly responsive to instructions. Lead with context and motivation; reserve imperatives for critical boundaries.
+Reserve imperatives for genuine boundaries ("Never commit secrets to version control"). An imperative on every rule marks none of them.
 
-### Primary: Context + Motivation
+**Close loopholes with context, not volume.** "Write the test first. Code written before its test tends to test the implementation rather than the behavior, which makes refactoring harder later. If you find yourself with untested code, delete it and start with the test."
 
-Explain WHY the rule exists. Claude generalizes from the explanation:
+**Anticipate rationalizations** in discipline-enforcing directives — "this is simple enough to skip", "I already tested manually", "this case is different". Naming them is usually enough to defuse them.
 
-```markdown
-# Instead of raw authority
+## Structure
 
-You MUST run tests before committing.
+**Progressive disclosure.** The main file is an overview plus links; reference files load on demand. This is how a large body of guidance stays cheap — an unread reference costs nothing.
 
-# Provide motivation
+**Lead with what matters most.** Instructions at the start and end of a prompt get the most attention.
 
-Run tests before committing. Untested commits break CI for the whole team and block other developers from merging their work.
-```
+**Give the skill something to check against.** A validator, rubric, or test the model can run and loop on beats prose describing the standard — it turns "did I do this right" from a judgment call into a check. This is what `scripts/` is for.
 
-### Secondary: Structural Enforcement
+**Match specificity to fragility:**
 
-Use structure to make compliance the path of least resistance:
+| Task | Freedom | Style |
+| --- | --- | --- |
+| Fragile operations | Low | Exact commands, no improvisation |
+| Preferred patterns | Medium | Templates with parameters |
+| Context-dependent | High | Principles and heuristics |
 
-| Pattern                               | Example                                                                   |
-| ------------------------------------- | ------------------------------------------------------------------------- |
-| Workflow steps                        | Numbered steps with verification gates                                    |
-| Task tracking (TaskCreate/TaskUpdate) | Checklists without tracking = skipped steps (TodoWrite in older versions) |
-| Forced commitment                     | "Announce: I'm using [skill]"                                             |
-| Explicit blocking                     | "If X happens, stop and do Y instead"                                     |
+**XML tags** cleanly delimit multi-part directives (`<task>`, `<constraints>`, `<output_format>`) and double as format indicators. Use them where the structure earns it; markdown is fine elsewhere.
 
-### Escalation: Imperatives (Use Sparingly)
+**Match prompt style to desired output.** Markdown in the prompt encourages markdown back; drop it when you want plain text.
 
-For Claude 4.x, aggressive language ("YOU MUST", "CRITICAL") can cause overtriggering. Use normal language first:
+## References
 
-```markdown
-# Often sufficient for 4.x
+Prefer real artifacts to prose descriptions — code, test suites, rubrics, HTML mockups. They carry more signal per token and are unambiguous in a way prose is not.
 
-Use this tool when searching for files.
+Subject to the portability rule above: the artifact has to ship inside the skill directory. `references/` and `scripts/` are where it goes. Shipping a copy means it can drift from whatever it was copied from, so prefer artifacts that are self-contained or cheap to regenerate.
 
-# Reserve imperatives for true boundaries
+## Naming
 
-Never commit secrets to version control.
-```
+Gerund form: `writing-plans`, `debugging-errors`. Name by the action or the insight rather than the domain — `condition-based-waiting`, not `async-helpers`.
 
-Close loopholes when needed, but prefer context over authority:
+## Budget
 
-```markdown
-# Good: context + loophole closure
+- Frequently-loaded directives: under 200 words
+- A skill's main file: under ~150 lines — this is the surface that always loads
+- Any single reference file: under ~500 lines
+- Reference `--help` instead of documenting flags
+- Cross-reference other skills instead of restating them
 
-Write the test first. Code written before its test tends to test the implementation rather than the behavior, making refactoring harder later. If you find yourself with untested code, delete it and start with the test.
-```
+## Common mistakes
 
-### By Skill Type
+| Mistake | Fix |
+| --- | --- |
+| Explaining mechanics the model can derive | Omit — but see "What earns a place": knowing is not defaulting |
+| Several valid approaches | Pick a default, note the escape hatch |
+| Vague triggers | Name symptoms: "tests flaky", "race condition" |
+| Nested references | Keep one level deep from the main file |
+| Windows paths | Forward slashes always |
+| Repo-relative path in a skill | Ship the file inside the skill directory |
 
-| Type                           | Approach                                            |
-| ------------------------------ | --------------------------------------------------- |
-| Discipline (TDD, verification) | Context + structural enforcement + loophole closure |
-| Technique (patterns, how-to)   | Clear steps, "we want quality" framing              |
-| Reference (documentation)      | Clarity only, no persuasion needed                  |
+## Testing
 
-## Structure Patterns
+There is no unit test for a directive. Run the scenario without it and document what fails, add it, then verify the behaviour actually changed.
 
-### XML for Directives and Format Control
-
-Claude parses XML effectively. Use for multi-part directives:
-
-```xml
-<task>What to accomplish</task>
-<constraints>Hard requirements</constraints>
-<output_format>Expected structure</output_format>
-<examples>Input/output pairs</examples>
-```
-
-XML also works as format indicators:
-
-```xml
-<smoothly_flowing_prose>Write report sections here</smoothly_flowing_prose>
-<structured_data>JSON or tables here</structured_data>
-```
-
-XML outperforms markdown, JSON, or YAML for rule preservation in long prompts.
-
-### Match Prompt Style to Desired Output
-
-The formatting style in your prompt influences Claude's response. Include markdown formatting in your prompts when you want markdown output. Remove markdown from prompts if you want plain text output.
-
-### Workflows
-
-Break complex tasks into checkable steps:
-
-```markdown
-## Workflow
-
-- [ ] Step 1: Analyze inputs
-- [ ] Step 2: Generate plan
-- [ ] Step 3: Validate plan
-- [ ] Step 4: Execute
-- [ ] Step 5: Verify output
-```
-
-### Feedback Loops
-
-Validate → fix → repeat:
-
-```markdown
-1. Generate output
-2. Run validator
-3. If errors: fix and go to step 2
-4. Only proceed when validation passes
-```
-
-### Degrees of Freedom
-
-Match specificity to fragility:
-
-| Task Type          | Freedom | Style                           |
-| ------------------ | ------- | ------------------------------- |
-| Fragile operations | Low     | Exact scripts, no modifications |
-| Preferred patterns | Medium  | Templates with parameters       |
-| Context-dependent  | High    | Principles and heuristics       |
-
-## Action Bias Templates
-
-### Proactive (Default to Action)
-
-```xml
-<default_to_action>
-By default, implement changes rather than only suggesting them. If the user's intent is unclear, infer the most useful likely action and proceed, using tools to discover any missing details instead of guessing. Try to infer the user's intent about whether a tool call is intended or not, and act accordingly.
-</default_to_action>
-```
-
-### Conservative (Research First)
-
-```xml
-<do_not_act_before_instructions>
-Do not jump into implementation or change files unless clearly instructed. When the user's intent is ambiguous, default to providing information, doing research, and providing recommendations rather than taking action. Only proceed with edits when the user explicitly requests them.
-</do_not_act_before_instructions>
-```
-
-## Overengineering Prevention
-
-Claude 4.x tends to overengineer. Include this when needed:
-
-```markdown
-Avoid over-engineering. Only make changes that are directly requested or clearly necessary. Keep solutions simple and focused.
-
-Don't add features, refactor code, or make "improvements" beyond what was asked. A bug fix doesn't need surrounding code cleaned up. A simple feature doesn't need extra configurability.
-
-Don't add error handling, fallbacks, or validation for scenarios that can't happen. Trust internal code and framework guarantees. Only validate at system boundaries (user input, external APIs). Don't use backwards-compatibility shims when you can just change the code.
-
-Don't create helpers, utilities, or abstractions for one-time operations. Don't design for hypothetical future requirements. The right amount of complexity is the minimum needed for the current task. Reuse existing abstractions where possible and follow DRY.
-```
-
-## Model-Specific Notes
-
-### Opus 4.5: "Think" Sensitivity
-
-When extended thinking is disabled, Opus 4.5 is sensitive to the word "think" and variants. Replace with:
-
-- "consider" instead of "think about"
-- "evaluate" instead of "think through"
-- "determine" instead of "think whether"
-
-## Naming (for Skills)
-
-**Gerund form (verb + -ing):** `writing-skills`, `testing-code`, `debugging-errors`
-
-**Name by action or insight:** `condition-based-waiting` not `async-helpers`
-
-## Common Mistakes
-
-| Mistake                     | Fix                                                   |
-| --------------------------- | ----------------------------------------------------- |
-| Verbose explanations        | Claude knows basics - omit                            |
-| Multiple valid approaches   | Pick one default, escape hatch for edge cases         |
-| Vague triggers              | Specific symptoms: "tests flaky", "race condition"    |
-| Deeply nested references    | Keep one level deep from main file                    |
-| Windows paths               | Always forward slashes                                |
-| Aggressive language for 4.x | Lead with context, reserve imperatives for boundaries |
-
-## Anti-Rationalization
-
-For discipline-enforcing directives, anticipate excuses:
-
-```markdown
-## Red Flags - STOP
-
-If you find yourself reasoning any of these, you're rationalizing:
-
-- "This is simple enough to skip"
-- "I already tested manually"
-- "The spirit not the letter"
-- "This case is different"
-
-All mean: Follow the process.
-```
-
-## Testing Directives
-
-1. **Baseline:** Run scenario WITHOUT directive, document failures
-2. **Apply:** Add directive, verify compliance
-3. **Iterate:** Find new loopholes → add counters → re-test
+When trimming, the failure mode is discovering that a rule was load-bearing. So trim, use the result for real work, and watch specifically for the behaviour you cut.

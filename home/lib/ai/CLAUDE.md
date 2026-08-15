@@ -2,7 +2,7 @@
 
 Single source of truth for AI assistant skills, deployed via home-manager to Claude Code, Cursor, and Codex.
 
-Freshness: 2026-06-01
+Freshness: 2026-08-15
 
 ## Purpose
 
@@ -38,6 +38,7 @@ tools/
 
 ## Gotchas
 
+- A skill may only reference files inside its own skill directory. `mkSkillFiles` installs each skill into `.claude/skills`, `.cursor/skills` and `.codex/skills` on every machine this flake is applied to, and skills run against arbitrary projects — so a path like `crates/CLAUDE.md` resolves nowhere but here. Ship references under the skill's own `references/` or `scripts/`.
 - Skills require a subdirectory structure — a lone `.md` file in `skills/` won't be discovered.
 - `default.nix` files here use `import` (plain function calls), not `imports` — this is library code, not a NixOS module.
 - The `tools/` derivation needs `pkgs` passed in; it is not wired through the module system.

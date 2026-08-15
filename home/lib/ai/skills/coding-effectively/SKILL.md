@@ -6,180 +6,51 @@ cc:user-invocable: false
 
 # Coding Effectively
 
-## Core Engineering Principles
+## Correctness over convenience
 
-### Explicit over Implicit
+Model the full error space, not the path you had in mind. Handle every edge case — race conditions, timing issues, partial failures. Encode constraints in the type system, and prefer compile-time guarantees to runtime checks. Never bypass the type system to silence a compiler error (`as any`, unchecked casts). When uncertain, explore and iterate rather than assume.
 
-- Clear function names over clever abstractions
-- Obvious data flow over hidden magic
-- Direct dependencies over unnecessary indirection
+## Error handling
 
-### Correctness Over Convenience
+Never swallow an error. Every error is one of three things:
 
-Model the full error space. No shortcuts.
+- **Recoverable locally** — handle it
+- **Unrecoverable locally** — pass it up the stack
+- **Non-critical** — log it, increment a metric, or both
 
-- Handle all edge cases: race conditions, timing issues, partial failures
-- Use the type system to encode correctness constraints
-- Prefer compile-time guarantees over runtime checks where possible
-- When uncertain, explore and iterate rather than assume
+Two tiers: user-facing errors get semantic exit codes, rich diagnostics, and actionable messages. Internal errors are programming errors, and may panic or use internal types. Never emit a generic message where the specific cause is known.
 
-### Error Handling Philosophy
-
-Errors should never be swallowed. When handling errors there are multiple options:
-
-- recoverable locally - error handled
-- unrecoverable locally - pass up the stack
-- non-critical error - log the error or increment metrics, or both
-
-But you should never swallow errors unhandled.
-
-**Two-tier model:**
-
-1. **User-facing errors**: Semantic exit codes, rich diagnostics, actionable messages
-2. **Internal errors**: Programming errors that may panic or use internal types
-
-**Error message format:** Lowercase sentence fragments for "failed to {message}".
+**Message format** — lowercase sentence fragments, so that `"operation failed: " + error.message` composes:
 
 ```
 Good: failed to connect to database: connection refused
 Bad:  Failed to Connect to Database: Connection Refused
-
-Good: invalid configuration: missing required field 'apiKey'
-Bad:  Invalid Configuration: Missing Required Field 'apiKey'
 ```
 
-Lowercase fragments compose naturally: `"operation failed: " + error.message` reads correctly.
+## Design
 
-### Pragmatic Incrementalism
+- Don't abstract until you have seen the pattern three times. Three similar lines beat a premature abstraction.
+- Prefer specific, composable logic over abstract frameworks.
+- Evolve the design incrementally rather than perfecting it upfront, and don't build for hypothetical future requirements.
+- Document the trade-off when making a non-obvious choice.
 
-- Prefer specific, composable logic over abstract frameworks
-- Evolve design incrementally rather than perfect upfront architecture
-- Don't build for hypothetical future requirements
-- Document design decisions and trade-offs when making non-obvious choices
+Before implementing a feature, read `references/property-driven-design.md`. Property questions surface design gaps — deleted entities, case sensitivity, tie-breaking — during design rather than during debugging.
 
-**The rule of three applies to abstraction:** Don't abstract until you've seen the pattern three times. Three similar lines of code is better than a premature abstraction.
+## File organization
 
-## File Organization
+- Name files for what they contain, never a generic category: `string-formatting.ts`, `date-arithmetic.ts`, `user-validation.ts`, not `utils.ts` or `helpers.ts`. When tempted to create one of those, ask what the functions have in common and name the file after that.
+- Keep module boundaries strict, with restricted visibility.
+- Platform-specific code goes in its own file: `unix.ts`, `windows.ts`, `posix.ts`, selected by conditional compilation or a runtime check.
+- Test helpers belong in dedicated modules, not mixed into production code.
+- Prefer many small files to a few large ones.
 
-### Descriptive File Names Over Catch-All Files
+## Style
 
-Name files by what they contain, not by generic categories.
+- Keep the happy path left-aligned. Return early instead of nesting.
+- Declare identifiers in the files that need them; export or make public only when something else needs them.
+- Declare variables close to their usage.
+- Limit assignment scope — reassignment and shadowing cause subtle bugs.
 
-**Don't create:**
-
-- `utils.ts` - Becomes a dumping ground for unrelated functions
-- `helpers.ts` - Same problem
-- `common.ts` - What isn't common?
-- `misc.ts` - Actively unhelpful
-
-**Do create:**
-
-- `string-formatting.ts` - String manipulation utilities
-- `date-arithmetic.ts` - Date calculations
-- `api-error-handling.ts` - API error utilities
-- `user-validation.ts` - User input validation
-
-**Why this matters:**
-
-- Discoverability: Developers find code by scanning file names
-- Cohesion: Related code stays together
-- Prevents bloat: Hard to add unrelated code to `string-formatting.ts`
-- Import clarity: `import { formatDate } from './date-arithmetic'` is self-documenting
-
-**When you're tempted to create utils.ts:** Stop. Ask what the functions have in common. Name the file after that commonality.
-
-### Module Organization
-
-- Keep module boundaries strict with restricted visibility
-- Platform-specific code in separate files: `unix.ts`, `windows.ts`, `posix.ts`
-- Use conditional compilation or runtime checks for platform branching
-- Test helpers in dedicated modules/files, not mixed with production code
-- Prefer many small files over few large ones
-
-## Code style
-
-### Functions should be small and focused
-
-Small and focused functions promote cohesion and testability. If you find a function does more than one thing conceptually, or you are tempted to put 'And' in the name of the function: it does too much.
-
-### Declare close to usage
-
-- Declare identifiers in files that need them. Only export or make public if necessary.
-- Within a function, declare variables as close to their usage as possible.
-- Limit assignment scope: reassigning and shadowing variables can lead to subtle bugs.
-
-### Flow control
-
-Always keep the happy path left-aligned, avoid deeply nested if-blocks. This harms readability and makes it harder to modify.
-
-**Don't**:
-
-```ts
-const possibleValues = getPossibleValues();
-const value = getSelected();
-if (value !== null) {
-  if (possibleValues.contains(value)) {
-    return value;
-  }
-
-  return null;
-}
-
-return null;
-```
-
-**Do**:
-
-```ts
-const possibleValues = getPossibleValues();
-const value = getSelected();
-
-if (value === null) {
-  return null;
-}
-
-if (!possibleValues.contains(value)) {
-  return null;
-}
-
-return value;
-```
-
-### Code comments
+## Code comments
 
 **REQUIRED**: Load the 'house-style-code-comments' skill for the comment policy.
-
-## Property-Driven Design
-
-When designing features, think about properties upfront. This surfaces design gaps early.
-
-**Discovery questions:**
-
-| Question                               | Property Type  | Example                        |
-| -------------------------------------- | -------------- | ------------------------------ |
-| Does it have an inverse operation?     | Roundtrip      | `decode(encode(x)) == x`       |
-| Is applying it twice the same as once? | Idempotence    | `f(f(x)) == f(x)`              |
-| What quantities are preserved?         | Invariants     | Length, sum, count unchanged   |
-| Is order of arguments irrelevant?      | Commutativity  | `f(a, b) == f(b, a)`           |
-| Can operations be regrouped?           | Associativity  | `f(f(a,b), c) == f(a, f(b,c))` |
-| Is there a neutral element?            | Identity       | `f(x, 0) == x`                 |
-| Is there a reference implementation?   | Oracle         | `new(x) == old(x)`             |
-| Can output be easily verified?         | Easy to verify | `is_sorted(sort(x))`           |
-
-**Common design questions these reveal:**
-
-- "What about deleted/deactivated entities?"
-- "Case-sensitive or not?"
-- "Stable sort or not? Tie-breaking rules?"
-- "Which algorithm? Configurable?"
-
-Surface these during design, not during debugging.
-
-## Red Flags
-
-**Stop and refactor when you see:**
-
-- That you are adding to `utils` or `helpers` file
-- Error handling that swallows errors or uses generic messages
-- Abstractions created for single use cases
-- Type assertions (`as any`) to bypass the type system

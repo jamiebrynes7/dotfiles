@@ -83,13 +83,13 @@ Outdated descriptions and misleading comments should be noted in your review.
 
 Identify and reject:
 
-- **Obvious comments**: `// increment counter` above `counter++` or `# loop through items` above a for loop—an insult to the reader
 - **Lazy naming**: `data`, `temp`, `result`, `handle`, `process`, `df`, `df2`, `x`, `val`—words that communicate nothing
 - **Copy-paste artifacts**: Similar blocks that scream "I didn't think about abstraction"
 - **Cargo cult code**: Patterns used without understanding why (e.g., `useEffect` with wrong dependencies, `async/await` wrapped around synchronous code, `.apply()` in pandas where vectorization works)
 - **Premature abstraction AND missing abstraction**: Both are failures of judgment
 - **Dead code**: Commented-out blocks, unreachable branches, unused imports/variables
-- **Overuse of comments**: Well-named functions and variables should explain intent without comments
+
+**REQUIRED**: Load the 'house-style-code-comments' skill for judging comments in the diff. Its "always remove" categories are Required Changes; its "also flag" categories are Suggestions.
 
 ### 4. Structural Contempt
 

@@ -5,7 +5,7 @@ description: Analyze and clean up code comments for accuracy, completeness, and 
 
 # Comment Cleanup
 
-Analyze and fix code comments within changed code. Supports the current diff, the most recent commit, or all commits on the current branch. Every comment must earn its place by providing clear, lasting value. Inaccurate or outdated comments create technical debt that compounds over time.
+Analyze and fix code comments within changed code. Supports the current diff, the most recent commit, or all commits on the current branch. Inaccurate or outdated comments create technical debt that compounds over time.
 
 ## Scope
 
@@ -31,33 +31,7 @@ Cross-reference every claim against the actual code:
 
 ### 2. Value Assessment
 
-A comment must justify its existence. The only acceptable comments explain **why** the code does something, never **what** it does. Code is the single source of truth for "what" -- any comment that restates it is redundant at best and a future lie at worst.
-
-Default to removal. Keep a comment only when you can name the specific wrong action a reader would take without it -- a change they would make that silently breaks something. "It adds useful context" is not an answer.
-
-**Remove unconditionally** any comment that:
-
-- Restates or paraphrases what the code does (e.g. `// increment counter`, `// return the result`, `// loop through items`)
-- Names the operation being performed (e.g. `// fetch user data` above a `fetchUserData()` call)
-- Describes control flow that is already expressed by the code structure (e.g. `// check if null`, `// handle error case`)
-- Translates code into English without adding context the code itself does not convey
-- Exists only because "the function/block should have a comment"
-- Argues with an approach that is not in the code (`// rather than X`, `// the obvious way would be Y, but`). These pass the why-not-what test yet answer a question the reader never asked, and they age badly as the alternative loses relevance. Bug-fix archaeology belongs in the commit message.
-
-There are **no exceptions** for "what" comments. If the code is too opaque to understand without a "what" comment, the code itself should be refactored (better names, extracted functions, clearer structure) -- not papered over with a comment.
-
-**Also flag** comments that:
-
-- Will become stale with likely code changes
-- Reference temporary states or transitional implementations
-- Contain TODOs or FIXMEs that have already been addressed
-
-**Acceptable comments** explain:
-
-- **Why** a workaround exists, linking the issue or bug when possible
-- **Why** a particular value, threshold, or constraint was picked
-- A load-bearing subtlety whose removal would silently break something
-- Domain or business context that cannot be expressed in code
+**REQUIRED**: Load the 'house-style-code-comments' skill. It defines which comments earn their place, which are removed unconditionally, and which are worth keeping.
 
 ### 3. Completeness
 
@@ -78,11 +52,11 @@ Flag comments that could mislead future maintainers:
 
 ## Delegating the judgment pass
 
-Dispatch a subagent to decide what to cut, then verify its work. The criteria above are what you hand it rather than a pass you run first.
+Dispatch a subagent to decide what to cut, then verify its work. The criteria in this section are what you hand it rather than a pass you run first.
 
 An author cannot review their own comments: having written the code, every comment feels load-bearing because the bug behind it is still fresh. A reviewer with no stake in the change carries no such attachment.
 
-Give the subagent the in-scope files, the criteria above (inline -- it should not load this skill and dispatch again), and the framing that it is a principal engineer whose default answer to "should this comment exist?" is no. Have it apply its removals and rewrites directly, and return them in the finding format below with line numbers as they stood before its edits.
+Give the subagent the in-scope files, the framing that it is a principal engineer whose default answer to "should this comment exist?" is no, and the criteria: tell it to load 'house-style-code-comments' for the value judgment, and pass the accuracy, completeness, and clarity criteria above inline. Do not have it load `comment-cleanup` -- it would dispatch a subagent of its own. Have it apply its removals and rewrites directly, and return them in the finding format below with line numbers as they stood before its edits.
 
 Verify before reporting:
 

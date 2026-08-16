@@ -6,177 +6,41 @@ user-invocable: false
 
 # Maintaining Project Context
 
-**REQUIRED SUB-SKILL:** Use writing-claude-md-files for all context file creation and updates.
+**REQUIRED SUB-SKILL:** Use writing-claude-md-files for all context file creation and updates — it owns the section structure, the freshness date, and the length budget.
 
 ## Core Principle
 
-Context files (CLAUDE.md or AGENTS.md) document contracts and architectural intent. When code changes contracts, the documentation must update. Stale documentation is worse than no documentation.
+Context files document contracts and architectural intent. **Update them when contracts change, not when implementation changes.** A changed export, interface, invariant, dependency, or architectural decision needs documenting; a bug fix, a refactor with the same behaviour, or a new test does not. Stale documentation is worse than none.
 
-**Trigger:** End of development phase, branch completion, or any work that changed contracts, APIs, or domain structure.
+**Trigger:** end of a development phase or branch, or any work that changed contracts, APIs, or domain structure.
 
-## Format Detection (MANDATORY FIRST STEP)
-
-Before any updates, detect what format this repository uses:
+## Format Detection (do this first)
 
 ```bash
-# Check for AGENTS.md at root
-ls -la AGENTS.md 2>/dev/null
-
-# Check for CLAUDE.md at root
-ls -la CLAUDE.md 2>/dev/null
+ls -la AGENTS.md CLAUDE.md 2>/dev/null
 ```
 
-| Root AGENTS.md? | Format              | Action                                             |
-| --------------- | ------------------- | -------------------------------------------------- |
-| Yes             | AGENTS.md-canonical | Update AGENTS.md files, create companion CLAUDE.md |
-| No              | CLAUDE.md-canonical | Update CLAUDE.md files directly                    |
-
-**Key principle:** We use OUR format structure (Purpose, Contracts, Dependencies, Invariants, etc.) regardless of filename. AGENTS.md is just for cross-platform AI agent compatibility.
-
-### AGENTS.md-Canonical Repos
-
-When the repo uses AGENTS.md:
-
-1. **Read AGENTS.md first** before making any updates
-2. **Write content to AGENTS.md** using our standard structure
-3. **Create companion CLAUDE.md** next to each AGENTS.md with exactly this content:
+An `AGENTS.md` at the root means the repo is AGENTS.md-canonical: read the existing file before editing, write content to `AGENTS.md`, and give each one a companion `CLAUDE.md` alongside it containing exactly:
 
 ```markdown
 Read @./AGENTS.md and treat its contents as if they were in CLAUDE.md
 ```
 
-## When to Update Context Files
-
-| Change Type                  | Update Required? | What to Update             |
-| ---------------------------- | ---------------- | -------------------------- |
-| New domain/module            | Yes              | Create domain context file |
-| API/interface change         | Yes              | Contracts section          |
-| Architectural decision       | Yes              | Key Decisions section      |
-| Invariant change             | Yes              | Invariants section         |
-| Dependency change            | Yes              | Dependencies section       |
-| Bug fix (no contract change) | No               | -                          |
-| Refactor (same behavior)     | No               | -                          |
-| Test additions               | No               | -                          |
+Otherwise the repo is CLAUDE.md-canonical — edit `CLAUDE.md` files directly. Either way the content uses our structure (Purpose, Contracts, Dependencies, Invariants, …); the filename is only about cross-platform agent compatibility.
 
 ## The Process
 
-### Step 1: Identify What Changed
-
-Diff against the base (branch start or phase start):
+Diff against the base — the branch point or the start of the phase:
 
 ```bash
-# Get changed files
 git diff --name-only <base-sha> HEAD
-
-# Get detailed changes
 git diff <base-sha> HEAD --stat
 ```
 
-Categorize changes:
+Sort the changes into structural (new or moved directories), contract (changed exports, interfaces, public APIs), behavioural (changed invariants or guarantees), and internal. Only the first three warrant an update.
 
-- **Structural:** New directories, moved files
-- **Contract:** Changed exports, interfaces, public APIs
-- **Behavioral:** Changed invariants, guarantees
-- **Internal:** Implementation details only
+Then, for each one that does:
 
-### Step 2: Map Changes to Context Files
-
-For each significant change, determine which context file should document it:
-
-| Change Location          | Context File Location             |
-| ------------------------ | --------------------------------- |
-| Project-wide pattern     | Root context file                 |
-| New domain               | `<domain>/` context file (create) |
-| Existing domain contract | `<domain>/` context file (update) |
-| Cross-domain dependency  | Both affected domains             |
-
-**Hierarchy rule:** Information belongs at the lowest level where it applies. Domain-specific contracts go in domain files, not root.
-
-**For AGENTS.md-canonical repos:** When creating new domain context files, create both `AGENTS.md` (with content) and `CLAUDE.md` (companion pointer).
-
-### Step 3: Verify Contracts Still Hold
-
-For each affected context file, verify:
-
-1. **Contracts section:** Do exposes/guarantees/expects match current code?
-2. **Dependencies section:** Are uses/used-by/boundary accurate?
-3. **Invariants section:** Are all invariants still enforced?
-4. **Key Decisions section:** Any new decisions to document?
-
-### Step 4: Update or Create Context Files
-
-**For updates:**
-
-1. Read existing file first (especially for AGENTS.md)
-2. Update freshness date via `date +%Y-%m-%d`
-3. Update affected sections
-4. Remove stale content
-5. Verify under token budget (<100 lines for domain files)
-
-**For new domains (CLAUDE.md-canonical repos):**
-
-1. Create `<domain>/CLAUDE.md` using template from writing-claude-md-files
-2. Document purpose, contracts, dependencies, invariants
-3. Set freshness date
-
-**For new domains (AGENTS.md-canonical repos):**
-
-1. Create `<domain>/AGENTS.md` using template from writing-claude-md-files
-2. Document purpose, contracts, dependencies, invariants
-3. Set freshness date
-4. Create companion `<domain>/CLAUDE.md`:
-   ```markdown
-   Read @./AGENTS.md and treat its contents as if they were in CLAUDE.md
-   ```
-
-## Decision Tree
-
-```
-Has code changed?
-├─ No → Skip (nothing to update)
-└─ Yes → Detect format first (AGENTS.md at root?)
-    │
-    └─ What changed?
-        ├─ Only tests/internal details → Skip
-        └─ Contracts/APIs/structure → Continue
-            │
-            ├─ New domain created?
-            │   ├─ AGENTS.md repo → Create AGENTS.md + companion CLAUDE.md
-            │   └─ CLAUDE.md repo → Create CLAUDE.md
-            │
-            ├─ Existing domain changed?
-            │   └─ Update domain context file (read first!)
-            │
-            └─ Project-wide pattern changed?
-                └─ Update root context file
-```
-
-## Quick Reference
-
-**Always update when:**
-
-- New public exports added
-- Interface signatures changed
-- Invariants added/removed
-- Dependencies changed
-- Architectural decisions made
-
-**Never update for:**
-
-- Internal refactoring
-- Bug fixes that don't change contracts
-- Test file changes
-- Comment/documentation-only changes
-
-## Common Mistakes
-
-| Mistake                           | Fix                                           |
-| --------------------------------- | --------------------------------------------- |
-| Updating for every change         | Only update for contract changes              |
-| Forgetting freshness date         | Always use `date +%Y-%m-%d`                   |
-| Documenting implementation        | Document contracts and intent                 |
-| Putting domain info in root       | Use domain context files for domain contracts |
-| Skipping verification             | Read the code, confirm contracts hold         |
-| Skipping format detection         | Always check for AGENTS.md first              |
-| Writing AGENTS.md without reading | Always read existing content before updating  |
-| Forgetting companion CLAUDE.md    | AGENTS.md repos need both files               |
+1. **Place it at the lowest level where it applies.** Domain-specific contracts belong in that domain's context file, not the root; project-wide patterns belong at the root; a cross-domain dependency touches both.
+2. **Read the existing file before editing it**, and verify against the code rather than the diff — do the documented contracts, dependencies, and invariants still hold?
+3. **Remove what went stale**, don't only append.

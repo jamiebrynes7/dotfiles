@@ -12,35 +12,14 @@ cc:user-invocable: false
 
 CLAUDE.md files bridge Claude's statelessness. They preserve context so humans don't re-explain architectural intent every session.
 
-**Key distinction:**
+The whole hierarchy turns on one distinction:
 
-- **Top-level**: HOW to work in this codebase (commands, conventions)
-- **Subdirectory**: WHY this piece exists and what it PROMISES (contracts, intent)
+- **Top-level** — HOW to work in this codebase: commands, conventions, structure. "How to work here."
+- **Subdirectory** — WHY this piece exists and what it PROMISES: contracts, decisions, invariants. "Why this exists and what it promises."
 
-## File Hierarchy
-
-Claude automatically reads CLAUDE.md files from current directory up to root:
-
-```
-project/
-├── CLAUDE.md                    # Project-wide: tech stack, commands, conventions
-└── src/
-    └── domains/
-        ├── auth/
-        │   ├── CLAUDE.md        # Auth domain: purpose, contracts, invariants
-        │   └── oauth2/
-        │       └── CLAUDE.md    # OAuth2 subdomain (rare, only when needed)
-        └── billing/
-            └── CLAUDE.md        # Billing domain: purpose, contracts, invariants
-```
-
-**Depth guideline:** Typically one level (domain). Occasionally two (subdomain like `auth/oauth2`). Rarely more.
+Claude reads these from the current directory up to the root, so a subdirectory file inherits its parents and should never repeat them. Depth is typically one level (domain), occasionally two (a subdomain like `auth/oauth2`), rarely more.
 
 ## Top-Level CLAUDE.md
-
-Focuses on project-wide WHAT and HOW.
-
-### What to Include
 
 | Section           | Purpose                               |
 | ----------------- | ------------------------------------- |
@@ -50,56 +29,11 @@ Focuses on project-wide WHAT and HOW.
 | Conventions       | Naming, patterns used project-wide    |
 | Boundaries        | What Claude can/cannot edit           |
 
-### Template
-
-```markdown
-# [Project Name]
-
-Last verified: [DATE - use `date +%Y-%m-%d`]
-
-## Tech Stack
-
-- Language: TypeScript 5.x
-- Framework: Next.js 14
-- Database: PostgreSQL
-- Testing: Vitest
-
-## Commands
-
-- `npm run dev` - Start dev server
-- `npm run test` - Run tests
-- `npm run build` - Production build
-
-## Project Structure
-
-- `src/domains/` - Domain modules (auth, billing, etc.)
-- `src/shared/` - Cross-cutting utilities
-- `src/infrastructure/` - External adapters (DB, APIs)
-
-## Conventions
-
-- Functional Core / Imperative Shell pattern
-- Domain modules are self-contained
-- See domain CLAUDE.md files for domain-specific guidance
-
-## Boundaries
-
-- Safe to edit: `src/`
-- Never touch: `migrations/` (immutable), `*.lock` files
-```
-
-### What NOT to Include
-
-- Code style rules (use linters)
-- Exhaustive command lists (reference package.json)
-- Content that belongs in domain-level files
-- Sensitive information (keys, credentials)
+Leave out code style rules (that's what linters are for), exhaustive command lists (reference `package.json` or the justfile), anything that belongs in a domain file, and secrets.
 
 ## Subdirectory CLAUDE.md (Domain-Level)
 
-Focuses on WHY and CONTRACTS. The code shows WHAT; these files explain intent.
-
-### What to Include
+The code already shows WHAT. These files explain intent.
 
 | Section       | Purpose                                   |
 | ------------- | ----------------------------------------- |
@@ -108,51 +42,12 @@ Focuses on WHY and CONTRACTS. The code shows WHAT; these files explain intent.
 | Dependencies  | What it uses, what uses it, boundaries    |
 | Key Decisions | ADR-lite: decisions and rationale         |
 | Invariants    | Things that must ALWAYS be true           |
+| Key Files     | Entry points worth knowing about          |
 | Gotchas       | Non-obvious traps                         |
 
-### Template
+A domain file earns its place when the domain has non-obvious contracts with other parts, when architectural decisions constrain how the code should evolve, when invariants exist that the code doesn't make obvious, or when new sessions keep needing the same context re-explained. Skip it for trivial utility folders, for implementation details that churn, and for anything better said in a code comment.
 
-```markdown
-# [Domain Name]
-
-Last verified: [DATE - use `date +%Y-%m-%d`]
-
-## Purpose
-
-[1-2 sentences: WHY this domain exists, what problem it solves]
-
-## Contracts
-
-- **Exposes**: [public interfaces - what callers can use]
-- **Guarantees**: [promises this domain keeps]
-- **Expects**: [what callers must provide]
-
-## Dependencies
-
-- **Uses**: [domains/services this depends on]
-- **Used by**: [what depends on this domain]
-- **Boundary**: [what should NOT be imported here]
-
-## Key Decisions
-
-- [Decision]: [Rationale]
-
-## Invariants
-
-- [Thing that must always be true]
-
-## Key Files
-
-- `index.ts` - Public exports
-- `types.ts` - Domain types
-- `service.ts` - Main service implementation
-
-## Gotchas
-
-- [Non-obvious thing that will bite you]
-```
-
-### Example: Auth Domain
+### Example
 
 ```markdown
 # Auth Domain
@@ -161,8 +56,8 @@ Last verified: 2025-12-17
 
 ## Purpose
 
-Ensures user identity is verified exactly once at the system edge.
-All downstream services trust the auth token without re-validating.
+Verifies user identity exactly once at the system edge; downstream
+services trust the token without re-validating.
 
 ## Contracts
 
@@ -173,129 +68,41 @@ All downstream services trust the auth token without re-validating.
 ## Dependencies
 
 - **Uses**: Database (users table), Redis (session cache)
-- **Used by**: All API routes, billing domain (user identity only)
-- **Boundary**: Do NOT import from billing, notifications, or other domains
+- **Used by**: All API routes, billing (user identity only)
+- **Boundary**: Do NOT import from billing or notifications
 
 ## Key Decisions
 
-- JWT over session cookies: Stateless auth for horizontal scaling
-- bcrypt cost 12: Legacy decision, migration to argon2 tracked in ADR-007
+- JWT over session cookies: stateless auth for horizontal scaling
 
 ## Invariants
 
-- Every user has exactly one primary email
-- Deleted users are soft-deleted (is_deleted), never hard deleted
-- User IDs are UUIDs, never sequential
-
-## Key Files
-
-- `service.ts` - AuthService implementation
-- `tokens.ts` - JWT creation/validation
-- `types.ts` - User, Token, Session types
+- Deleted users are soft-deleted (`is_deleted`), never hard deleted
 
 ## Gotchas
 
-- Token validation returns null on invalid (doesn't throw)
-- Never return raw password hashes in User objects
+- Token validation returns null on invalid — it doesn't throw
 ```
+
+Note what the Purpose section does *not* say: "handles authentication." That is recoverable from the directory name. "Verified exactly once at the edge, downstream trusts the token" is not.
 
 ## Freshness Dates: MANDATORY
 
-Every CLAUDE.md MUST include a "Last verified" date.
+Every CLAUDE.md MUST carry a `Last verified:` date, because a stale one is worse than none — the date is what tells a reader when the contracts were last confirmed.
 
-**CRITICAL:** Use Bash to get the actual date. Do NOT hallucinate dates.
+**Get the real date from Bash. Do NOT write one from memory:**
 
 ```bash
 date +%Y-%m-%d
 ```
 
-Include in file:
-
-```markdown
-Last verified: 2025-12-17
-```
-
-**Why mandatory:** Stale CLAUDE.md files are worse than none. The date signals when contracts were last confirmed accurate.
-
 ## Referencing Files
 
-You can reference key files in CLAUDE.md:
+Name key files plainly (`service.ts - main implementation`). **Do NOT use `@` syntax** (`@./service.ts`) — it force-loads the file into context on every read of the CLAUDE.md, burning tokens whether or not anyone needed it.
 
-```markdown
-## Key Files
+## Updating
 
-- `index.ts` - Public exports
-- `service.ts` - Main implementation
-```
-
-**Do NOT use @ syntax** (e.g., `@./service.ts`). This force-loads files into context, burning tokens. Just name the files; Claude can read them when needed.
-
-## Heuristics: Top-Level vs Subdirectory
-
-| Question                         | Top-level | Subdirectory |
-| -------------------------------- | --------- | ------------ |
-| Applies project-wide?            | ✓         |              |
-| New engineer needs on day 1?     | ✓         |              |
-| About commands/conventions?      | ✓         |              |
-| About WHY a component exists?    |           | ✓            |
-| About contracts between parts?   |           | ✓            |
-| Changes when the domain changes? |           | ✓            |
-
-**Rule of thumb:**
-
-- Top-level = "How to work here"
-- Subdirectory = "Why this exists and what it promises"
-
-## When to Create Subdirectory CLAUDE.md
-
-Create when:
-
-- Domain has non-obvious contracts with other parts
-- Architectural decisions affect how code should evolve
-- Invariants exist that aren't obvious from code
-- New sessions consistently need the same context re-explained
-
-Don't create for:
-
-- Trivial utility folders
-- Implementation details that change frequently
-- Content better captured in code comments
-
-## Updating CLAUDE.md Files
-
-When updating any CLAUDE.md:
-
-1. **Update the freshness date** using Bash `date +%Y-%m-%d`
-2. **Verify contracts still hold** - read the code, check invariants
-3. **Remove stale content** - better short and accurate than long and wrong
-4. **Keep token-efficient** - <300 lines top-level, <100 lines subdirectory
-
-## Common Mistakes
-
-| Mistake                    | Fix                                           |
-| -------------------------- | --------------------------------------------- |
-| Describing WHAT code does  | Focus on WHY it exists, contracts it keeps    |
-| Missing freshness date     | Always include, always use Bash for real date |
-| Using @ to reference files | Just name files, let Claude read on demand    |
-| Too much detail            | Subdirectory files should be <100 lines       |
-| Duplicating parent content | Subdirectory inherits parent; don't repeat    |
-| Stale contracts            | Update when domain changes; verify dates      |
-
-## Checklist
-
-**Top-level:**
-
-- [ ] Tech stack listed
-- [ ] Key commands documented
-- [ ] Project structure overview
-- [ ] Freshness date (from `date +%Y-%m-%d`)
-
-**Subdirectory:**
-
-- [ ] Purpose explains WHY (not what)
-- [ ] Contracts: exposes, guarantees, expects
-- [ ] Dependencies and boundaries clear
-- [ ] Key decisions with rationale
-- [ ] Invariants documented
-- [ ] Freshness date (from `date +%Y-%m-%d`)
-- [ ] Under 100 lines
+1. Update the freshness date from `date +%Y-%m-%d`
+2. Verify the contracts still hold — read the code, don't trust the diff
+3. Remove stale content; short and accurate beats long and wrong
+4. Stay within budget: <300 lines top-level, <100 lines subdirectory

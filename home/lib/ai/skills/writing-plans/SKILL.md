@@ -11,8 +11,6 @@ Write comprehensive implementation plans assuming the engineer has zero context 
 
 Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
 
-**Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
-
 **Inputs:** a spec (typically at `docs/specs/YYYY-MM-DD-<topic>.md`) plus any constraints raised during brainstorming.
 
 ## Output Mode
@@ -233,11 +231,3 @@ After the plan is written (markdown mode) or the beans tree is created (beans mo
 3. **Type consistency** — do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks? A function called `clearLayers()` in task 3 but `clearFullLayers()` in task 7 is a bug.
 
 If you find issues, fix them inline. No need to re-review your own fixes — just fix and move on.
-
-## Remember
-
-- Exact file paths always
-- Complete code in every step — if a step changes code, show the code
-- Exact commands with expected output
-- DRY, YAGNI, TDD, frequent commits
-- The bean body (or plan section) must stand alone — assume the reader picks it up cold

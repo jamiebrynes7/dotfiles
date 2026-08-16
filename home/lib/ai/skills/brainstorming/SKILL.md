@@ -116,12 +116,3 @@ Plannotator's home-manager hook auto-fires only on `ExitPlanMode`. The two `plan
 Once the final-spec review returns `approved`, invoke the `writing-plans` skill. It will detect whether `beans` is on `$PATH` and either emit a beans hierarchy (epic → feature → task) or write a markdown plan to `docs/specs/plans/`.
 
 Do NOT invoke any other implementation skill from this skill.
-
-## Key Principles
-
-- **One question at a time** — don't overwhelm with multiple questions
-- **Multiple choice preferred** — easier to answer than open-ended when possible
-- **YAGNI ruthlessly** — remove unnecessary features from all designs
-- **Explore alternatives** — always propose 2–3 approaches before settling
-- **Incremental validation** — present design, get approval before moving on
-- **Be flexible** — go back and clarify when something doesn't make sense

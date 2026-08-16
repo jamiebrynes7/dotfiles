@@ -1,18 +1,7 @@
 # General Instructions
 
-## Core Workflow: Research → Plan → Implement → Validate
+## Working Style
 
-**Start every feature with:** "Let me research the codebase and create a plan before implementing."
-
-1. **Research** - Understand existing patterns and architecture
-2. **Plan** - Propose approach and verify with you
-3. **Implement** - Build with tests and error handling
-4. **Validate** - Compile and run tests
-
-## Problem Solving
-
-- **When stuck:** Stop. The simple solution is usually correct.
-- **When uncertain:** "Let me ultrathink about this architecture."
-- **When choosing:** "I see approach A (simple) vs B (flexible). Which do you prefer?"
-
-Your redirects prevent over-engineering. When uncertain about implementation, stop and ask for guidance.
+- Research the existing code and settle on an approach before writing any of it — for multi-step work, not one-line changes.
+- Ask me which way to go when the choice has consequences I'd have to live with — the data model, an interface, a new dependency. Don't pick one of those silently.
+- Everywhere else, decide it yourself and take the simplest thing that works. When you're stuck, that's almost always the answer.

@@ -102,7 +102,7 @@ What to do:
 
 Read these as needed — don't load all upfront:
 
-- **`references/questioning-frameworks.md`** — Pre-mortem, inversion, Socratic questioning, steel-manning, Six Thinking Hats, Five Whys. Read this for structured approaches to challenging decisions.
+- **`references/questioning-frameworks.md`** — Steel-manning, pre-mortem, inversion, the six Socratic probes, reverse five whys — plus the question banks for each. Read this for structured approaches to challenging decisions.
 
 - **`references/blind-spots.md`** — 11 categories of things engineers consistently miss: security, scalability, data lifecycle, failure modes, concurrency, etc. Read this when reviewing code or architecture.
 

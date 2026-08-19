@@ -3,8 +3,9 @@
 title: paseo npmDepsHash must satisfy both nixpkgs pins, but CI only checks linux
 status: todo
 type: task
+priority: normal
 created_at: 2026-08-19T12:44:49Z
-updated_at: 2026-08-19T12:44:49Z
+updated_at: 2026-08-19T12:59:39Z
 parent: dotfiles-pg0j
 ---
 
@@ -53,3 +54,32 @@ the design *ensures* it.
       has a single owner.
 - [ ] Record the outcome as a comment in `overlays/paseo.nix` next to `npmDepsHash`, so
       the next person bumping the pin knows which platforms the hash was verified against.
+
+## Measured during dotfiles-rdkr (2026-08-19)
+
+The risk is real in principle but **provably not live today**, which is sharper than the
+"very likely byte-identical" guess above:
+
+- `nixpkgs` is at `b51242d7`, `nixpkgs-darwin` at `6d6863fd` — genuinely different revs.
+- Both nonetheless evaluate `prefetch-npm-deps` to version `0.1.0` built from the
+  **identical source store path**, `/nix/store/zy6a8dbvllbkignnapqc2qfrlsdam61h-source`.
+
+Since the npm-deps FOD's content is that tool's output over the same `package-lock.json`,
+an identical tool source means an identical output hash. The single `npmDepsHash` is
+therefore correct under both pins *as long as the two pins keep resolving
+`prefetch-npm-deps` to the same source* — that, not the nixpkgs rev itself, is the real
+invariant to watch.
+
+Also worth correcting the framing above: coverage is **complementary**, not simply absent.
+`checks.x86_64-linux.paseo` is exercised by CI on ubuntu, and `checks.aarch64-darwin.paseo`
+is exercised whenever `nix flake check` runs locally on darwin. The gap is that the darwin
+half is only ever validated by a human remembering to run it — nothing automates it.
+
+Confirmed empirically on darwin: the hash `sha256-oXz8hMk+5DlTYK8OndUAjB+RJMDbPqobVGXLFeoH++o=`
+builds clean against `nixpkgs-darwin` 26.05. Upstream's v0.3.1 sidecar
+(`sha256-RCp5Ogd8AETLmJCZaUebcgSPRk+is26nkUY7+blDb/g=`) does not match it, which is the
+stale-tag premise holding as described.
+
+So the remaining decision is narrower than first written: decide whether to automate the
+darwin half (darwin runner in CI) or accept it as a local-only gate and say so in
+`overlays/paseo.nix`.

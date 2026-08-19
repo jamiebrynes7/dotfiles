@@ -25,6 +25,14 @@
     # crane is nixpkgs-agnostic (no `nixpkgs` input to follow); it reads pkgs
     # from `crane.mkLib pkgs` at call sites.
     crane.url = "github:ipetkov/crane";
+
+    # Self-hosted orchestrator for AI coding agents. Pinned to a tag: paseo's
+    # release tags ship a stale nix/npm-deps.hash, so overlays/paseo.nix has to
+    # supply a matching hash for whatever tag is pinned here. Bump both together.
+    paseo = {
+      url = "github:getpaseo/paseo/v0.3.1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -46,18 +54,26 @@
 
       # Discovers and builds the packages under ./packages. Plain assignment, not
       # a merge with `prev` — `dotfiles` deliberately shadows nixpkgs' own
-      # `dotfiles` attribute (a Python tool) with our package set. The `crates`
-      # overlay (applied after this one) extends the result with
-      # `internal.{rustToolchain,rustChecks}`, and `callPackage` auto-fills the
-      # `buildLocalRustBin` helper it exports for the package that declares it.
+      # `dotfiles` attribute (a Python tool) with our package set. Later overlays
+      # extend the result rather than replace it: `crates` adds
+      # `internal.{rustToolchain,rustChecks}` (and `callPackage` auto-fills the
+      # `buildLocalRustBin` helper it exports for the package that declares it),
+      # and `overlays/paseo.nix` adds `paseo`.
       dotfilesOverlay = final: _prev: {
         dotfiles = builtins.mapAttrs (_name: path: final.callPackage path { }) packagePaths;
       };
 
+      # Order matters and a misorder fails *silently*: both `crates` and
+      # `overlays/paseo.nix` extend the `dotfiles` set that `dotfilesOverlay`
+      # plain-assigns, so either one placed before it is quietly overwritten —
+      # dropping its packages out of `packages.*` and `checks.*` with no eval
+      # error. For paseo that would disable the only thing that catches a stale
+      # `npmDepsHash`. Keep `dotfilesOverlay` first.
       defaultOverlays = [
         inputs.alacritty-themes.overlays.default
         dotfilesOverlay
         (import ./crates { inherit inputs; })
+        (import ./overlays/paseo.nix { inherit inputs; })
       ];
 
       nixOsPkgs =

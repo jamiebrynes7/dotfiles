@@ -160,6 +160,27 @@
         "type": "github"
       }
     },
+    "paseo": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786275033,
+        "narHash": "sha256-m97Pf857LNv871b95cJ2y34OFxoES8JsWsp0wD3Em4I=",
+        "owner": "getpaseo",
+        "repo": "paseo",
+        "rev": "bfec7ac3adc5e8835e873ee75c7b325af6c7a8c3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "getpaseo",
+        "ref": "v0.3.1",
+        "repo": "paseo",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "alacritty-themes": "alacritty-themes",
@@ -168,6 +189,7 @@
         "home-manager": "home-manager",
         "nixpkgs": "nixpkgs",
         "nixpkgs-darwin": "nixpkgs-darwin",
+        "paseo": "paseo",
         "rust-overlay": "rust-overlay"
       }
     },

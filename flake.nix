@@ -25,6 +25,14 @@
     # crane is nixpkgs-agnostic (no `nixpkgs` input to follow); it reads pkgs
     # from `crane.mkLib pkgs` at call sites.
     crane.url = "github:ipetkov/crane";
+
+    # Self-hosted orchestrator for AI coding agents. Pinned to a tag: paseo's
+    # release tags ship a stale nix/npm-deps.hash, so overlays/paseo.nix has to
+    # supply a matching hash for whatever tag is pinned here. Bump both together.
+    paseo = {
+      url = "github:getpaseo/paseo/v0.3.1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =

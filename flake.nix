@@ -22,6 +22,14 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Trampoline .app bundles with stable paths, so a version bump does not move
+    # the app out from under the Dock and macOS's permission database.
+    # Darwin-only: its `systems` input is nix-systems/default-darwin, so the
+    # home-manager module it exports is inert on Linux.
+    mac-app-util = {
+      url = "github:hraban/mac-app-util";
+      inputs.nixpkgs.follows = "nixpkgs-darwin";
+    };
     # crane is nixpkgs-agnostic (no `nixpkgs` input to follow); it reads pkgs
     # from `crane.mkLib pkgs` at call sites.
     crane.url = "github:ipetkov/crane";
@@ -103,7 +111,7 @@
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 users.${user} = inputs.nixpkgs.lib.modules.importApply ./home {
-                  inherit home;
+                  inherit home inputs;
                 };
               };
             }
@@ -135,7 +143,7 @@
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 users.${user} = inputs.nixpkgs.lib.modules.importApply ./home {
-                  inherit home;
+                  inherit home inputs;
                 };
               };
             }
@@ -168,7 +176,7 @@
             {
               imports = [
                 (inputs.nixpkgs.lib.modules.importApply ./home {
-                  inherit home;
+                  inherit home inputs;
                 })
               ];
             }
@@ -242,7 +250,18 @@
         };
       };
       packages = {
-        aarch64-darwin = mkPackages (nixDarwinPkgs { });
+        aarch64-darwin =
+          let
+            pkgs = nixDarwinPkgs { };
+          in
+          mkPackages pkgs
+          // {
+            # `pkgs.dotfiles.paseo.desktop` is a passthru, and Nix will not walk
+            # into a derivation's passthru from a flake output path, so the app
+            # needs an explicit alias to be buildable. Darwin only — there is no
+            # Linux artifact, and it must stay out of x86_64-linux's check set.
+            paseo-desktop = pkgs.dotfiles.paseo.desktop;
+          };
         x86_64-linux = mkPackages (nixOsPkgs {
           system = "x86_64-linux";
         });

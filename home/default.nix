@@ -1,4 +1,4 @@
-{ home }:
+{ home, inputs }:
 { pkgs, ... }:
 let
   programsDir = builtins.readDir ./programs/.;
@@ -17,6 +17,9 @@ in
   imports = [
     home
     ./profiles.nix
+    # Inert on Linux: mac-app-util's `systems` input is nix-systems/default-darwin,
+    # so its `enable` default (does self.packages have this system?) is false there.
+    inputs.mac-app-util.homeManagerModules.default
   ]
   ++ programs;
 }

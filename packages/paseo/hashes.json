@@ -1,0 +1,14 @@
+{
+  "version": "0.6.1",
+  "tag": "v0.6.1",
+  "src": {
+    "hash": "sha256-NrRSz1oYmN/8KNQjZdFJ/2GxMYB+/6RUPregqkjsCSI="
+  },
+  "npmDepsHash": "sha256-dUvEe+j2E1ptWtjCAi858TnmugqT/+GrgfYJA74oB5I=",
+  "desktop": {
+    "aarch64-darwin": {
+      "artifact": "Paseo-0.6.1-arm64.zip",
+      "hash": "sha512-IpB5LF/x8ubYNY0ug+t4Qa7OC9nUJ1t2r/nBJfztYp+ce/PWCUDbGkpAZE3arJ8TkXcigECXjlQr5xcRLFDbjQ=="
+    }
+  }
+}

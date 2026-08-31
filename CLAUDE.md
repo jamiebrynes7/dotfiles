@@ -53,6 +53,10 @@ Every directory under `packages/` is auto-discovered by `flake.nix` and exposed 
 
 Vendored upstream binaries (`claude-code`, `codex`, `cship`, `plannotator`, `sprite`) follow a fixed shape: a `hashes.json` recording the version plus a per-platform artifact name and hash, a `default.nix` that reads it, and an `update.sh` that refreshes it. `update.sh` must be idempotent — re-running it when the recorded version already matches should exit 0 without touching `hashes.json`, since `.github/workflows/auto-update.yml` runs every script nightly and opens a PR only if `packages/` changed.
 
+`update.sh` must also exit 0 when a release exists but its artifacts have not been published yet — the nightly workflow loops with `bash "$script"` under `set -e`, so a non-zero exit there blocks every other package's update, and tag-before-upload is routine.
+
+`paseo` is the one package built from vendored *source* rather than a prebuilt binary, because upstream ships no headless daemon artifact — every release asset is the Electron desktop app, and the npm packages still need an `npm ci` plus a native `node-pty` compile. Its `default.nix` `callPackage`s upstream's own `nix/package.nix` out of a `fetchFromGitHub` source, which makes it the repo's **only import-from-derivation package**: evaluating it builds that fetch, so eval needs network on a cold machine. Its `hashes.json` therefore also records a source hash and an `npmDepsHash` computed against *our* pinned nixpkgs (upstream's recorded hash is for theirs, and is stale at every tag besides). That hash silently rots when `flake.lock`'s nixpkgs moves; the fix is `packages/paseo/update.sh --force`. The macOS app is a separate `passthru.desktop` on the same derivation — a plain fetch of upstream's signed, notarized zip, aliased as `packages.aarch64-darwin.paseo-desktop` because Nix will not walk into a derivation's passthru from a flake output path.
+
 ### Program module pattern
 
 Every file or subdirectory in `home/programs/` is auto-imported by `home/default.nix`. Modules follow this shape:

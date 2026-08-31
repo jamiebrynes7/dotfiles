@@ -29,13 +29,22 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v21
 
+      # Every script runs even if an earlier one fails, so one broken upstream
+      # cannot block every other package's update. Failures are collected and
+      # reported at the end of the job, after the PR for whatever did succeed.
       - name: Update packages
+        id: update
         run: |
+          failed=""
           for script in packages/*/update.sh; do
             echo "::group::$script"
-            bash "$script"
+            if ! bash "$script"; then
+              echo "::error title=Update failed::$script exited non-zero"
+              failed="$failed $script"
+            fi
             echo "::endgroup::"
           done
+          echo "failed=${failed# }" >> "$GITHUB_OUTPUT"
 
       - name: Check for changes
         id: check
@@ -66,3 +75,12 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --rebase --delete-branch
+
+      # Last, so a broken update script still surfaces as a red job without
+      # having suppressed the updates that did work.
+      - name: Report failed updates
+        if: steps.update.outputs.failed != ''
+        run: |
+          echo "These update scripts failed:" >&2
+          for script in ${{ steps.update.outputs.failed }}; do echo "  - $script" >&2; done
+          exit 1

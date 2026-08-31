@@ -59,14 +59,15 @@ DESKTOP_SHA512=$(awk -v want="url: ${DESKTOP_ARTIFACT}" '
   found && /sha512:/ { print $2; exit }
 ' <<<"$MAC_YML")
 if [[ -z "$DESKTOP_SHA512" ]]; then
-  # Not an error: upstream tags the release, then CI uploads the artifacts, and
-  # latest-mac.yml carries a rolloutHours window on top of that. Exiting 0 leaves
-  # hashes.json untouched and keeps the nightly auto-update job green — it runs
-  # `bash "$script"` under `set -e`, so failing here would block every other
-  # package's update too. The next run picks the release up.
-  echo "Warning: ${TAG} has no ${DESKTOP_ARTIFACT} in latest-mac.yml yet." >&2
-  echo "         Release assets are probably still uploading; leaving paseo at ${CURRENT_VERSION:-none}." >&2
-  exit 0
+  # Usually transient: upstream tags the release, then CI uploads the artifacts
+  # minutes later. But that is indistinguishable here from upstream renaming the
+  # artifact or dropping the mac build, so fail rather than exit 0 — a silent
+  # skip would pin paseo forever behind a green nightly. The workflow runs every
+  # update script before reporting failures, so this does not block the others.
+  echo "Error: ${TAG} has no ${DESKTOP_ARTIFACT} in latest-mac.yml." >&2
+  echo "       If the release was just cut, its assets may still be uploading;" >&2
+  echo "       if this persists, upstream changed its artifact naming." >&2
+  exit 1
 fi
 DESKTOP_HASH="sha512-${DESKTOP_SHA512}"
 

@@ -52,6 +52,37 @@ let
   # no option here to turn that on by accident.
   serverArgs = [ "--no-relay" ];
 
+  serverCommand = "${cfg.package}/bin/paseo-server";
+
+  # Neither systemd's Environment= nor launchd's EnvironmentVariables performs
+  # command substitution, so anything resolved at runtime has to be applied by
+  # something running between the unit and the server.
+  launcher = pkgs.writeShellScript "paseo-launcher" ''
+    set -euo pipefail
+
+    # Assigning first, rather than piping into the loop, is what makes a failing
+    # command fatal: `set -e` does not fire on the left-hand side of a pipe, and
+    # a daemon that came up missing its hostname or its password would present
+    # as a networking fault rather than a startup failure.
+    environment="$(${cfg.environmentCommand})"
+
+    while IFS= read -r line; do
+      case "$line" in
+        "" | \#*) continue ;;
+        [A-Za-z_]*=*) export "$line" ;;
+        *)
+          echo "paseo: environmentCommand emitted a line that is not NAME=value: $line" >&2
+          exit 1
+          ;;
+      esac
+    done <<< "$environment"
+
+    exec ${serverCommand} ${lib.escapeShellArgs serverArgs}
+  '';
+
+  startCommand =
+    if cfg.environmentCommand != null then [ "${launcher}" ] else [ serverCommand ] ++ serverArgs;
+
   dataDirRelative = lib.removePrefix "${config.home.homeDirectory}/" cfg.dataDir;
 in
 {
@@ -135,8 +166,32 @@ in
         BROWSER = "wsl-open";
       };
       description = ''
-        Extra environment variables for the daemon, applied last so they override
-        the computed ones. Agent processes the daemon spawns inherit these.
+        Extra environment variables for the daemon, applied over the computed
+        ones. Agent processes the daemon spawns inherit these. Only
+        `environmentCommand` takes precedence over this.
+      '';
+    };
+
+    environmentCommand = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = lib.literalExpression ''
+        "''${pkgs.writeShellScript "paseo-env" "echo PASEO_HOSTNAMES=$(get-fqdn)"}"
+      '';
+      description = ''
+        Command run at daemon start whose stdout is parsed as `NAME=value` lines
+        and exported into the daemon's environment. For values that are only
+        knowable at runtime: a cloud instance's own FQDN, or a secret that must
+        not be written to the world-readable store.
+
+        Blank lines and `#` comments are ignored. Values are taken verbatim to
+        end of line -- no quote stripping, no expansion -- and a line that is
+        not `NAME=value` aborts the start. A non-zero exit aborts the start too,
+        so a failed lookup cannot bring the daemon up half-configured.
+
+        Applied after the unit environment, so it overrides both the computed
+        `PASEO_*` variables and `environment`. Resolved against the daemon's
+        PATH, so a bare command name works; a store path avoids depending on it.
       '';
     };
 
@@ -232,7 +287,7 @@ in
       launchd.agents.paseo = lib.mkIf pkgs.stdenv.isDarwin {
         enable = true;
         config = {
-          ProgramArguments = [ "${cfg.package}/bin/paseo-server" ] ++ serverArgs;
+          ProgramArguments = startCommand;
           EnvironmentVariables = serviceEnv;
           KeepAlive = true;
           RunAtLoad = true;
@@ -247,7 +302,7 @@ in
           After = [ "network.target" ];
         };
         Service = {
-          ExecStart = lib.concatStringsSep " " ([ "${cfg.package}/bin/paseo-server" ] ++ serverArgs);
+          ExecStart = lib.concatStringsSep " " startCommand;
           Environment = lib.mapAttrsToList (name: value: "${name}=${value}") serviceEnv;
           Restart = "on-failure";
           RestartSec = 5;

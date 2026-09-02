@@ -9,32 +9,55 @@ let
 
   configFormat = pkgs.formats.json { };
 
+  # home.sessionPath is written for a shell, so an entry may spell out $HOME (the
+  # claude-code and codex modules both contribute "$HOME/.local/bin"). Neither
+  # systemd's Environment= nor launchd's EnvironmentVariables expands that, so
+  # resolve it here — which also lets lib.unique collapse those entries against
+  # the explicit ~/.local/bin below.
+  expandHome =
+    lib.replaceStrings
+      [ "\${HOME}" "$HOME" ]
+      [
+        config.home.homeDirectory
+        config.home.homeDirectory
+      ];
+
   # launchd agents get no login-shell environment, and a systemd user unit has no
   # inherited PATH worth the name either, so the daemon needs an explicit one.
-  # ~/.local/bin is first-class here because that is where the claude-code module
-  # installs its `claude` wrapper — without it the daemon cannot spawn agents,
-  # which is the single problem that made the upstream NixOS module unusable.
+  # home.sessionPath is carried in because it is the config's own answer to "what
+  # belongs on PATH" — it otherwise reaches only shells, via hm-session-vars.sh in
+  # .zshenv, and agents spawned by the daemon never see it. A shell-level fix
+  # cannot cover them: claude-code snapshots its own PATH and re-exports it over
+  # whatever .zshenv computed.
+  #
+  # ~/.local/bin is still listed explicitly because that is where the claude-code
+  # module installs its `claude` wrapper — without it the daemon cannot spawn
+  # agents at all, and that must not depend on another module having contributed a
+  # sessionPath entry.
   servicePath = lib.concatStringsSep ":" (
-    cfg.extraPath
-    ++ [
-      "${config.home.homeDirectory}/.local/bin"
-      "${config.home.homeDirectory}/.nix-profile/bin"
-      "${config.home.homeDirectory}/.local/state/nix/profile/bin"
-      "/etc/profiles/per-user/${config.home.username}/bin"
-      "/run/current-system/sw/bin"
-      "/nix/var/nix/profiles/default/bin"
-    ]
-    ++ lib.optionals pkgs.stdenv.isLinux [ "/run/wrappers/bin" ]
-    ++ lib.optionals pkgs.stdenv.isDarwin [
-      "/opt/homebrew/bin"
-      "/usr/local/bin"
-    ]
-    ++ [
-      "/usr/bin"
-      "/bin"
-      "/usr/sbin"
-      "/sbin"
-    ]
+    lib.unique (
+      cfg.extraPath
+      ++ map expandHome config.home.sessionPath
+      ++ [
+        "${config.home.homeDirectory}/.local/bin"
+        "${config.home.homeDirectory}/.nix-profile/bin"
+        "${config.home.homeDirectory}/.local/state/nix/profile/bin"
+        "/etc/profiles/per-user/${config.home.username}/bin"
+        "/run/current-system/sw/bin"
+        "/nix/var/nix/profiles/default/bin"
+      ]
+      ++ lib.optionals pkgs.stdenv.isLinux [ "/run/wrappers/bin" ]
+      ++ lib.optionals pkgs.stdenv.isDarwin [
+        "/opt/homebrew/bin"
+        "/usr/local/bin"
+      ]
+      ++ [
+        "/usr/bin"
+        "/bin"
+        "/usr/sbin"
+        "/sbin"
+      ]
+    )
   );
 
   serviceEnv = {

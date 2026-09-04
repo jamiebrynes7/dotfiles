@@ -26,19 +26,28 @@ if ! curl -sfI "https://github.com/${REPO}/releases/tag/rust-v${VERSION}" >/dev/
   exit 1
 fi
 
-# Fetch hashes
-echo "Fetching hashes for rust-v${VERSION}..."
-declare -A HASHES
-for nix_platform in "${!PLATFORM_MAP[@]}"; do
-  release_platform="${PLATFORM_MAP[$nix_platform]}"
-  url="https://github.com/${REPO}/releases/download/rust-v${VERSION}/codex-${release_platform}.tar.gz"
-  echo "  ${nix_platform}..."
+# Fetch hashes. Codex needs its code-mode host helper installed alongside it, and
+# upstream ships that as a separate per-platform artifact.
+prefetch() {
+  local url="$1"
+  local hash
   hash=$(nix store prefetch-file --json "$url" 2>/dev/null | jq -r '.hash')
   if [[ -z "$hash" || "$hash" == "null" ]]; then
-    echo "Error: Failed to fetch hash for ${nix_platform}" >&2
+    echo "Error: Failed to fetch hash for ${url}" >&2
     exit 1
   fi
-  HASHES[$nix_platform]="$hash"
+  echo "$hash"
+}
+
+echo "Fetching hashes for rust-v${VERSION}..."
+declare -A HASHES
+declare -A HOST_HASHES
+for nix_platform in "${!PLATFORM_MAP[@]}"; do
+  release_platform="${PLATFORM_MAP[$nix_platform]}"
+  base="https://github.com/${REPO}/releases/download/rust-v${VERSION}"
+  echo "  ${nix_platform}..."
+  HASHES[$nix_platform]=$(prefetch "${base}/codex-${release_platform}.tar.gz")
+  HOST_HASHES[$nix_platform]=$(prefetch "${base}/codex-code-mode-host-${release_platform}.tar.gz")
 done
 
 # Write hashes.json (single source of truth for default.nix)
@@ -46,19 +55,23 @@ jq -n \
   --arg version "$VERSION" \
   --arg ad_platform "${PLATFORM_MAP[aarch64-darwin]}" \
   --arg ad_hash "${HASHES[aarch64-darwin]}" \
+  --arg ad_host_hash "${HOST_HASHES[aarch64-darwin]}" \
   --arg xd_platform "${PLATFORM_MAP[x86_64-darwin]}" \
   --arg xd_hash "${HASHES[x86_64-darwin]}" \
+  --arg xd_host_hash "${HOST_HASHES[x86_64-darwin]}" \
   --arg al_platform "${PLATFORM_MAP[aarch64-linux]}" \
   --arg al_hash "${HASHES[aarch64-linux]}" \
+  --arg al_host_hash "${HOST_HASHES[aarch64-linux]}" \
   --arg xl_platform "${PLATFORM_MAP[x86_64-linux]}" \
   --arg xl_hash "${HASHES[x86_64-linux]}" \
+  --arg xl_host_hash "${HOST_HASHES[x86_64-linux]}" \
   '{
     version: $version,
     platforms: {
-      "aarch64-darwin": { artifact: $ad_platform, hash: $ad_hash },
-      "x86_64-darwin": { artifact: $xd_platform, hash: $xd_hash },
-      "aarch64-linux": { artifact: $al_platform, hash: $al_hash },
-      "x86_64-linux": { artifact: $xl_platform, hash: $xl_hash }
+      "aarch64-darwin": { artifact: $ad_platform, hash: $ad_hash, codeModeHostHash: $ad_host_hash },
+      "x86_64-darwin": { artifact: $xd_platform, hash: $xd_hash, codeModeHostHash: $xd_host_hash },
+      "aarch64-linux": { artifact: $al_platform, hash: $al_hash, codeModeHostHash: $al_host_hash },
+      "x86_64-linux": { artifact: $xl_platform, hash: $xl_hash, codeModeHostHash: $xl_host_hash }
     }
   }' \
   > "${SCRIPT_DIR}/hashes.json"

@@ -1,0 +1,23 @@
+# Grants unprivileged user namespace creation to bubblewrap from the Nix store.
+#
+# Ubuntu 23.10+ sets kernel.apparmor_restrict_unprivileged_userns=1, denying userns
+# to any binary not covered by a profile that grants it. Ubuntu ships one for its own
+# /usr/bin/bwrap; a Nix store path matches nothing, runs unconfined, and is denied.
+#
+# The attachment is a glob because store paths change on every upgrade. `*` matches a
+# single path component, so this covers every bwrap in the store and nothing outside
+# it — far narrower than setting the sysctl to 0, which would re-permit userns for
+# every unconfined process on the host.
+#
+# No `abi` pragma: naming an abi the host does not ship is a hard parse error, and which
+# one is available varies by release. Omitting it makes apparmor_parser warn and fall
+# back to the running kernel's feature set, which is what we want here. If `userns` ever
+# appears to be granted but is not, check `aa-status | grep nix-bwrap` and the parser's
+# stderr — codex-apparmor-setup's final re-probe catches that case loudly.
+include <tunables/global>
+
+profile nix-bwrap /nix/store/*/bin/bwrap flags=(unconfined) {
+  userns,
+
+  include if exists <local/nix-bwrap>
+}

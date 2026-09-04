@@ -27,6 +27,19 @@ if [ "$(uname -s)" != Linux ]; then
   exit 1
 fi
 
+# Refuse root rather than escalating into it. Both probes below are meaningless as root:
+# the userns restriction only applies to unprivileged processes, so the pre-probe always
+# passes (making a root run a silent no-op that reports "nothing to do") and the final
+# re-probe would assert a success it never tested. Escalation belongs at the two writes
+# that need it, not around the whole script.
+if [ "$EUID" -eq 0 ]; then
+  echo "codex-apparmor-setup: run this as your normal user, not as root." >&2
+  echo "codex-apparmor-setup: it escalates with sudo where it needs to, and as root its bwrap" >&2
+  echo "codex-apparmor-setup: probe always passes, so it can neither tell whether the fix is" >&2
+  echo "codex-apparmor-setup: needed nor confirm that it worked." >&2
+  exit 1
+fi
+
 if [ -e /etc/NIXOS ] || [ -e /run/current-system/nixos-version ]; then
   # The profile is printed from PROFILE_SRC rather than repeated inline, so this guidance
   # cannot drift from the real thing.
@@ -57,8 +70,11 @@ if [ ! -d /sys/kernel/security/apparmor ]; then
   exit 1
 fi
 
-# Validate before asking for root, so a malformed profile fails cheaply.
-if ! apparmor_parser -Q "$PROFILE_SRC"; then
+# Validate before asking for root, so a malformed profile fails cheaply. -K is what makes
+# that possible unprivileged: -Q skips the kernel load but still writes the policy cache
+# under root-owned /var/cache/apparmor, so without it the parse fails on permissions and a
+# perfectly good profile reads as malformed.
+if ! apparmor_parser -Q -K "$PROFILE_SRC"; then
   echo "codex-apparmor-setup: the profile did not parse on this host; refusing to install it." >&2
   exit 1
 fi

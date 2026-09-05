@@ -1,25 +1,25 @@
 {
-  "version": "0.153.2",
+  "version": "0.153.4",
   "platforms": {
     "aarch64-darwin": {
       "artifact": "aarch64-apple-darwin",
-      "hash": "sha256-kd/CcPDfuuwW2BTxqpDU8n503J43hOZABr7zt5/p4Jw=",
-      "codeModeHostHash": "sha256-NHHlSmFB+8vpTOyH0UNwNTZn1A81DvFvqgBevBhUMAs="
+      "hash": "sha256-jPkR6mdlI7+yEh7FYYSNKrpWSJCtU2202KM1PyuYULE=",
+      "codeModeHostHash": "sha256-Ramw/fU7mLhaa7keF13ZDpYTKKehT7UKQJAiBRmd8d8="
     },
     "x86_64-darwin": {
       "artifact": "x86_64-apple-darwin",
-      "hash": "sha256-2EUV3yexQlWhxP4ognull1oJWlFP5nVTMOje5cwh7no=",
-      "codeModeHostHash": "sha256-4QWH/Sae5EX33gCnp36kyKROqZhlYsDeIYnAuD8y8Ys="
+      "hash": "sha256-1pIA8L+EGx0aB/gLgM90Ki5Pwrq5GuikSxBC+OjKn6Q=",
+      "codeModeHostHash": "sha256-L/rr0BA9l2Iyw1hBmlCIWdqGLhKPPKC7BxVBNG++O/c="
     },
     "aarch64-linux": {
       "artifact": "aarch64-unknown-linux-musl",
-      "hash": "sha256-h4aT+bNwMg6iF5P5nqH1aHt9mqHyxzPeaT2ewLqk5io=",
-      "codeModeHostHash": "sha256-cP5IXmkZoDi3X3C+capXgqGaXzbuhVlzAekL0cm8vwc="
+      "hash": "sha256-XNphgr2Uw6MPLrY6SVSJ6/f2kf3bFNcPSMbBpQcbbN4=",
+      "codeModeHostHash": "sha256-2AR7jTM3DWCQ5ynSfrdt5gomhrqhwUPBOMmwXccNgTs="
     },
     "x86_64-linux": {
       "artifact": "x86_64-unknown-linux-musl",
-      "hash": "sha256-6M0RYAcfcl0qEMq4EHPdaBj8iwljchJdJ+9uZv3wl54=",
-      "codeModeHostHash": "sha256-F3pFB7nMf5fxE6wDRpezn2pxqHaovVCP9tf1LzQuvko="
+      "hash": "sha256-9HlCTsoJJITcQNh64oxE9MxAI0pgBF1hMeSTgA2BSjA=",
+      "codeModeHostHash": "sha256-+VgwqGlZCVdmS7/Ge8ywh3OAa2k2cLrxWQgXb4m0zTE="
     }
   }
 }

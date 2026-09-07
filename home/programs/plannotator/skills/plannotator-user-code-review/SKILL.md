@@ -17,6 +17,15 @@ to 1800000ms (30 minutes) so the user has enough time to review and annotate.
 plannotator review
 ```
 
+Plannotator starts a local HTTP server. If the execution environment
+sandboxes localhost socket creation, run the command using its narrowest
+available permission-escalation mechanism. Otherwise, run it normally.
+
+If Plannotator reports that its entire port range is exhausted in a
+sandboxed environment, treat that as a possible socket-permission failure
+rather than immediately changing ports; retry once with permission to bind
+a localhost socket.
+
 ## Reviewing Feedback
 
 For each annotation from the user:

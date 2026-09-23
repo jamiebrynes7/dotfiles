@@ -1,6 +1,8 @@
 { lib }:
 with lib;
 let
+  mcp = import ../../lib/ai/mcp { inherit lib; };
+
   mcpAuthType = types.submodule {
     options = {
       clientId = mkOption {
@@ -20,46 +22,13 @@ let
     };
   };
 
-  mcpServerType = types.submodule {
+  # Cursor-only fields layered on top of the shared MCP server options.
+  cursorServerModule = {
     options = {
-      enable = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Whether to enable this MCP server";
-      };
-
-      # Stdio transport
-      command = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        description = "Command to start a stdio MCP server";
-      };
-      args = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        description = "Arguments passed to the stdio command";
-      };
-      env = mkOption {
-        type = types.attrsOf types.str;
-        default = { };
-        description = "Environment variables for the stdio server";
-      };
       envFile = mkOption {
         type = types.nullOr types.str;
         default = null;
         description = "Path to an environment file (stdio servers only)";
-      };
-
-      # Remote transport (SSE / Streamable HTTP)
-      url = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        description = "URL for a remote (SSE/HTTP) MCP server";
-      };
-      headers = mkOption {
-        type = types.attrsOf types.str;
-        default = { };
-        description = "HTTP headers for the remote server";
       };
       auth = mkOption {
         type = types.nullOr mcpAuthType;
@@ -68,6 +37,8 @@ let
       };
     };
   };
+
+  mcpServerType = mcp.mkServerType [ cursorServerModule ];
 
   # Convert an auth submodule value to JSON-compatible attrset with the
   # CLIENT_ID / CLIENT_SECRET / scopes keys Cursor expects.
@@ -85,29 +56,24 @@ let
   # omitting fields that are null or empty.
   mkServerEntry =
     _name: server:
-    if server.command != null then
-      {
-        inherit (server) command;
-      }
-      // (optionalAttrs (server.args != [ ]) { inherit (server) args; })
-      // (optionalAttrs (server.env != { }) { inherit (server) env; })
-      // (optionalAttrs (server.envFile != null) { inherit (server) envFile; })
-    else
-      {
-        inherit (server) url;
-      }
-      // (optionalAttrs (server.headers != { }) { inherit (server) headers; })
-      // (optionalAttrs (server.auth != null) { auth = mkAuth server.auth; });
+    mcp.mkCommonEntry server
+    // (
+      if server.command != null then
+        optionalAttrs (server.envFile != null) { inherit (server) envFile; }
+      else
+        optionalAttrs (server.auth != null) { auth = mkAuth server.auth; }
+    );
 
   # Filter to enabled servers and build the top-level mcpServers attrset.
-  mergeMcpServers =
-    serverDefs:
-    let
-      enabledServers = filterAttrs (_: s: s.enable) serverDefs;
-    in
-    mapAttrs mkServerEntry enabledServers;
+  mergeMcpServers = serverDefs: mapAttrs mkServerEntry (mcp.enabledServers serverDefs);
 
+  mkServerAssertions = mcp.mkServerAssertions "cursor";
 in
 {
-  inherit mcpAuthType mcpServerType mergeMcpServers;
+  inherit
+    mcpAuthType
+    mcpServerType
+    mergeMcpServers
+    mkServerAssertions
+    ;
 }

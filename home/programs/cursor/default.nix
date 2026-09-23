@@ -18,16 +18,7 @@ let
   mergedMcpServers = mcpTypes.mergeMcpServers cfg.mcpServers;
   hasMcpServers = mergedMcpServers != { };
   mcpJson = pkgs.writeText "mcp.json" (builtins.toJSON { mcpServers = mergedMcpServers; });
-
-  # Validation: each enabled server must set exactly one of command or url.
-  mcpAssertions =
-    let
-      enabledServers = filterAttrs (_: s: s.enable) cfg.mcpServers;
-    in
-    mapAttrsToList (name: server: {
-      assertion = (server.command != null) != (server.url != null);
-      message = "cursor: MCP server '${name}' must set exactly one of 'command' (stdio) or 'url' (remote), not both or neither.";
-    }) enabledServers;
+  mcpAssertions = mcpTypes.mkServerAssertions cfg.mcpServers;
 in
 {
   options.dotfiles.programs.cursor = {

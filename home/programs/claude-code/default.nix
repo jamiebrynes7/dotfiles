@@ -14,10 +14,21 @@ let
     skillsDirs = cfg.skillsDirs;
   };
 
+  mcp = import ../../lib/ai/mcp { inherit lib; };
+  mcpServerType = mcp.mkServerType [ ];
+  mcpServers = mapAttrs (
+    _name: server: mcp.mkCommonEntry server // optionalAttrs (server.url != null) { type = "http"; }
+  ) (mcp.enabledServers cfg.mcpServers);
+  mcpJson = pkgs.writeText "claude-mcp.json" (builtins.toJSON { inherit mcpServers; });
+  # Passed on the command line rather than merged into ~/.claude.json, which
+  # claude rewrites constantly. The `=` form matters: --mcp-config is variadic,
+  # so a separate value would also swallow the prompt or subcommand after it.
+  mcpConfigArg = optionalString (mcpServers != { }) (escapeShellArg "--mcp-config=${mcpJson}");
+
   claudeWrapper = pkgs.writeShellScript "claude-wrapper" ''
     ${cfg.extraScript}
     export BASH_MAX_TIMEOUT_MS=1800000
-    exec ${pkgs.dotfiles.claude-code}/bin/claude "$@"
+    exec ${pkgs.dotfiles.claude-code}/bin/claude ${mcpConfigArg} "$@"
   '';
 
   hookTypes = import ./hooks/types.nix { inherit lib; };
@@ -62,6 +73,14 @@ in
       type = types.listOf types.path;
       default = [ ];
       description = "List of paths to skill directories to symlink into ~/.claude/skills.";
+    };
+    mcpServers = mkOption {
+      type = types.attrsOf mcpServerType;
+      default = { };
+      description = ''
+        Named MCP server definitions for Claude Code, written to a Nix store
+        file and loaded via --mcp-config. Remote servers use the HTTP transport.
+      '';
     };
     hooks = mkOption {
       type = types.attrsOf hookTypes.hookType;
@@ -187,7 +206,8 @@ in
         assertion = skills.conflicts == [ ];
         message = "claude-code: skill name conflicts between built-in skills and provided skills: ${builtins.concatStringsSep ", " skills.conflicts}";
       }
-    ];
+    ]
+    ++ mcp.mkServerAssertions "claude-code" cfg.mcpServers;
 
     home.file = {
       ".claude/CLAUDE.md".source = ../../lib/ai/global-instructions.md;

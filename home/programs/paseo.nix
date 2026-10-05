@@ -108,6 +108,17 @@ let
     if cfg.environmentCommand != null then [ "${launcher}" ] else [ serverCommand ] ++ serverArgs;
 
   dataDirRelative = lib.removePrefix "${config.home.homeDirectory}/" cfg.dataDir;
+
+  # The daemon writes DEFAULT_PERSISTED_CONFIG only when config.json is absent
+  # (loadPersistedConfig in persisted-config.ts), and it never is once home-manager
+  # links one. Every field in PersistedConfigSchema is optional with no zod-level
+  # default, so these two have to come from here or every host silently loses them.
+  creationDefaults = {
+    daemon.cors.allowedOrigins = [ "https://app.paseo.sh" ];
+    app.baseUrl = "https://app.paseo.sh";
+  };
+
+  renderedSettings = lib.recursiveUpdate creationDefaults cfg.settings;
 in
 {
   options.dotfiles.programs.paseo = {
@@ -171,12 +182,16 @@ in
         }
       '';
       description = ''
-        Declarative content for `$PASEO_HOME/config.json`, linked from the store.
+        Extra keys merged into `$PASEO_HOME/config.json`, which this module always
+        writes and links from the store.
 
-        Leave this empty (the default) to let the daemon create and own the file.
-        That is the right choice if you want `paseo daemon set-password`: setting
-        `settings` makes the file a store symlink, so a password written at
-        runtime is discarded at the next home-manager activation.
+        Nix owns that file whenever `enable` is set: the daemon is patched to throw
+        rather than overwrite it, so `paseo daemon set-password`, `paseo onboard` and
+        Settings writes fail by design. Set a daemon password with `PASEO_PASSWORD`
+        via `environmentCommand` instead — it is read as plaintext and hashed at
+        startup.
+
+        These keys are applied last, so they win over the module's own defaults.
 
         The schema is `PersistedConfigSchema` in
         `packages/server/src/server/persisted-config.ts` upstream.
@@ -283,8 +298,8 @@ in
           message = "dotfiles.programs.paseo.desktop.enable is only supported on Darwin.";
         }
         {
-          assertion = (cfg.settings == { }) || (lib.hasPrefix "${config.home.homeDirectory}/" cfg.dataDir);
-          message = "dotfiles.programs.paseo.settings requires dataDir to be inside the home directory, since it is written with home.file.";
+          assertion = !cfg.enable || (lib.hasPrefix "${config.home.homeDirectory}/" cfg.dataDir);
+          message = "dotfiles.programs.paseo requires dataDir to be inside the home directory, since config.json is written with home.file.";
         }
       ];
     }
@@ -292,12 +307,14 @@ in
     (lib.mkIf cfg.enable {
       home.packages = [ cfg.package ];
 
-      # The daemon writes config.json only when it is absent, and its chmod to
-      # 0600 is best-effort (it swallows the EPERM from a root-owned store file),
-      # so a store symlink is safe here.
-      home.file = lib.mkIf (cfg.settings != { }) {
-        "${dataDirRelative}/config.json".source = configFormat.generate "paseo-config.json" cfg.settings;
-      };
+      # The daemon's chmod to 0600 when it loads the file is best-effort (it swallows
+      # the EPERM from a root-owned store file), so it reads a store symlink fine.
+      #
+      # Nix owns this file whenever the module is enabled; the daemon is patched to
+      # throw rather than overwrite it (packages/paseo). The old `settings != { }`
+      # gate only chose between two flavours of the same clobbering.
+      home.file."${dataDirRelative}/config.json".source =
+        configFormat.generate "paseo-config.json" renderedSettings;
 
       # home.file creates the parent at 0755; the daemon expects 0700 and only
       # enforces it on paths it writes itself.

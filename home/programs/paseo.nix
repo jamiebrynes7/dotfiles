@@ -392,14 +392,37 @@ in
       # Nix owns this file whenever the module is enabled; the daemon is patched to
       # throw rather than overwrite it (packages/paseo). The old `settings != { }`
       # gate only chose between two flavours of the same clobbering.
-      home.file."${dataDirRelative}/config.json".source =
-        configFormat.generate "paseo-config.json" renderedSettings;
+      home.file."${dataDirRelative}/config.json" = {
+        source = configFormat.generate "paseo-config.json" renderedSettings;
+        # paseoConfigBackup moves a regular file aside before linking, but under
+        # --dry-run its `run mv` only echoes, and checkLinkTargets would still see the
+        # file and fail the dry run. force skips that check; the content is preserved
+        # either way.
+        force = true;
+      };
 
       # home.file creates the parent at 0755; the daemon expects 0700 and only
       # enforces it on paths it writes itself.
       home.activation.paseoDataDirMode = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         run mkdir -p ${lib.escapeShellArg cfg.dataDir}
         run chmod 700 ${lib.escapeShellArg cfg.dataDir}
+      '';
+
+      # Never deletes: this is the migration path for a host adopting a managed
+      # config, and the recovery path for the desktop app's unpatched bundled daemon.
+      # Ordered before checkLinkTargets so a real switch finds nothing in the way;
+      # see `force` on the file itself for --dry-run.
+      home.activation.paseoConfigBackup = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
+        paseoConfig=${lib.escapeShellArg "${cfg.dataDir}/config.json"}
+        if [ -e "$paseoConfig" ] && [ ! -L "$paseoConfig" ]; then
+          paseoBackup="$paseoConfig.daemon-$(date +%Y%m%d%H%M%S)"
+          if [[ -v DRY_RUN ]]; then
+            warnEcho "paseo: would move daemon-written config.json aside to $paseoBackup"
+          else
+            warnEcho "paseo: daemon-written config.json moved aside to $paseoBackup"
+          fi
+          run mv "$paseoConfig" "$paseoBackup"
+        fi
       '';
     })
 

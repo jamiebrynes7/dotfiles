@@ -1,10 +1,11 @@
 ---
 # dotfiles-5nj7
 title: Bundle paseo plugins declaratively
-status: todo
+status: in-progress
 type: epic
+priority: normal
 created_at: 2026-09-21T17:23:56Z
-updated_at: 2026-09-21T17:23:56Z
+updated_at: 2026-10-05T12:24:19Z
 ---
 
 **Goal:** Install paseo plugins through a home-manager switch instead of `paseo plugin install`, with Nix owning `$PASEO_HOME/config.json` and the daemon patched to refuse overwriting it.

@@ -1,10 +1,11 @@
 ---
 # dotfiles-khsx
 title: 'paseo module: plugins option and config ownership'
-status: todo
+status: in-progress
 type: feature
+priority: normal
 created_at: 2026-09-21T17:24:09Z
-updated_at: 2026-09-21T17:24:09Z
+updated_at: 2026-10-05T12:24:19Z
 parent: dotfiles-5nj7
 ---
 

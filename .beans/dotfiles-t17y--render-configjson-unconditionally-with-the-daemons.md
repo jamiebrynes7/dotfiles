@@ -1,11 +1,11 @@
 ---
 # dotfiles-t17y
 title: Render config.json unconditionally with the daemon's creation defaults
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-09-21T17:28:17Z
-updated_at: 2026-09-21T17:30:07Z
+updated_at: 2026-10-05T12:25:15Z
 parent: dotfiles-khsx
 ---
 
@@ -17,7 +17,7 @@ parent: dotfiles-khsx
 
 Why unconditional: any non-empty `settings` already made the daemon's own writes futile, so the `settings != { }` gate bought an ownership model the module cannot deliver. Plugins are only expressible through this file, so the module has to own it.
 
-- [ ] **Step 1: Add the let bindings**
+- [x] **Step 1: Add the let bindings**
 
 After `dataDirRelative`:
 
@@ -34,7 +34,7 @@ After `dataDirRelative`:
   renderedSettings = lib.recursiveUpdate creationDefaults cfg.settings;
 ```
 
-- [ ] **Step 2: Write the file unconditionally**
+- [x] **Step 2: Write the file unconditionally**
 
 Replace:
 
@@ -56,7 +56,7 @@ with:
 
 Leave the existing comment about the daemon's best-effort chmod in place above it.
 
-- [ ] **Step 3: Make the dataDir assertion unconditional**
+- [x] **Step 3: Make the dataDir assertion unconditional**
 
 Replace the `cfg.settings == { }` assertion with:
 
@@ -67,7 +67,7 @@ Replace the `cfg.settings == { }` assertion with:
         }
 ```
 
-- [ ] **Step 4: Rewrite the `settings` description**
+- [x] **Step 4: Rewrite the `settings` description**
 
 Replace the "Leave this empty (the default) to let the daemon create and own the file..." paragraph with:
 
@@ -86,11 +86,11 @@ Replace the "Leave this empty (the default) to let the daemon create and own the
 
 Keep the closing sentence pointing at `PersistedConfigSchema`.
 
-- [ ] **Step 5: Format**
+- [x] **Step 5: Format**
 
 Run: `nixfmt home/programs/paseo.nix`
 
-- [ ] **Step 6: Verify the rendered config**
+- [x] **Step 6: Verify the rendered config**
 
 ```bash
 nix eval --impure --raw --expr '
@@ -112,9 +112,13 @@ nix eval --impure --raw --expr '
 
 Expected: a config containing `daemon.cors.allowedOrigins` = `["https://app.paseo.sh"]` and `app.baseUrl`, with no `settings` set at all. Before this change the same command fails with a missing-attribute error, which is the point.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add home/programs/paseo.nix
 git commit -m "home/programs/paseo: always write config.json from the store" -m "Bean: dotfiles-t17y"
 ```
+
+## Summary of Changes
+
+`home/programs/paseo.nix` now always writes `config.json` from the store when `enable` is set: `recursiveUpdate creationDefaults cfg.settings`, where `creationDefaults` restores `daemon.cors.allowedOrigins` and `app.baseUrl` from the daemon's DEFAULT_PERSISTED_CONFIG. The dataDir assertion is gated on `enable` instead of `settings`, and the `settings` description now explains Nix ownership and points at PASEO_PASSWORD. The comment cites `loadPersistedConfig` rather than the bean's v0.8.0 line numbers, which have drifted.

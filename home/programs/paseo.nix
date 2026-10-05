@@ -141,6 +141,33 @@ let
   invalidPluginIds = lib.filter (id: builtins.match "[a-z][a-z0-9-]*" id == null) (
     lib.attrNames cfg.plugins
   );
+
+  # The daemon reads plugins once, in start(); `paseo reload` does not re-activate
+  # them. So a changed config (a plugin bump is a new store path in it) takes effect
+  # only on a restart. The launchd label is home-manager's own for launchd.agents.paseo.
+  #
+  # Absolute paths throughout: with home.emptyActivationPath the activation PATH holds
+  # neither tool, and under `set -eu` a 127 from onFilesChange aborts the rest of
+  # activation. The Linux env mirrors home-manager's own reloadSystemd, which also
+  # has to cope with XDG_RUNTIME_DIR being unset under the NixOS module. A failed
+  # restart only warns: the switch itself has succeeded by then.
+  restartDaemon =
+    if pkgs.stdenv.isDarwin then
+      ''
+        paseoAgent="gui/$(id -u)/org.nix-community.home.paseo"
+        if /bin/launchctl print "$paseoAgent" >/dev/null 2>&1; then
+          noteEcho "paseo: config changed, restarting the daemon"
+          run /bin/launchctl kickstart -k "$paseoAgent" \
+            || warnEcho "paseo: could not restart the daemon; restart $paseoAgent by hand"
+        fi
+      ''
+    else
+      ''
+        noteEcho "paseo: config changed, restarting the daemon if it is running"
+        run env XDG_RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
+          ${config.systemd.user.systemctlPath} --user try-restart paseo.service \
+          || warnEcho "paseo: could not restart the daemon; restart paseo.service by hand"
+      '';
 in
 {
   options.dotfiles.programs.paseo = {
@@ -427,6 +454,14 @@ in
     })
 
     (lib.mkIf cfg.service.enable {
+      # onChange fires only when the rendered file differs from what is currently at
+      # the target path (checkFilesChanged cmps the two), so an unrelated switch does
+      # not kill the agent sessions running in the daemon. Comparing against the disk
+      # rather than the last generation is also what catches a config the desktop
+      # daemon replaced. A switch that changes the unit as well restarts the daemon
+      # twice, once here and once from sd-switch, because onFilesChange sorts first.
+      home.file."${dataDirRelative}/config.json".onChange = restartDaemon;
+
       launchd.agents.paseo = lib.mkIf pkgs.stdenv.isDarwin {
         enable = true;
         config = {

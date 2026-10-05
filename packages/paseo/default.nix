@@ -97,6 +97,14 @@ daemon.overrideAttrs (old: {
 
     mkdir -p "$out/lib/paseo/$ptyDir/prebuilds"
     cp -a "$prebuild" "$out/lib/paseo/$prebuild"
+
+    # --replace-fail proves the source changed; this proves the guard reached $out.
+    # Only the compiled module counts: a source map or shipped .ts would also match.
+    if ! grep -rq --include=persisted-config.js ${lib.escapeShellArg configGuardMessage} "$out/lib/paseo"; then
+      echo "paseo: config-write guard missing from the built daemon" >&2
+      echo "paseo: the postPatch applied but the file never reached the bundle." >&2
+      exit 1
+    fi
   '';
 
   passthru = (old.passthru or { }) // {

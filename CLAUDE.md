@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-07-04
+Freshness: 2026-10-05
 
 ## Tech Stack
 
@@ -56,6 +56,10 @@ Vendored upstream binaries (`claude-code`, `codex`, `cship`, `plannotator`, `spr
 Beyond that, `update.sh` should **fail** on anything it cannot resolve, including a release whose artifacts have not been uploaded yet. Exiting 0 there would pin the package indefinitely behind a green nightly, and a transient upload gap is indistinguishable from upstream renaming or dropping an artifact. `auto-update.yml` runs every script before reporting, so one failure surfaces as a red job without blocking the other packages' updates.
 
 `paseo` is the one package built from vendored *source* rather than a prebuilt binary, because upstream ships no headless daemon artifact — every release asset is the Electron desktop app, and the npm packages still need an `npm ci` plus a native `node-pty` compile. Its `default.nix` `callPackage`s upstream's own `nix/package.nix` out of a `fetchFromGitHub` source, which makes it the repo's **only import-from-derivation package**: evaluating it builds that fetch, so eval needs network on a cold machine. Its `hashes.json` therefore also records a source hash and an `npmDepsHash` computed against *our* pinned nixpkgs (upstream's recorded hash is for theirs, and is stale at every tag besides). That hash silently rots when `flake.lock`'s nixpkgs moves; the fix is `packages/paseo/update.sh --force`. The macOS app is a separate `passthru.desktop` on the same derivation — a plain fetch of upstream's signed, notarized zip, aliased as `packages.aarch64-darwin.paseo-desktop` because Nix will not walk into a derivation's passthru from a flake output path.
+
+`packages/paseo` is also the only package here that patches upstream source: a `postPatch` makes the daemon's `savePersistedConfig` throw rather than overwrite a `config.json` that is a symlink, because `home/programs/paseo.nix` always writes that file from the store and the daemon's atomic save would otherwise rename a temp file over it. Both anchors use `--replace-fail`, and `postInstall` greps `$out` for the sentinel, so an upstream rewrite fails the build instead of silently shipping an unguarded daemon.
+
+Paseo plugins are packaged one directory per plugin, named after the **plugin id** — `packages/paseo-plugin-<id>/` — so `dotfiles.programs.paseo.plugins.<id>.package = pkgs.dotfiles.paseo-plugin-<id>` needs no lookup table. An external plugin whose upstream publishes no releases is pinned by commit SHA literally in its `default.nix`, with **no** `hashes.json` and **no** `update.sh`: plugin code runs unsandboxed as the daemon user, so every bump is a reviewed commit rather than a nightly auto-update PR. Omitting `update.sh` is what keeps `auto-update.yml` away from it.
 
 ### Program module pattern
 

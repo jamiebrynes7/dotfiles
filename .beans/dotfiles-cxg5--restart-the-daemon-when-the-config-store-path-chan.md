@@ -1,99 +1,50 @@
 ---
 # dotfiles-cxg5
 title: Restart the daemon when the config store path changes
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-09-21T17:29:14Z
-updated_at: 2026-09-21T17:30:08Z
+updated_at: 2026-10-05T12:44:20Z
 parent: dotfiles-eii4
 blocked_by:
     - dotfiles-t4ve
 ---
 
 **Files:**
-- Modify: `home/programs/paseo.nix:109` — add `restartDaemon` to the `let` block
-- Modify: `home/programs/paseo.nix` — add `home.activation.paseoRestart` inside the `lib.mkIf cfg.service.enable` block
+- Modify: `home/programs/paseo.nix` — add `restartDaemon` to the `let` block, and set `home.file."<dataDirRelative>/config.json".onChange` inside the `lib.mkIf cfg.service.enable` block
 
-Why this is needed: home-manager reloads a launchd agent only when the plist changes, and nothing in the unit depends on `config.json`. The daemon reads plugins once, in `start()` (`plugins/index.ts:131`); `paseo reload` re-reads the file but does not re-activate plugin source entries, and `reloadPlugin` uses the in-memory path. So a plugin bump — a new store path in the config — takes effect only on a restart.
+Why this is needed: home-manager reloads a launchd agent only when the plist changes, and nothing in the unit depends on `config.json`. The daemon reads plugins once, in `start()` (`plugins/index.ts`); `paseo reload` re-reads the file but does not re-activate plugin source entries, and `reloadPlugin` uses the in-memory path. So a plugin bump (a new store path in the config) takes effect only on a restart.
 
-Depends on the move-aside task: this entry reads the `paseoOldConfigTarget` variable that one sets.
+**Revised approach (2026-10-05):** the original plan carried the old link target from the move-aside entry to a separate `paseoRestart` entry through a shell variable, and compared it there. home-manager already does this comparison: `home.file.<name>.onChange` runs during `onFilesChange`, after `linkGeneration`, and only when `checkFilesChanged` found that the file's content differs from the previous generation. The plugin store paths are part of the rendered content, so a plugin bump changes it. A first switch over a daemon-written file also counts as a change.
 
-- [ ] **Step 1: Add the platform-specific restart to the `let` block**
+- [x] **Step 1: Add the platform-specific restart to the `let` block**
 
-```nix
-  restartDaemon =
-    if pkgs.stdenv.isDarwin then
-      ''
-        paseoAgent="gui/$(id -u)/org.nix-community.home.paseo"
-        if launchctl print "$paseoAgent" >/dev/null 2>&1; then
-          noteEcho "paseo: config changed, restarting the daemon"
-          run launchctl kickstart -k "$paseoAgent"
-        fi
-      ''
-    else
-      ''
-        if systemctl --user is-active --quiet paseo.service; then
-          noteEcho "paseo: config changed, restarting the daemon"
-          run systemctl --user try-restart paseo.service
-        fi
-      '';
-```
+On Darwin, `launchctl kickstart -k gui/$(id -u)/org.nix-community.home.paseo`, guarded on `launchctl print` succeeding for that label. On Linux, `systemctl --user try-restart paseo.service`, which does nothing when the unit is inactive. Both use `run`, so `--dry-run` restarts nothing, and both print a `noteEcho`.
 
-The label is home-manager's own for `launchd.agents.paseo` — the same `org.nix-community.home.<name>` shape as the installed `org.nix-community.home.beans-daemon.plist`.
+- [x] **Step 2: Hook it to the config file**
 
-- [ ] **Step 2: Add the activation entry**
+In the `lib.mkIf cfg.service.enable` element, set `home.file."${dataDirRelative}/config.json".onChange = restartDaemon;`. Without `service.enable` there is no unit to restart, so `onChange` stays empty.
 
-In the `lib.mkIf cfg.service.enable` element:
-
-```nix
-      home.activation.paseoRestart = lib.hm.dag.entryAfter [ "writeBoundary" "paseoDataDirMode" ] ''
-        paseoNewConfigTarget="$(readlink ${lib.escapeShellArg "${cfg.dataDir}/config.json"} 2>/dev/null || true)"
-        # Compare rather than always restarting: an unrelated switch must not kill the
-        # agent sessions running inside the daemon.
-        if [ "''${paseoOldConfigTarget-}" != "$paseoNewConfigTarget" ]; then
-        ${restartDaemon}
-        fi
-      '';
-```
-
-Note the `''${paseoOldConfigTarget-}` escape: inside a Nix indented string `${` starts interpolation, and `''$` emits a literal `$`. The `-` default expansion matters because the activation script runs under `set -u` and the variable is unset when the module is enabled without the backup entry having assigned it.
-
-- [ ] **Step 3: Format**
+- [x] **Step 3: Format**
 
 Run: `nixfmt home/programs/paseo.nix`
 
-- [ ] **Step 4: Verify the generated script**
+- [x] **Step 4: Verify the generated hook**
 
-```bash
-nix eval --impure --raw --expr '
-  let
-    flake = builtins.getFlake (toString ./.);
-    hm = flake.lib.mkHomeManagerSystem {
-      system = builtins.currentSystem;
-      user = "test";
-      directory = "/home/test";
-      home = { ... }: {
-        home.stateVersion = "25.05";
-        dotfiles.profiles.base = false;
-        dotfiles.programs.paseo = { enable = true; service.enable = true; };
-      };
-    };
-  in hm.config.home.activation.paseoRestart.data
-'
-```
+Evaluate `hm.config.home.file.".paseo/config.json".onChange` for `{ enable = true; service.enable = true; }` on `x86_64-linux` and on `aarch64-darwin`. Expected: `systemctl --user try-restart` and `launchctl kickstart -k` respectively.
 
-Expected on macOS: the script reads `readlink /home/test/.paseo/config.json`, compares against `${paseoOldConfigTarget-}` (a literal `$`, not an interpolated empty string — if the comparison reads `[ "" != ... ]` the escape is wrong), and calls `launchctl kickstart -k`.
+- [x] **Step 5: Verify it is empty without `service.enable`**
 
-- [ ] **Step 5: Verify it is absent without `service.enable`**
+Expected: `onChange` is `""`.
 
-Run the same command with `service.enable` removed.
-
-Expected: evaluation fails with a missing-attribute error for `paseoRestart` — there is no unit to restart, so the entry should not exist.
-
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add home/programs/paseo.nix
 git commit -m "home/programs/paseo: restart the daemon when config.json changes" -m "Bean: dotfiles-cxg5"
 ```
+
+## Summary of Changes
+
+The daemon restart now hangs off home-manager's `home.file.<config.json>.onChange`, set only when `service.enable` is on. home-manager runs it after `linkGeneration`, and only when the rendered content differs from the previous generation. Darwin uses a guarded `launchctl kickstart -k` and Linux uses `systemctl --user try-restart`, both through `run`. Evaluating both systems gives the expected script with `service.enable` and an empty one without it.

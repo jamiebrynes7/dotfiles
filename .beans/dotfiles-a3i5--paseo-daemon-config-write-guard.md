@@ -1,10 +1,11 @@
 ---
 # dotfiles-a3i5
 title: paseo daemon config-write guard
-status: todo
+status: in-progress
 type: feature
+priority: normal
 created_at: 2026-09-21T17:24:09Z
-updated_at: 2026-09-21T17:24:09Z
+updated_at: 2026-10-05T12:26:47Z
 parent: dotfiles-5nj7
 ---
 

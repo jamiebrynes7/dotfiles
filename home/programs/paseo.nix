@@ -118,8 +118,11 @@ let
     app.baseUrl = "https://app.paseo.sh";
   };
 
+  # The global switch follows whether anything would actually run, so turning off the
+  # default catppuccin plugin (and adding nothing else) leaves a host as it was before
+  # plugins existed, rather than with plugins on and nothing enabled.
   pluginEntries = lib.optionalAttrs (cfg.plugins != { }) {
-    pluginsEnabled = true;
+    pluginsEnabled = lib.any (plugin: plugin.enable) (lib.attrValues cfg.plugins);
     plugins = lib.mapAttrs (_: plugin: {
       source = "directory";
       # Interpolation, not toString: a path literal is copied to the store with
@@ -265,7 +268,10 @@ in
       );
       default = { };
       example = lib.literalExpression ''
-        { catppuccin-theme.package = pkgs.dotfiles.paseo-plugin-catppuccin-theme; }
+        {
+          catppuccin-theme.enable = false;
+          my-plugin.package = "''${inputs.my-plugins}/plugins/my-plugin";
+        }
       '';
       description = ''
         Plugins to configure, keyed by plugin id. Each becomes a `directory` source
@@ -282,6 +288,10 @@ in
 
         `types.path` accepts a derivation or a `"''${src}/plugins/foo"` string, so an
         inline `fetchFromGitHub` works without a `packages/` entry.
+
+        `catppuccin-theme` is configured by default: it is client-only theme data,
+        adding four flavours under Settings → Appearance. Opt out with
+        `plugins.catppuccin-theme.enable = false`.
       '';
     };
 
@@ -412,6 +422,10 @@ in
 
     (lib.mkIf cfg.enable {
       home.packages = [ cfg.package ];
+
+      # mkDefault so a host can point it elsewhere; opting out is `.enable = false`.
+      dotfiles.programs.paseo.plugins.catppuccin-theme.package =
+        lib.mkDefault pkgs.dotfiles.paseo-plugin-catppuccin-theme;
 
       # The daemon's chmod to 0600 when it loads the file is best-effort (it swallows
       # the EPERM from a root-owned store file), so it reads a store symlink fine.

@@ -34,8 +34,28 @@ let
   # and `process.arch` spellings, which are not nixpkgs' spellings.
   nodePlatform = if stdenv.hostPlatform.isDarwin then "darwin" else "linux";
   nodeArch = if stdenv.hostPlatform.isAarch64 then "arm64" else "x64";
+
+  # Sentinel shared by the postPatch guard below and the postInstall assertion.
+  # Keep it quote-free: it is interpolated into a TypeScript string literal.
+  configGuardMessage = "config.json is managed by Nix; edit dotfiles.programs.paseo (settings or plugins) and run a home-manager switch";
 in
 daemon.overrideAttrs (old: {
+  # Nix owns $PASEO_HOME/config.json, and the daemon's atomic save would rename a temp
+  # file over the store symlink. Refuse the write so a Settings/CLI edit fails loudly
+  # instead of surviving until the next home-manager switch silently reverts it.
+  # Scoped to savePersistedConfig: writePrivateFileAtomicSync is shared with the
+  # managed-plugin sources.json and other daemon state that must stay writable.
+  # throwIfNoEntry: a fresh PASEO_HOME has no config.json yet, and `paseo onboard`
+  # must still be able to create it.
+  postPatch = (old.postPatch or "") + ''
+    substituteInPlace packages/server/src/server/persisted-config.ts \
+      --replace-fail 'import { existsSync, readFileSync } from "node:fs";' \
+                     'import { existsSync, lstatSync, readFileSync } from "node:fs";' \
+      --replace-fail 'writePrivateFileAtomicSync(configPath, JSON.stringify(result.data, null, 2)' \
+                     'if (lstatSync(configPath, { throwIfNoEntry: false })?.isSymbolicLink()) { throw new Error("${configGuardMessage}"); }
+    writePrivateFileAtomicSync(configPath, JSON.stringify(result.data, null, 2)'
+  '';
+
   # Ship node-pty's native addon, which upstream's build drops on the floor.
   #
   # Upstream computes the daemon's runtime closure with @vercel/nft, and because

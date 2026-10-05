@@ -1,11 +1,11 @@
 ---
 # dotfiles-j26a
 title: Assert the config guard survives bundling
-status: todo
+status: in-progress
 type: task
 priority: normal
 created_at: 2026-09-21T17:26:11Z
-updated_at: 2026-09-21T17:30:07Z
+updated_at: 2026-10-05T12:31:39Z
 parent: dotfiles-a3i5
 blocked_by:
     - dotfiles-9th1

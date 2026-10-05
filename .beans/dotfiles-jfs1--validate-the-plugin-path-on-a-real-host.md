@@ -5,24 +5,27 @@ status: todo
 type: task
 priority: normal
 created_at: 2026-09-21T17:29:46Z
-updated_at: 2026-09-21T17:30:11Z
+updated_at: 2026-10-05T12:45:07Z
 parent: dotfiles-5nj7
 blocked_by:
     - dotfiles-j26a
-    - dotfiles-m8y6
     - dotfiles-uace
     - dotfiles-cxg5
 ---
 
-**Files:** none — this is the manual validation pass from `docs/specs/2026-09-21-paseo-plugins.md`.
+**Files:** none. This is the manual validation pass from `docs/specs/2026-09-21-paseo-plugins.md`.
 
 Nothing in this repo evaluates the home-manager module in CI (`nix flake check` builds packages only), and there is no test harness for module behaviour. This task is the end-to-end check on a host that actually runs the daemon.
+
+**Retargeted (2026-10-05):** the first plugin through this path is `devtools-auth`. It lives downstream in `dotfiles-samsara` (`paseo-plugins/devtools-auth/`, packaged as `packages/paseo-plugin-devtools-auth`) and is validated on a devbox. catppuccin (dotfiles-m8y6) is deferred and no longer blocks this task.
+
+**Run the switch from a shell outside paseo.** The first switch restarts the daemon, which kills any agent session running inside it, including the one doing this work.
 
 - [ ] **Step 0: Run the repo's own gate first**
 
 Run: `nix flake check`
 
-Expected: green. This builds the patched paseo and every plugin package on both systems, and is what CI runs — get it passing before touching a host.
+Expected: green.
 
 - [ ] **Step 1: Inspect the live config before switching**
 
@@ -30,20 +33,13 @@ Expected: green. This builds the patched paseo and every plugin package on both 
 cat ~/.paseo/config.json
 ```
 
-Anything beyond the creation defaults — `daemon.auth.password`, `providers`, `agentProfiles`, `terminalProfiles`, `features.dictation` — stops being read once Nix owns the file. Port it into `dotfiles.programs.paseo.settings` first, except a password, which moves to `PASEO_PASSWORD` via `environmentCommand`.
+Anything beyond the creation defaults (`daemon.auth.password`, `providers`, `agentProfiles`, `terminalProfiles`, `features.dictation`) stops being read once Nix owns the file. Port it into `dotfiles.programs.paseo.settings` first, except a password, which moves to `PASEO_PASSWORD` via `environmentCommand`.
 
 - [ ] **Step 2: Wire the plugin in and switch**
 
-In the host's home configuration:
+In dotfiles-samsara's `devbox/home.nix`, set `dotfiles.programs.paseo.plugins.devtools-auth.package`, bump the `dotfiles` input, then run `just switch-devbox`.
 
-```nix
-dotfiles.programs.paseo.plugins.catppuccin-theme.package =
-  pkgs.dotfiles.paseo-plugin-catppuccin-theme;
-```
-
-Then run the host's usual switch command.
-
-Expected: activation prints the move-aside warning (first switch only) and the restart note.
+Expected: on the first switch only, activation prints the move-aside warning; it also prints the restart note.
 
 - [ ] **Step 3: Verify the config is managed**
 
@@ -51,32 +47,32 @@ Expected: activation prints the move-aside warning (first switch only) and the r
 readlink ~/.paseo/config.json && cat ~/.paseo/config.json && ls ~/.paseo/config.json.daemon-* 2>/dev/null
 ```
 
-Expected: a `/nix/store/...` target; `pluginsEnabled: true`, the `catppuccin-theme` entry pointing at the plugin store path, and `daemon.cors.allowedOrigins` / `app.baseUrl` present; the pre-existing config preserved as `config.json.daemon-<timestamp>`.
+Expected:
+- `readlink` gives a `/nix/store/...` target.
+- The config has `pluginsEnabled: true`, the `devtools-auth` entry pointing at the plugin's store path, and both `daemon.cors.allowedOrigins` and `app.baseUrl`.
+- The old config is kept as `config.json.daemon-<timestamp>`.
 
 - [ ] **Step 4: Verify the plugin loaded**
 
-```bash
-paseo plugin ls
-```
+Run: `paseo plugin ls`
 
-Expected: `catppuccin-theme` with status `running`. If it says `failed`, `paseo plugin logs catppuccin-theme` has the reason.
+Expected: `devtools-auth` with status `running`. If it says `failed`, `paseo plugin logs devtools-auth` has the reason.
 
-- [ ] **Step 5: Verify the themes appear**
+- [ ] **Step 5: Verify the plugin's UI**
 
-In the app: Settings → Appearance lists Catppuccin Latte, Frappé, Macchiato and Mocha.
+In the app, a devbox workspace's header shows the devtools auth button, and its popover reports the token state.
 
 - [ ] **Step 6: Verify the write guard**
 
-```bash
-paseo daemon set-password hunter2
-```
+Run: `paseo daemon set-password hunter2`
 
-Expected: failure naming `dotfiles.programs.paseo.settings`. Confirm `readlink ~/.paseo/config.json` still points into the store afterwards.
+Expected: a failure that names `dotfiles.programs.paseo.settings`. Afterwards, `readlink ~/.paseo/config.json` should still point into the store.
 
 - [ ] **Step 7: Verify restart-on-change, and only on change**
 
-Bump the plugin pin (or change any `settings` value), switch, and confirm the restart note printed and `paseo plugin ls` shows the new path. Then switch again with no changes and confirm the daemon was *not* restarted — check that a running agent session survives.
+1. Change the plugin source or any `settings` value, then switch. Confirm the restart note printed and `paseo plugin ls` shows the new path.
+2. Switch again with no changes. Confirm the daemon did *not* restart: a running agent session should survive.
 
 - [ ] **Step 8: Record the result**
 
-No commit. Note anything surprising on this bean before closing it, especially any config key that had to be ported by hand — that list belongs in the spec's migration notes for the next host.
+No commit. Before closing this bean, note anything surprising on it, especially any config key that had to be ported by hand. That list belongs in the spec's migration notes for the next host.

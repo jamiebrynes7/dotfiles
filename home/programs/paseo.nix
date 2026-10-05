@@ -47,11 +47,12 @@ let
         "/nix/var/nix/profiles/default/bin"
       ]
       ++ lib.optionals pkgs.stdenv.isLinux [ "/run/wrappers/bin" ]
-      ++ lib.optionals pkgs.stdenv.isDarwin [
-        "/opt/homebrew/bin"
-        "/usr/local/bin"
-      ]
+      ++ lib.optionals pkgs.stdenv.isDarwin [ "/opt/homebrew/bin" ]
+      # Not Darwin-only: Linux hosts install tools there too (on devboxes, the
+      # xdg-open wrapper that forwards URLs to the laptop). After the Nix
+      # profiles, matching a login shell, so it never shadows Nix-managed tools.
       ++ [
+        "/usr/local/bin"
         "/usr/bin"
         "/bin"
         "/usr/sbin"

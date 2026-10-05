@@ -370,6 +370,17 @@ in
             + lib.concatStringsSep ", " invalidPluginIds;
         }
       ];
+
+      # The postPatch guard in packages/paseo protects only the daemon built here.
+      # The desktop app is a signed upstream bundle with its own unpatched daemon, so
+      # this is the one combination where a managed config.json is unprotected. A
+      # warning, not an assertion: starting the daemon by hand is legitimate.
+      warnings = lib.optional (cfg.enable && cfg.desktop.enable && !cfg.service.enable) ''
+        dotfiles.programs.paseo: config.json is managed by Nix, but nothing on this host
+        runs the patched daemon. The desktop app bundles its own unpatched daemon, which
+        takes over when no service daemon is running and can overwrite the managed file.
+        Set service.enable = true, or expect activation to move clobbered files aside.
+      '';
     }
 
     (lib.mkIf cfg.enable {

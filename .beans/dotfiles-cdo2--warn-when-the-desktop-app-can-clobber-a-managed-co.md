@@ -1,11 +1,11 @@
 ---
 # dotfiles-cdo2
 title: Warn when the desktop app can clobber a managed config
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-09-21T17:28:17Z
-updated_at: 2026-09-21T17:30:07Z
+updated_at: 2026-10-05T12:26:47Z
 parent: dotfiles-khsx
 ---
 
@@ -14,7 +14,7 @@ parent: dotfiles-khsx
 
 The `postPatch` guard in `packages/paseo` protects the daemon this repo builds. `passthru.desktop` is a signed upstream zip bundling its own unpatched daemon, which takes over when no service daemon is running — so `enable` + `desktop.enable` without `service.enable` is the one combination where a managed config.json is unprotected. A warning, not an assertion: starting the daemon by hand is legitimate.
 
-- [ ] **Step 1: Add the warning**
+- [x] **Step 1: Add the warning**
 
 ```nix
       warnings = lib.optional (cfg.enable && cfg.desktop.enable && !cfg.service.enable) ''
@@ -25,11 +25,11 @@ The `postPatch` guard in `packages/paseo` protects the daemon this repo builds. 
       '';
 ```
 
-- [ ] **Step 2: Format**
+- [x] **Step 2: Format**
 
 Run: `nixfmt home/programs/paseo.nix`
 
-- [ ] **Step 3: Verify it fires only for that combination**
+- [x] **Step 3: Verify it fires only for that combination**
 
 ```bash
 nix eval --impure --json --expr '
@@ -55,9 +55,13 @@ nix eval --impure --json --expr '
 
 Expected: `desktopNoService` holds one warning naming the desktop app; `desktopWithService` and `plain` are empty. Note `desktop.enable` is Darwin-only (there is an assertion for it), so run this on macOS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add home/programs/paseo.nix
 git commit -m "home/programs/paseo: warn when the desktop daemon can clobber config" -m "Bean: dotfiles-cdo2"
 ```
+
+## Summary of Changes
+
+Added a `warnings` entry for `enable && desktop.enable && !service.enable`, the one setup where the desktop app's unpatched bundled daemon can overwrite the managed config.json. Checked on Linux by evaluating the matrix with `system = "aarch64-darwin"`, which needs no Mac.

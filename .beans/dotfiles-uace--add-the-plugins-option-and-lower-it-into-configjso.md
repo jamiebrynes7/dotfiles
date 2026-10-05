@@ -1,11 +1,11 @@
 ---
 # dotfiles-uace
 title: Add the plugins option and lower it into config.json
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-09-21T17:28:17Z
-updated_at: 2026-09-21T17:30:07Z
+updated_at: 2026-10-05T12:26:11Z
 parent: dotfiles-khsx
 blocked_by:
     - dotfiles-t17y
@@ -18,7 +18,7 @@ blocked_by:
 
 Depends on the unconditional-rendering task: this folds into the `renderedSettings` binding that task introduces.
 
-- [ ] **Step 1: Add the option**
+- [x] **Step 1: Add the option**
 
 ```nix
     plugins = lib.mkOption {
@@ -60,7 +60,7 @@ Depends on the unconditional-rendering task: this folds into the `renderedSettin
     };
 ```
 
-- [ ] **Step 2: Lower it into the rendered config**
+- [x] **Step 2: Lower it into the rendered config**
 
 Add to the `let` block, above `renderedSettings`:
 
@@ -82,7 +82,7 @@ and change `renderedSettings` to:
   renderedSettings = lib.recursiveUpdate creationDefaults (pluginEntries // cfg.settings);
 ```
 
-- [ ] **Step 3: Add the id assertion**
+- [x] **Step 3: Add the id assertion**
 
 In the `assertions` list:
 
@@ -99,11 +99,11 @@ In the `assertions` list:
 
 `builtins.match` anchors the whole string, so no `^`/`$` needed. This fails at switch instead of at daemon start, where a bad id surfaces as a zod parse error in the log.
 
-- [ ] **Step 4: Format**
+- [x] **Step 4: Format**
 
 Run: `nixfmt home/programs/paseo.nix`
 
-- [ ] **Step 5: Verify a plugin renders**
+- [x] **Step 5: Verify a plugin renders**
 
 ```bash
 nix eval --impure --raw --expr '
@@ -128,15 +128,19 @@ nix eval --impure --raw --expr '
 
 Expected: `"pluginsEnabled": true` and a `plugins` object with `catppuccin-theme` = `{ "enabled": true, "path": "/nix/store/fake-plugin", "source": "directory" }`.
 
-- [ ] **Step 6: Verify the assertion fires on a bad id**
+- [x] **Step 6: Verify the assertion fires on a bad id**
 
 Run the same command with `plugins.catppuccin-theme` replaced by `plugins."Bad_Id"`.
 
 Expected: evaluation fails with the `PluginIdSchema` message naming `Bad_Id`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add home/programs/paseo.nix
 git commit -m "home/programs/paseo: add a declarative plugins option" -m "Bean: dotfiles-uace"
 ```
+
+## Summary of Changes
+
+Added `dotfiles.programs.paseo.plugins.<id> = { package; enable; }`. It lowers into config.json as `pluginsEnabled = true` plus a `directory` source for each plugin, and `settings` is still applied last. An assertion checks ids against upstream's PluginIdSchema regex. The invalid ids are bound once in the `let` block, so the assertion and its message share them.

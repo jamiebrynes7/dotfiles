@@ -118,7 +118,29 @@ let
     app.baseUrl = "https://app.paseo.sh";
   };
 
-  renderedSettings = lib.recursiveUpdate creationDefaults cfg.settings;
+  pluginEntries = lib.optionalAttrs (cfg.plugins != { }) {
+    pluginsEnabled = true;
+    plugins = lib.mapAttrs (_: plugin: {
+      source = "directory";
+      # Interpolation, not toString: a path literal is copied to the store with
+      # string context, so the plugin stays in the closure and survives GC.
+      path = "${plugin.package}";
+      enabled = plugin.enable;
+    }) cfg.plugins;
+  };
+
+  # cfg.settings last, so an explicit `pluginsEnabled = false` stays expressible.
+  # Deep-merged at every layer: a shallow `//` would let `settings.plugins` replace
+  # the whole generated plugins record instead of adding to it.
+  renderedSettings = lib.foldl' lib.recursiveUpdate { } [
+    creationDefaults
+    pluginEntries
+    cfg.settings
+  ];
+
+  invalidPluginIds = lib.filter (id: builtins.match "[a-z][a-z0-9-]*" id == null) (
+    lib.attrNames cfg.plugins
+  );
 in
 {
   options.dotfiles.programs.paseo = {
@@ -195,6 +217,44 @@ in
 
         The schema is `PersistedConfigSchema` in
         `packages/server/src/server/persisted-config.ts` upstream.
+      '';
+    };
+
+    plugins = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options = {
+            package = lib.mkOption {
+              type = lib.types.path;
+              description = "Directory holding the plugin's `paseo-plugin.json` and entry points.";
+            };
+            enable = lib.mkOption {
+              type = lib.types.bool;
+              default = true;
+              description = "Whether the daemon should load this plugin.";
+            };
+          };
+        }
+      );
+      default = { };
+      example = lib.literalExpression ''
+        { catppuccin-theme.package = pkgs.dotfiles.paseo-plugin-catppuccin-theme; }
+      '';
+      description = ''
+        Plugins to configure, keyed by plugin id. Each becomes a `directory` source
+        in `config.json` — the only source the persisted schema accepts. `github:`,
+        `git:` and `npm:` are install-time syntax the daemon resolves into a local
+        directory, so there is nothing else worth expressing here.
+
+        The attribute name is the id the daemon uses. It is deliberately not read
+        from the plugin's `paseo-plugin.json`: that read would be
+        import-from-derivation, and `packages/paseo` stays the only IFD package.
+
+        `enable = false` keeps a plugin configured but stopped — the declarative
+        replacement for the Settings toggle, which a managed config.json reverts.
+
+        `types.path` accepts a derivation or a `"''${src}/plugins/foo"` string, so an
+        inline `fetchFromGitHub` works without a `packages/` entry.
       '';
     };
 
@@ -300,6 +360,14 @@ in
         {
           assertion = !cfg.enable || (lib.hasPrefix "${config.home.homeDirectory}/" cfg.dataDir);
           message = "dotfiles.programs.paseo requires dataDir to be inside the home directory, since config.json is written with home.file.";
+        }
+        # Fails at switch rather than at daemon start, where a bad id surfaces only as
+        # a zod parse error in the log. builtins.match anchors the whole string.
+        {
+          assertion = invalidPluginIds == [ ];
+          message =
+            "dotfiles.programs.paseo.plugins ids must match upstream's PluginIdSchema (^[a-z][a-z0-9-]*$): "
+            + lib.concatStringsSep ", " invalidPluginIds;
         }
       ];
     }

@@ -277,12 +277,14 @@
             // darwinPkgs.dotfiles.internal.rustChecks
             // {
               nixfmt = mkNixfmtCheck darwinPkgs;
+              paseo-plugin-requirements = darwinPkgs.callPackage ./packages/paseo/plugin-requirements.nix { };
             };
           x86_64-linux =
             self.packages.x86_64-linux
             // linuxPkgs.dotfiles.internal.rustChecks
             // {
               nixfmt = mkNixfmtCheck linuxPkgs;
+              paseo-plugin-requirements = linuxPkgs.callPackage ./packages/paseo/plugin-requirements.nix { };
             };
         };
       templates = {

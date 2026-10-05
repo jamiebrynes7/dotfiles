@@ -278,7 +278,10 @@ covers the workspace rather than a single package:
   SDK skew into a red check instead of a runtime load failure.
 
 External plugins get neither check; their `package.json` is upstream's to fix. The pinned
-hash plus the copy failing on a layout change is the coverage.
+hash plus the copy failing on a layout change is the coverage. Every plugin package, external
+or repo-local, is covered by the `paseo-plugin-requirements` check, which evaluates its
+manifest's `requirements.paseo` against the pinned paseo version with the daemon's own
+semantics (added later, in dotfiles-zl1c).
 
 The repo devShell's `extraPackages` gains `pkgs.nodejs` so `npm` works inside `ts/`.
 
@@ -350,8 +353,6 @@ lands, not a dependency of this work.
 ## Out of scope follow-ups
 
 - A TypeScript formatter and a `.githooks/pre-commit` gate for `ts/`.
-- A check that an external plugin's `requirements.paseo` range still admits the pinned
-  paseo version — the thing `assertPluginCompatibility` enforces at load time.
 - Cutting `sys-warbird` over to the `plugins` option.
 - Covering this module's assertions and warning with the `home-eval` flake check planned
   in bean `dotfiles-d6t2`.

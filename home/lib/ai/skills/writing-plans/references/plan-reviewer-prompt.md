@@ -7,28 +7,29 @@ the plan ready.
 
 | Category | What to Look For |
 |----------|------------------|
-| Completeness | TODOs, placeholders, incomplete tasks, missing steps |
-| Spec Alignment | Plan covers each spec requirement; no major scope creep |
-| Task Decomposition | Tasks have clear boundaries; steps are actionable; bite-sized (2-5 min each) |
-| Buildability | Could an engineer follow this without getting stuck? Exact paths, commands, code shown? |
-| Type consistency | Function names, signatures, properties match across tasks (no `clearLayers` in one task and `clearFullLayers` in another) |
+| Spec alignment | Every spec requirement maps to a ticket or to the **Already done** line; no major scope creep; open questions surfaced, not guessed |
+| Vertical slicing | Each ticket delivers a demoable behaviour, not one layer ("options added", "package builds") |
+| Criteria can fail | Each acceptance criterion is observable and false at the starting commit; none depends on another ticket's work. Must-stay-true guards belong under Constraints, not criteria |
+| Context-sized | Each ticket fits one fresh context window; nothing is so small it can only be verified alongside another ticket |
+| Real edges | `blocked-by` edges reflect genuine gating, not list order; prefactors come first |
+| No stale-prone detail | No implementation code, file paths, line numbers, or step lists — only labelled decision snippets |
 
 ## Calibration
 
 **Only flag issues that would cause real problems during implementation.**
-An implementer building the wrong thing or getting stuck is an issue. Minor
-wording, stylistic preferences, and "nice to have" suggestions are not.
+An implementer building the wrong thing, being unable to tell when it is done,
+or waiting on an edge that isn't real is an issue. Minor wording, stylistic
+preferences, and "nice to have" suggestions are not.
 
 ## Beans Mode
 
-When the plan is a beans tree, the review surface is the union of bean bodies.
-Fetch them in one shot:
+The review surface is the epic plus its children. Fetch them in one shot:
 
 ```bash
-beans query --json '{ bean(id: "<epic-id>") { title body children { id title body children { id title body } } } }'
+beans query --json '{ bean(id: "<epic-id>") { title body children { id title body blockedBy { id title } } } }'
 ```
 
-Walk the tree and apply the checklist. Fix issues with `beans update --body-replace-old/--body-replace-new`.
+Walk the tickets and apply the checklist. Fix issues with `beans update --body-replace-old/--body-replace-new`.
 
 ## Markdown Mode
 

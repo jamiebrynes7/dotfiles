@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-10-05
+Freshness: 2026-10-06
 
 ## Tech Stack
 
@@ -88,6 +88,10 @@ Defined in `home/profiles.nix` under `dotfiles.profiles`:
 ### AI library
 
 `home/lib/ai/` is a shared library (not a NixOS module) providing commands and skills for Claude Code and Cursor. It uses variant prefixes (`cc:`, `cursor:`) in YAML frontmatter to produce assistant-specific output from single source files. See `home/lib/ai/CLAUDE.md` for details.
+
+### Specs
+
+`docs/specs/` holds dated, point-in-time decision records, not living documentation. They are left as written once work lands; the code and these `CLAUDE.md` files are the source of truth. A later change of direction gets a new spec with a `Supersedes:` line rather than an edit to the old one.
 
 ### Formatting
 

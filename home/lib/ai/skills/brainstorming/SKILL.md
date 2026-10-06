@@ -26,7 +26,7 @@ Complete these in order:
 2. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 3. **Propose 2–3 approaches** → write to a file, run **plannotator options review** (see [Plannotator integration](#plannotator-integration))
 4. **Present design** — in sections scaled to their complexity, get inline approval after each
-5. **Write spec** — save to `docs/specs/YYYY-MM-DD-<topic>.md` (user preferences for spec location override this default)
+5. **Write spec** — save to `docs/specs/YYYY-MM-DD-<topic>.md` (user preferences for spec location override this default), with the header described in [Specs are point-in-time](#specs-are-point-in-time)
 6. **Spec self-review** — placeholder/contradiction/scope/ambiguity scan; see `references/spec-reviewer-prompt.md`
 7. **Plannotator final-spec review** — address annotations, re-run until approved
 8. **Hand off to `writing-plans` skill** — terminal state
@@ -55,7 +55,8 @@ Complete these in order:
 - Once you understand what you're building, present the design.
 - Scale each section to its complexity: a few sentences if straightforward, up to 200–300 words if nuanced.
 - After each section, ask whether it looks right and wait for the user to confirm before moving on. This conversational pattern is specific to the design walkthrough — options and the final spec both go through plannotator, not chat.
-- Cover: architecture, components, data flow, error handling, testing.
+- Cover: architecture, components, data flow, error handling, and **testing seams** — where the behaviour will be verified. Prefer existing seams (checks, test suites, harnesses) over new ones, and as few as possible.
+- The spec records decisions and verified facts — interfaces, contracts, option shapes, upstream behaviour you confirmed — not file-by-file layouts or implementation code. Those go stale before the work lands; the implementer works them out against the code as it is then. Inline a snippet only when it encodes a decision more precisely than prose (a schema, a type shape).
 - Be ready to go back and clarify if something doesn't make sense.
 
 **Design for isolation and clarity:**
@@ -111,8 +112,22 @@ with the same 30-minute timeout. Handle the JSON decision identically:
 
 Plannotator's home-manager hook auto-fires only on `ExitPlanMode`. The two `plannotator annotate` invocations above are independent manual calls during brainstorming — they don't conflict with the hook because brainstorming runs outside plan mode.
 
+## Specs are point-in-time
+
+A spec records what was decided, and why, on a date. It is not living documentation: once work lands, the code is the source of truth, and durable conventions belong in the project's `CLAUDE.md`/`AGENTS.md`, not the spec.
+
+- Start every spec with a short header:
+
+  ```markdown
+  Date: YYYY-MM-DD
+  Supersedes: docs/specs/<older-spec>.md §<sections>   <!-- omit if none -->
+  ```
+
+- Do not edit an older spec to track what was actually built. When returning to partially implemented work, or changing an earlier decision, write a new spec that covers only the new decisions and names what it supersedes.
+- Explore the code before relying on an older spec's description of it — where they differ, the code wins.
+
 ## After Approval
 
-Once the final-spec review returns `approved`, invoke the `writing-plans` skill. It will detect whether `beans` is on `$PATH` and either emit a beans hierarchy (epic → feature → task) or write a markdown plan to `docs/specs/plans/`.
+Once the final-spec review returns `approved`, invoke the `writing-plans` skill. It breaks the spec into vertical-slice tickets, reviews the breakdown with the user, and either emits an epic with task tickets in beans or writes a markdown plan to `docs/specs/plans/`.
 
 Do NOT invoke any other implementation skill from this skill.

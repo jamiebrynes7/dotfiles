@@ -11,6 +11,7 @@ Run this against the spec document with fresh eyes before requesting plannotator
 | Clarity | Requirements ambiguous enough to cause someone to build the wrong thing |
 | Scope | Focused enough for a single plan — not covering multiple independent subsystems |
 | YAGNI | Unrequested features, over-engineering |
+| Altitude | Decisions and testing seams recorded; no file-by-file layouts or implementation code that will go stale before it is built |
 
 ## Calibration
 

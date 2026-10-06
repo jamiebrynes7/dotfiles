@@ -7,7 +7,7 @@ description: Use when asked to implement a bean, work on a bean, or pick up a ta
 
 Implement a bean end-to-end: read it, confirm it is actually ready, build it, get it reviewed, and land it. The discipline that matters most here is **not skipping validation** — implementing a half-specified or blocked bean wastes work and produces the wrong thing. Surface problems to the user before writing code, not after.
 
-Track progress through the steps below by keeping the bean's own todo items current as you go (`- [ ]` → `- [x]`).
+A bean describes **what** to deliver — the behaviour and its acceptance criteria — not how. Working out the how, against the code as it is now, is this skill's job. Track progress by checking off the bean's acceptance criteria as each is met (`- [ ]` → `- [x]`).
 
 ## Step 1 — Read the bean
 
@@ -21,17 +21,20 @@ Also pull the surrounding context, because a task rarely makes sense alone:
 beans query --json '{ bean(id: "<id>") { title body status type priority parent { id title body status } children { id title status } blockedBy: blockedBy { id title status } } }'
 ```
 
-Read the parent for intent and acceptance criteria, and note any children — a bean with children is usually a container and should not be implemented directly.
+Read the parent for intent, and note any children — a bean with children is usually a container and should not be implemented directly.
+
+If the bean (or its parent epic) points at a spec, read the referenced sections. The spec holds the decisions — interfaces, option shapes, testing seams, verified upstream facts — that the bean deliberately does not repeat.
 
 ## Step 2 — Validate, and stop if anything is off
 
 Check the bean against this list before touching code:
 
-- **Scope is clear** — you can state what "done" looks like and what files/areas it touches.
+- **Done is observable** — you can state the behaviour the bean delivers and how each acceptance criterion will be checked.
+- **Criteria can fail** — each acceptance criterion is not already true at the current `master`. One that already holds, or that only another bean's work could satisfy, is a discrepancy to raise.
 - **Not blocked** — every `blockedBy` bean is `completed`, and no ancestor is blocked. The CLI's own `ready`/`next` logic respects this; an unfinished blocker means stop.
 - **Status fits** — it is `todo` or `in-progress`, not `draft` (needs refinement), `completed`, or `scrapped`.
-- **Internally consistent** — todo items, description, and parent intent do not contradict each other.
-- **No stale assumptions** — references to code, files, or APIs in the bean still match reality. Verify the ones the work depends on.
+- **Internally consistent** — acceptance criteria, description, spec, and parent intent do not contradict each other.
+- **No stale assumptions** — references to code, files, or APIs in the bean still match reality. Verify the ones the work depends on. Specs are point-in-time records, so drift between a spec and the code is expected and the code wins; stop only when the drift changes what this bean must deliver.
 
 If everything checks out, set the bean in-progress (`beans update <id> -s in-progress`) and continue.
 
@@ -39,24 +42,27 @@ If everything checks out, set the bean in-progress (`beans update <id> -s in-pro
 
 ## Step 3 — Branch
 
-Implement on a dedicated branch, never directly on `master`. The branch tracks a **unit of work**, which is not always one bean:
-
-- A standalone task, or an epic/feature you are landing as a single piece, gets its own branch named `<type>/<slug>` (e.g. `task/refine-task-implementer-skill`) — use the bean's `slug` field from `beans show`.
-- When the bean is one of several sibling tasks under a parent feature/epic meant to ship together, share the parent's branch rather than cutting a per-task branch — name it `<parent-type>/<parent-slug>` from the parent bean's fields. If that branch already exists, check it out and build on it; otherwise create it.
+Implement on a dedicated branch, never directly on `master`. Each bean is a vertical slice that lands on its own, so it gets its own branch named `<type>/<slug>` (e.g. `task/refine-task-implementer-skill`) — use the bean's `slug` field from `beans show`.
 
 ```bash
-git checkout -b <type>/<slug>   # or `git checkout <existing-branch>` to join shared work
+git checkout -b <type>/<slug>
 ```
 
 If you are already on the right non-`master` branch for this unit of work, stay on it.
 
 ## Step 4 — Implement
 
-Follow the bean's plan and the repo's conventions (see the root and nearest `CLAUDE.md`). Check off each todo item on the bean as you complete it, so the bean reflects real progress:
+Explore the code the bean touches before changing it, then decide the approach — following the spec's decisions and the repo's conventions (see the root and nearest `CLAUDE.md`). If the code contradicts something the spec or bean assumed, stop and raise it as in Step 2 rather than working around it.
+
+Work test-first against the testing seam the spec or epic names (an existing check, test suite, or harness): extend it so it expresses an acceptance criterion, watch it fail, implement until it passes. Where a criterion cannot be checked automatically, note how you verified it.
+
+Check off each acceptance criterion as it is met, so the bean reflects real progress:
 
 ```bash
-beans update <id> --body-replace-old "- [ ] <item>" --body-replace-new "- [x] <item>"
+beans update <id> --body-replace-old "- [ ] <criterion>" --body-replace-new "- [x] <criterion>"
 ```
+
+Older beans may carry a step-by-step checklist instead of acceptance criteria. Treat those steps as a guide, verify their code against the repo before using it, and check them off as you go.
 
 Validate your work the way the repo expects — for Rust changes run `cargo test --workspace`; for a broader check run `nix flake check` (this is what CI runs). Do not move on with failing tests.
 
@@ -74,7 +80,7 @@ Treat this as a gate: do not commit until the user's review is resolved.
 
 ## Step 7 — Mark done and commit
 
-Only when every todo item on the bean is checked and both reviews are resolved:
+Only when every acceptance criterion on the bean is checked and both reviews are resolved:
 
 1. Add a `## Summary of Changes` section describing what was done, and set the bean completed:
 

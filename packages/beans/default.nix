@@ -70,6 +70,19 @@ let
 
     inherit pnpmDeps;
 
+    # The same nixpkgs#525627 crash as the pnpm patch above, in a worker that
+    # patch cannot reach: SvelteKit runs post-build analysis and prerendering in
+    # a `worker_threads` Worker (`forked()` in src/utils/fork.js), and its
+    # teardown intermittently aborts the build on aarch64-darwin after the site
+    # is already written. `--replace-fail` so an upstream rewrite of `forked()`
+    # fails the build rather than silently dropping the fix.
+    preBuild = ''
+      substituteInPlace node_modules/@sveltejs/kit/src/utils/fork.js \
+        --replace-fail \
+          'const worker = new Worker(fileURLToPath(module), {' \
+          'const worker = new Worker(fileURLToPath(module), { trackUnmanagedFds: false,'
+    '';
+
     buildPhase = ''
       runHook preBuild
       pnpm build

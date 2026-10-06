@@ -20,6 +20,7 @@ No justfile at the repo root. Common operations:
 - `nix flake show` — list outputs (systems, templates, lib)
 - `nixfmt <file>` — format Nix files (available in the devShell)
 - `cargo test --workspace` — run Rust tests directly without going through Nix (see `crates/CLAUDE.md`)
+- `gh workflow run update-flake-lock.yml` — bump `flake.lock`. Manual only: this lock is the single source of truth for every machine (`templates/systems/*` pin nothing but `dotfiles.url`), so a bump here reaches the whole fleet. It opens an auto-merging PR, and re-pins the hashes that `beans` and `paseo` compute against the pinned nixpkgs. Takes an optional space-separated input filter; blank updates everything. Moving to the *next* nixpkgs release is a different job — see "Channel inputs" below.
 
 A `.githooks/pre-commit` formatting gate (Nix + Rust) is auto-wired via `core.hooksPath` by the devShell `shellHook` — commit from inside the devShell (the `direnv` shell) so `nixfmt`/`cargo` are on `PATH`.
 
@@ -60,6 +61,12 @@ Beyond that, `update.sh` should **fail** on anything it cannot resolve, includin
 `packages/paseo` is also the only package here that patches upstream source: a `postPatch` makes the daemon's `savePersistedConfig` throw rather than overwrite a `config.json` that is a symlink, because `home/programs/paseo.nix` always writes that file from the store and the daemon's atomic save would otherwise rename a temp file over it. Both anchors use `--replace-fail`, and `postInstall` greps `$out` for the sentinel, so an upstream rewrite fails the build instead of silently shipping an unguarded daemon.
 
 Paseo plugins are packaged one directory per plugin, named after the **plugin id** — `packages/paseo-plugin-<id>/` — so `dotfiles.programs.paseo.plugins.<id>.package = pkgs.dotfiles.paseo-plugin-<id>` needs no lookup table. An external plugin whose upstream publishes no releases is pinned by commit SHA literally in its `default.nix`, with **no** `hashes.json` and **no** `update.sh`: plugin code runs unsandboxed as the daemon user, so every bump is a reviewed commit rather than a nightly auto-update PR. Omitting `update.sh` is what keeps `auto-update.yml` away from it. `nix flake check`'s `paseo-plugin-requirements` check (`packages/paseo/plugin-requirements.nix`) evaluates every `paseo-plugin-*` package's `requirements.paseo` against the pinned paseo version, so a nightly paseo bump that a plugin no longer admits goes red instead of failing at load on a host.
+
+### Channel inputs
+
+`nixpkgs` (`nixos-26.05`) and `nixpkgs-darwin` (`nixpkgs-26.05-darwin`) are **the same `release-26.05` branch behind two different Hydra gates**, not two package sets — each is a pointer Hydra fast-forwards once its own jobset is green, Linux for one and Darwin for the other. They can therefore differ only in staleness, never in content, which is why they are always bumped together in one PR. The Darwin pointer exists for cache hit rate and to catch Darwin breakage the Linux gate would miss; `flake.nix` builds `pkgs` per-platform from the respective input, so neither platform ever sees the other's nixpkgs.
+
+Moving to the next release is a separate, hand-written change: `nixpkgs`, `nixpkgs-darwin`, `darwin` (`nix-darwin-26.05`) and `home-manager` (`release-26.05`) must all move in lockstep, since nix-darwin and home-manager cut a release branch per nixpkgs release.
 
 ### Program module pattern
 

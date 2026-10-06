@@ -17,7 +17,7 @@ Freshness: 2026-11-13
 
 No justfile at the repo root. Common operations:
 
-- `nix flake check` — validate the flake; also checks Nix formatting (the `nixfmt` check) and builds/tests the Rust workspace once it has crates. CI runs it in full on pushes to master; on PRs it runs `--no-build` and then builds only the checks whose derivation path differs from the base commit's, so a docs- or beans-only PR builds nothing. `gh workflow run ci.yml --ref <branch>` runs the full check on any branch
+- `nix flake check` — validate the flake; also checks Nix formatting (the `nixfmt` check) and builds/tests the Rust workspace once it has crates. CI runs it on `ubuntu-latest` and `macos-latest` (so both `x86_64-linux` and `aarch64-darwin` checks), behind a single `flake-check` gate job that branch protection requires. It runs in full on pushes to master; on PRs it runs `--no-build` and then builds only the checks whose derivation path differs from the base commit's, so a docs- or beans-only PR builds nothing. `gh workflow run ci.yml --ref <branch>` runs the full check on any branch
 - `nix flake show` — list outputs (systems, templates, lib)
 - `nixfmt <file>` — format Nix files (available in the devShell)
 - `cargo test --workspace` — run Rust tests directly without going through Nix, once the workspace has crates (see `crates/CLAUDE.md`)

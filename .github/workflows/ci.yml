@@ -12,8 +12,15 @@ permissions:
   contents: read
 
 jobs:
-  flake-check:
-    runs-on: ubuntu-latest
+  # macos-latest is arm64, so its leg checks aarch64-darwin while ubuntu-latest
+  # checks x86_64-linux. nixpkgs-darwin is its own input, and nothing else
+  # validates the Darwin half before it reaches a Mac.
+  flake:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       pull-requests: write # the changed-checks comment
@@ -37,16 +44,18 @@ jobs:
       # Written before Nix is installed. With `id-token: write` the installer
       # logs Determinate Nixd in to FlakeHub, which repoints `netrc-file` at its
       # own managed file; `additionalNetrcSources` merges ours into it. Without
-      # a login, the `netrc-file` below applies directly.
+      # a login, the `netrc-file` below applies directly. macOS's BSD `install`
+      # has no `-D`, hence mkdir + tee.
       - name: Write nimbus netrc
         if: steps.op.outputs.NIMBUS_READ_TOKEN != ''
         env:
           NIMBUS_READ_TOKEN: ${{ steps.op.outputs.NIMBUS_READ_TOKEN }}
         run: |
-          printf 'machine nimbus.jb7.sh login gha-dotfiles password %s\n' "$NIMBUS_READ_TOKEN" \
-            | sudo install -D -m 600 /dev/stdin /etc/nix/netrc
+          sudo mkdir -p /etc/nix /etc/determinate
+          (umask 077 && printf 'machine nimbus.jb7.sh login gha-dotfiles password %s\n' "$NIMBUS_READ_TOKEN" \
+            | sudo tee /etc/nix/netrc > /dev/null)
           echo '{"authentication":{"additionalNetrcSources":["/etc/nix/netrc"]}}' \
-            | sudo install -D -m 644 /dev/stdin /etc/determinate/config.json
+            | sudo tee /etc/determinate/config.json > /dev/null
 
       - uses: DeterminateSystems/nix-installer-action@v21
         with:
@@ -101,8 +110,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: nix flake check --no-build
 
-      # One comment per PR, edited in place on each push. Best-effort: a token
-      # without write access (fork or Dependabot PRs) must not fail the check.
+      # One comment per PR and system, edited in place on each push. Best-effort:
+      # a token without write access (fork or Dependabot PRs) must not fail the
+      # check.
       - name: Comment changed checks
         if: github.event_name == 'pull_request'
         continue-on-error: true
@@ -115,12 +125,13 @@ jobs:
           CHECKS: ${{ steps.changed.outputs.checks }}
           TOTAL: ${{ steps.changed.outputs.total }}
           FALLBACK: ${{ steps.changed.outputs.fallback }}
+          SYSTEM: ${{ steps.changed.outputs.system }}
         run: |
-          marker='<!-- flake-check-changed-checks -->'
+          marker="<!-- flake-check-changed-checks:$SYSTEM -->"
           read -r -a checks <<< "$CHECKS"
           {
             echo "$marker"
-            echo "**Flake check** at ${HEAD_SHA::7}, compared against base ${BASE_SHA::7}:"
+            echo "**Flake check (\`$SYSTEM\`)** at ${HEAD_SHA::7}, compared against base ${BASE_SHA::7}:"
             echo
             if [ "$FALLBACK" = true ]; then
               echo "The base commit could not be evaluated, so all $TOTAL checks were built."
@@ -156,3 +167,15 @@ jobs:
           fi
           echo "::notice::Building changed checks: ${checks[*]}"
           nix build --no-link --print-build-logs "${checks[@]/#/.#checks.$SYSTEM.}"
+
+  # Branch protection requires the single status context `flake-check`, but a
+  # matrix job reports one context per leg. This gate keeps that one name, so
+  # the matrix can grow without touching branch protection. `if: always()` is
+  # load-bearing: a skipped required check stays pending forever and would
+  # stall auto-merge on every PR.
+  flake-check:
+    needs: flake
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: '[[ "${{ needs.flake.result }}" == "success" ]]'

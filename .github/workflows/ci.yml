@@ -9,9 +9,29 @@ permissions:
   contents: read
 
 jobs:
-  flake-check:
-    runs-on: ubuntu-latest
+  # macos-latest is arm64, so its `nix flake check` builds checks.aarch64-darwin
+  # while ubuntu-latest builds checks.x86_64-linux. Both legs are needed:
+  # nixpkgs and nixpkgs-darwin are separate inputs, and nothing else validates
+  # the Darwin half before it reaches a machine.
+  flake:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v21
       - run: nix flake check --print-build-logs
+
+  # Branch protection requires the single status context `flake-check`, but a
+  # matrix job reports one context per leg. This aggregate keeps that one name
+  # reporting, so the matrix above can grow without touching branch protection.
+  # `if: always()` is load-bearing: a skipped required check stays pending
+  # forever and would stall auto-merge on every PR.
+  flake-check:
+    needs: flake
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: '[[ "${{ needs.flake.result }}" == "success" ]]'

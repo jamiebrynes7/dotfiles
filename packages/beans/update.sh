@@ -8,35 +8,47 @@ FLAKE_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 OWNER="hmans"
 REPO="beans"
 
-# Parse args: --force recomputes hashes even when the recorded version already
-# matches the latest main commit.
+# Parse args: optional REV positional, optional --force to recompute hashes even
+# when the recorded version already matches.
 FORCE=0
+REV=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -f | --force)
       FORCE=1
       shift
       ;;
-    *)
-      echo "Error: unknown argument: $1" >&2
+    -*)
+      echo "Error: unknown option: $1" >&2
       exit 1
+      ;;
+    *)
+      REV="$1"
+      shift
       ;;
   esac
 done
 
-echo "Fetching latest commit from $OWNER/$REPO..."
-COMMIT_INFO=$(curl -sf "https://api.github.com/repos/$OWNER/$REPO/commits/main")
+# A REV argument re-pins the commit already recorded instead of following main.
+# That is what a flake.lock bump needs: recompute the nixpkgs-derived hashes
+# below without also dragging in an upstream version change.
+REF="${REV:-main}"
+echo "Fetching commit $REF from $OWNER/$REPO..."
+if ! COMMIT_INFO=$(curl -sf "https://api.github.com/repos/$OWNER/$REPO/commits/$REF"); then
+  echo "Error: could not resolve $REF at github.com/$OWNER/$REPO" >&2
+  exit 1
+fi
 REV=$(echo "$COMMIT_INFO" | jq -r '.sha')
 DATE=$(echo "$COMMIT_INFO" | jq -r '.commit.committer.date' | cut -d'T' -f1)
 SHORT_SHA=$(echo "$REV" | head -c 7)
 VERSION="unstable-${DATE}-${SHORT_SHA}"
 
-echo "Latest commit: $REV ($DATE)"
+echo "Resolved commit: $REV ($DATE)"
 echo "Version: $VERSION"
 
 # Skip all hash work when the recorded version already matches (unless --force).
-# The version embeds the commit SHA, so this equality also means "main has not
-# moved since the last update".
+# The version embeds the commit SHA, so with no REV argument this equality also
+# means "main has not moved since the last update".
 CURRENT_VERSION=$(jq -r '.version // empty' "$DATA_FILE" 2>/dev/null || true)
 if [[ "$FORCE" -ne 1 && -n "$CURRENT_VERSION" && "$CURRENT_VERSION" == "$VERSION" ]]; then
   echo "beans already at ${VERSION}, skipping"
@@ -71,7 +83,7 @@ VENDOR_HASH=$(
       };
       vendorHash = \"\";
     }
-  " 2>&1 | grep -oP 'got:\s+\K\S+' || true
+  " 2>&1 | awk '$1 == "got:" { print $2; exit }' || true
 )
 
 if [[ -z "$VENDOR_HASH" ]]; then
@@ -118,7 +130,7 @@ PNPM_DEPS_HASH=$(
       fetcherVersion = 4;
       inherit pnpm;
     }
-  " 2>&1 | grep -oP 'got:\s+\K\S+' || true
+  " 2>&1 | awk '$1 == "got:" { print $2; exit }' || true
 )
 
 if [[ -z "$PNPM_DEPS_HASH" ]]; then

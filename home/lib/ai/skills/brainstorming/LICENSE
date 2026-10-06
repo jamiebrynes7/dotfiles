@@ -26,5 +26,5 @@ SOFTWARE.
 Derived from the `brainstorming` skill in
 https://github.com/obra/superpowers (skills/brainstorming/), with
 modifications to integrate plannotator for structured option/spec review and
-to hand off to a beans-aware variant of the `writing-plans` skill. The
+to hand off to a ticket-based variant of the `writing-plans` skill. The
 visual-companion subsystem from upstream is omitted in this fork.

@@ -1,15 +1,16 @@
 ---
 name: writing-plans
-description: "Use when you have a spec or requirements for a multi-step task, before touching code. Decomposes the spec into bite-sized TDD tasks; emits a beans hierarchy (epic / feature / task) when the beans CLI is available, otherwise a markdown plan."
+description: "Use when you have a spec or requirements for a multi-step task, before touching code. Breaks the spec into tracer-bullet vertical-slice tickets — behaviour, acceptance criteria, and blocking edges, not implementation steps; emits an epic with task children when the beans CLI is available, otherwise a markdown plan."
+cc:allowed-tools: Bash(plannotator:*)
 ---
 
 # Writing Plans
 
 ## Overview
 
-Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, the actual code, tests, docs they might need to check, how to verify it. Bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Turn an approved spec into a small graph of **tickets**. A ticket describes *what behaviour to deliver and how to tell it is done* — not how to build it. The implementer picks a ticket up cold, with the repo and the spec in front of it, and decides the how at that point, against the code as it is then.
 
-Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
+Tickets do not contain implementation code or step lists. Code written at planning time is a guess about the repo's future state; every ticket that lands before it makes the guess worse. Planning effort goes into the spec's decisions and the shape of the breakdown instead.
 
 **Inputs:** a spec (typically at `docs/specs/YYYY-MM-DD-<topic>.md`) plus any constraints raised during brainstorming.
 
@@ -21,125 +22,103 @@ The first action in this skill is to detect the output mode:
 if command -v beans >/dev/null 2>&1; then mode=beans; else mode=markdown; fi
 ```
 
-- **beans mode** — produce an epic → feature → task hierarchy in beans. The bean bodies hold the bite-sized TDD step lists. This is the default whenever beans is available.
-- **markdown mode** — write a single markdown plan file at `docs/specs/plans/YYYY-MM-DD-<feature>.md`. Used only when beans is not on `$PATH`.
+- **beans mode** — an epic whose children are task beans, one per ticket. The default whenever beans is available.
+- **markdown mode** — a single plan file at `docs/specs/plans/YYYY-MM-DD-<feature>.md`. Used only when beans is not on `$PATH`.
 
-**Trust the detection — the first bean you create is the epic.** Do not create probe, scratch, or "test" beans to inspect the CLI's output format or confirm it works. Every bean is a durable artifact: it lands in the project's `.beans/` registry, shows up in `beans list`, and has to be scrapped or archived afterwards. The `beans create` invocations in the Beans Mode section below are correct as written; if one fails, debug from the error message rather than experimenting with throwaway beans. If you need a non-destructive sanity check that beans is wired up (config readable, registry intact), run `beans check` — it never creates or modifies beans.
+**Trust the detection — the first bean you create is the epic.** Do not create probe, scratch, or "test" beans to inspect the CLI's output format or confirm it works. Every bean is a durable artifact: it lands in the project's `.beans/` registry, shows up in `beans list`, and has to be scrapped or archived afterwards. If you need a non-destructive sanity check that beans is wired up, run `beans check` — it never creates or modifies beans.
 
-The Scope Check, File Structure, Bite-Sized Task Granularity, No Placeholders, and Self-Review sections below apply to both modes — only the final emission differs.
+Everything up to the Breakdown Review applies to both modes — only the final emission differs.
 
-## Scope Check
+## Does This Need Tickets?
 
-If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
+If the whole spec can be implemented in one session — one fresh context window, one reviewable diff — do not decompose it. In beans mode, create a single task bean using the Ticket Body Template; in markdown mode, write a single-ticket plan. Then hand off.
 
-In beans mode, multiple subsystems become multiple epics, not one epic with too many features.
+If the spec covers multiple independent subsystems, it should have been split during brainstorming. If it wasn't, suggest one plan per subsystem; in beans mode that means one epic per subsystem.
 
-## File Structure
+## Drafting Tickets
 
-Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
+### Start from the code, not just the spec
 
-- Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
-- You reason best about code you can hold in context at once, and your edits are more reliable when files are focused. Prefer smaller, focused files over large ones that do too much.
-- Files that change together should live together. Split by responsibility, not by technical layer.
-- In existing codebases, follow established patterns. If the codebase uses large files, don't unilaterally restructure — but if a file you're modifying has grown unwieldy, including a split in the plan is reasonable.
+A spec is a point-in-time record of decisions, not a description of the current system — where the spec and the code disagree, the code wins. Compare the spec against the current code before slicing. Requirements already satisfied are recorded once in the plan's **Already done** line (with the evidence — a commit, an option, a check) and are not ticketed.
 
-This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
+If the breakdown hinges on something the spec leaves open — an undecided behaviour, or a phase gated on something the spec doesn't supply — do not invent the answer, and do not patch the decision into the old spec. New decisions belong in a new spec that supersedes the relevant sections: suggest returning to brainstorming for it. If you cannot ask, record the gap as a **Precondition** on the epic or plan and keep it out of the tickets.
 
-## Bite-Sized Task Granularity
+### Prefactor first
 
-Each step is one action (2–5 minutes):
+Look for refactors that would make the feature straightforward — "make the change easy, then make the easy change". Each becomes its own ticket, ordered ahead of the feature tickets that benefit from it.
 
-- "Write the failing test" — step
-- "Run it to make sure it fails" — step
-- "Implement the minimal code to make the test pass" — step
-- "Run the tests and make sure they pass" — step
-- "Commit" — step
+### Vertical slices
 
-## No Placeholders
+Each ticket is a **tracer bullet**: a narrow but complete path through every layer the change touches (e.g. option, module, package, check, docs), not one layer across the whole feature.
 
-Every step must contain the actual content an engineer needs. These are **plan failures** — never write them:
+- A completed ticket is demoable or verifiable on its own. Ask of every ticket: *what can I demo when this is done?* If the answer is a layer ("the options exist", "the package builds") rather than a behaviour, it is a horizontal slice — re-cut it.
+- Each ticket fits one fresh context window.
+- Each ticket lands independently; nothing waits for a later ticket to make it useful.
+- Prefer fewer, meaningful tickets over many atomic ones. Over-decomposition is the most common failure — if two tickets can only be verified together, merge them.
 
-- "TBD", "TODO", "implement later", "fill in details"
-- "Add appropriate error handling" / "add validation" / "handle edge cases"
-- "Write tests for the above" (without actual test code)
-- "Similar to Task N" (repeat the code — the engineer may be reading tasks out of order)
-- Steps that describe what to do without showing how (code blocks required for code steps)
-- References to types, functions, or methods not defined in any task
+### Wide-refactor exception
 
-This rule is identical in both modes. In beans mode, "the engineer reading tasks out of order" is the typical case (tasks are picked up via `beans next` independently), so self-containment matters even more.
+A single mechanical change whose blast radius spans the codebase (renaming a shared option, retyping a widely used value) cannot land as a green vertical slice. Sequence it as **expand → migrate → contract**: add the new form beside the old; migrate callers in batches sized by blast radius, each its own ticket blocked by the expand; then delete the old form in a ticket blocked by every batch.
 
-## Task Body Template
+### Blocking edges
 
-Use this template for the body of each task — a markdown plan task in markdown mode, a `task` bean's body in beans mode:
+Give each ticket the tickets that genuinely gate it. Don't infer ordering from list position — only encode a dependency when the ticket cannot start or cannot be verified without the other. Over-blocking turns the ready set into a serial queue.
+
+## Ticket Body Template
 
 ````markdown
-**Files:**
-- Create: `exact/path/to/file.py`
-- Modify: `exact/path/to/existing.py:123-145`
-- Test: `tests/exact/path/to/test.py`
+**Spec:** `docs/specs/YYYY-MM-DD-<topic>.md` — <section(s) this ticket implements>
 
-- [ ] **Step 1: Write the failing test**
+## What to build
 
-```python
-def test_specific_behavior():
-    result = function(input)
-    assert result == expected
-```
+<The end-to-end behaviour this ticket makes work, from the user's or operator's perspective. Not a layer-by-layer list.>
 
-- [ ] **Step 2: Run test to verify it fails**
+## Acceptance criteria
 
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: FAIL with "function not defined"
+- [ ] <Observable criterion — must be false at the commit the implementer starts from>
+- [ ] <...>
 
-- [ ] **Step 3: Write minimal implementation**
+## Constraints
 
-```python
-def function(input):
-    return expected
-```
+<Optional. Things that are true today and must stay true — no new import-from-derivation, a helper kept out of a public output. Exempt from the "must be false" rule; the reviewer checks them.>
 
-- [ ] **Step 4: Run test to verify it passes**
+## Notes
 
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add tests/path/test.py src/path/file.py
-git commit -m "feat: add specific feature"
-```
+<Optional. Decisions or verified upstream facts this ticket depends on that the spec does not already record.>
 ````
 
-Every code step shows the actual code. Every command step shows the exact command and expected output.
+**No code, no paths.** Ticket bodies do not contain implementation code, file paths, line numbers, or step lists — they go stale as soon as a neighbouring ticket lands. Name modules, options, and behaviours by their domain names instead. Pointers to documents (the spec, a `CLAUDE.md`) are fine, as are names the spec itself defines as concepts (a source tree the spec introduces by its directory name). The one code exception: a snippet that encodes a *decision* more precisely than prose can (a schema, a type shape, an option signature) — inline only the decision-rich part and label it as such.
 
-## Markdown Mode
+**Criteria must be able to fail.** Each criterion is something the implementer can observe and that is not already true before the work starts. Watch for three failure shapes: a criterion already satisfied at the base commit, one only another ticket's work can satisfy, and one that restates the request instead of naming an observation. "Handle errors appropriately" is not a criterion; "an unknown plugin id fails evaluation with an assertion naming the id" is.
 
-Write the plan to `docs/specs/plans/YYYY-MM-DD-<feature>.md` (user preferences for plan location override this default).
+## Breakdown Review
 
-**Header (required at top of the file):**
+Before creating any beans or writing the plan file, write the breakdown to a transient file — `docs/specs/YYYY-MM-DD-<topic>-tickets.md` — as a numbered list, one entry per ticket:
 
 ```markdown
-# [Feature Name] Implementation Plan
-
-**Goal:** [One sentence describing what this builds]
-
-**Architecture:** [2–3 sentences about approach]
-
-**Tech Stack:** [Key technologies/libraries]
-
-**Spec:** `docs/specs/YYYY-MM-DD-<topic>.md`
-
----
+1. **<Title>** — Blocked by: none
+   Delivers: <the behaviour you can demo when it is done>
+2. **<Title>** — Blocked by: 1
+   Delivers: <...>
 ```
 
-Each task uses the Task Body Template above, prefixed with `### Task N: [Component Name]`.
+End the file with the questions the user should weigh: is the granularity right (too coarse, too fine)? Are the blocking edges real? Should any tickets merge or split?
 
-After writing the file, run the Self-Review (below). Then point the user at the plan and stop — the plan is the handoff.
+Then invoke:
+
+```bash
+plannotator annotate --gate --json docs/specs/YYYY-MM-DD-<topic>-tickets.md
+```
+
+Set the Bash tool timeout to `1800000` ms (30 minutes) so the user has enough time to review. The command returns `{"decision": "approved"|"annotated"|"dismissed", "feedback": "..."}`:
+
+- **`approved`** — delete the breakdown file (`rm -f <path>`) and emit the plan below.
+- **`annotated`** — treat each annotation block as an instruction: revise the breakdown (merge, split, re-edge, re-slice), then re-run plannotator. Loop until `approved`.
+- **`dismissed`** — the user wants a different cut. Re-slice from scratch and re-invoke plannotator.
+
+Nothing is emitted until the breakdown is approved.
 
 ## Beans Mode
-
-Map the spec to beans as follows:
 
 ### 1. Epic
 
@@ -149,11 +128,13 @@ beans create --json "<feature name>" \
   -d "$(cat <<'EOF'
 **Goal:** <one sentence>
 
-**Architecture:** <2-3 sentences>
-
-**Tech Stack:** <key libraries>
-
 **Spec:** docs/specs/YYYY-MM-DD-<topic>.md
+
+**Testing seam:** <where the behaviour is verified — the existing check, test suite, or harness the tickets extend>
+
+**Already done:** <spec requirements already satisfied, with evidence — omit if none>
+
+**Precondition:** <anything the work is gated on that the spec does not supply — omit if none>
 EOF
 )" \
   -s todo
@@ -161,73 +142,67 @@ EOF
 
 Capture the returned `id` — this is `<epic-id>`.
 
-### 2. Features (one per major component)
+### 2. Tickets
 
-For each component identified in the File Structure section of the spec:
-
-```bash
-beans create --json "<component name>" \
-  -t feature \
-  --parent <epic-id> \
-  -d "<paragraph stating the component's responsibility and which files it owns>" \
-  -s todo
-```
-
-Capture each returned id.
-
-### 3. Tasks (one per upstream-style "Task N")
-
-For each bite-sized task within a feature:
+Create tickets in dependency order (blockers first) so each one's blocking edges can reference real ids:
 
 ```bash
-beans create --json "<task title>" \
+beans create --json "<ticket title>" \
   -t task \
-  --parent <feature-id> \
+  --parent <epic-id> \
   -d "$(cat <<'EOF'
-<Task Body Template content — Files block plus the - [ ] step list with code/commands inline>
+<Ticket Body Template content>
 EOF
 )" \
   -s todo
 ```
 
-### 4. Ordering dependencies
-
-Where the spec or task structure declares "Task B depends on Task A finishing first", capture it explicitly:
+Then record each blocking edge from the approved breakdown:
 
 ```bash
-beans update --json <task-b-id> --blocked-by <task-a-id>
+beans update --json <ticket-id> --blocked-by <blocker-id>
 ```
 
-Don't infer ordering from list position alone — only encode dependencies the spec actually requires. Over-blocking turns `beans ready` into a serial queue when many tasks are independent.
+### 3. Self-review and handoff
 
-### 5. Self-Review across the tree
-
-Fetch the whole tree in one shot:
+Fetch the tree in one shot and run the Self-Review below:
 
 ```bash
-beans query --json '{ bean(id: "<epic-id>") { title body children { id title body children { id title body } } } }'
+beans query --json '{ bean(id: "<epic-id>") { title body children { id title body blockedBy { id title } } } }'
 ```
 
-Apply the Self-Review checklist (next section). Fix issues with:
+Fix issues with `beans update --json <id> --body-replace-old "<exact text>" --body-replace-new "<replacement>"`. Then print the tree and tell the user:
 
-```bash
-beans update --json <id> --body-replace-old "<exact text>" --body-replace-new "<replacement>"
-```
-
-### 6. Handoff
-
-Print the tree and tell the user:
-
-> Plan ready in beans (epic `<epic-id>`). Start with `beans next` or `beans ready`. Each task bean's body is self-contained — pick one up cold and follow its checklist.
+> Plan ready in beans (epic `<epic-id>`). Start with `beans ready`. Each ticket names the behaviour to deliver and its acceptance criteria; the implementer works out the how from the spec and the code.
 
 Stop. The beans tree is the handoff. Do not invoke any other skill.
 
+## Markdown Mode
+
+Write the plan to `docs/specs/plans/YYYY-MM-DD-<feature>.md` (user preferences for plan location override this default):
+
+```markdown
+# [Feature Name] Plan
+
+**Goal:** [one sentence]
+
+**Spec:** `docs/specs/YYYY-MM-DD-<topic>.md`
+
+**Testing seam:** [where the behaviour is verified]
+
+**Already done:** [spec requirements already satisfied, with evidence — omit if none]
+
+**Precondition:** [anything the work is gated on that the spec does not supply — omit if none]
+
+---
+```
+
+Then one section per ticket, in dependency order: a `### NN: <title>` heading, a `**Blocked by:**` line (ticket numbers, or "none") directly beneath it, then the Ticket Body Template with its `##` headings demoted to `####`.
+
+Run the Self-Review, then point the user at the plan and stop — the plan is the handoff.
+
 ## Self-Review
 
-After the plan is written (markdown mode) or the beans tree is created (beans mode), look at the output with fresh eyes against the spec. This is a checklist you run yourself — see `references/plan-reviewer-prompt.md` for the full version.
+Look at the emitted tickets with fresh eyes against the spec and run the checklist in `references/plan-reviewer-prompt.md`: spec alignment (every requirement is ticketed or recorded as already done), vertical slicing, criteria that can fail, context-sized tickets, real edges, and no stale-prone detail.
 
-1. **Spec coverage** — skim each section/requirement in the spec. Can you point to a task that implements it? List any gaps and fill them in.
-2. **Placeholder scan** — search for the patterns from the No Placeholders section above. Fix them.
-3. **Type consistency** — do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks? A function called `clearLayers()` in task 3 but `clearFullLayers()` in task 7 is a bug.
-
-If you find issues, fix them inline. No need to re-review your own fixes — just fix and move on.
+Fix issues inline. No need to re-review your own fixes.

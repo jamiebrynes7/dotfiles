@@ -25,8 +25,12 @@ SOFTWARE.
 
 Derived from the `writing-plans` skill in
 https://github.com/obra/superpowers (skills/writing-plans/), with
-modifications to emit a beans hierarchy (epic / feature / task) when the
+modifications to emit a beans hierarchy (epic / task) when the
 `beans` CLI is available on PATH, falling back to the upstream markdown plan
 output when it is not. The subagent-driven-development and executing-plans
 handoff prompts from upstream are omitted in this fork because the beans tree
-is the handoff.
+is the handoff. The decomposition itself has since been rewritten after
+Matt Pocock's `to-tickets` skill (https://github.com/mattpocock/skills):
+tracer-bullet vertical-slice tickets with acceptance criteria and blocking
+edges, reviewed via plannotator before emission, replacing upstream's
+bite-sized code-level task steps.

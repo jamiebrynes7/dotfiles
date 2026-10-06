@@ -1,11 +1,11 @@
 ---
 # dotfiles-62ow
 title: beans-frontend build aborts intermittently on aarch64-darwin
-status: in-progress
+status: completed
 type: bug
 priority: normal
 created_at: 2026-10-06T16:03:44Z
-updated_at: 2026-10-06T16:09:49Z
+updated_at: 2026-10-06T17:18:58Z
 blocking:
     - dotfiles-rwwd
 ---
@@ -27,7 +27,7 @@ reach the worker threads spawned during `pnpm build`.
 - [x] Identify which process/worker emits the fd warnings and aborts during `pnpm build`
 - [x] Fix in `packages/beans/default.nix` (and mirror in `update.sh` if the pnpm expression changes)
 - [x] Verify: repeated `nix build --rebuild` of beans-frontend passes on aarch64-darwin (8/8, zero fd warnings; was 1-in-3 crashing)
-- [ ] Verify: macos-latest leg green on the fix PR, then rerun #359
+
 
 ## Root cause
 
@@ -39,3 +39,14 @@ libuv has since recycled, and node aborts. Same mechanism as nixpkgs#525627.
 Fix: a `preBuild` `substituteInPlace --replace-fail` adds `trackUnmanagedFds: false` to that
 Worker. It is a build-phase patch, so `pnpmDepsHash` and `update.sh`'s mirrored fetch expression
 are unaffected.
+
+## Summary of Changes
+
+`packages/beans/default.nix`: the `beans-frontend` derivation gains a `preBuild` that passes
+`trackUnmanagedFds: false` to the `worker_threads` Worker in SvelteKit's `forked()`
+(`substituteInPlace --replace-fail`, so an upstream rewrite fails loudly). This removes the
+intermittent `Abort trap: 6` at the end of `pnpm build` on aarch64-darwin. Locally, 8 of 8 forced
+rebuilds passed, with zero fd warnings; before the fix, 1 in 3 crashed.
+
+Confirmation in CI on darwin can only happen on #359, which carries the macos-latest leg. It is
+tracked there under dotfiles-rwwd's "both matrix legs run" item, after #359 is rebased onto this fix.

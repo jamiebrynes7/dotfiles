@@ -1,11 +1,11 @@
 ---
 # dotfiles-lpk0
 title: Add the paseo module skeleton and its flake eval check
-status: todo
+status: scrapped
 type: task
 priority: normal
 created_at: 2026-08-19T10:56:39Z
-updated_at: 2026-08-19T11:00:24Z
+updated_at: 2026-10-15T10:00:58Z
 parent: dotfiles-ltuq
 blocked_by:
     - dotfiles-rdkr
@@ -272,3 +272,7 @@ Bean dotfiles-d6t2 (separate epic) adds a `home-eval` check with `mkHomeEvalChec
 
 - Put `mkPaseoModuleCheck` beside `mkHomeEvalCheck`, not in place of it. They answer different questions — `home-eval` forces assertions broadly, this one greps the rendered unit for specific wiring.
 - Do not move this check's scratch config into `checks/home-eval.nix`. Enabling paseo there would pull `pkgs.dotfiles.paseo` into that check's closure, which is exactly what the stub `package` here avoids.
+
+## Reasons for Scrapping
+
+Superseded. This work landed through a different route under dotfiles-ajpl (e6a50de, "packages/paseo: vendor paseo and add a home-manager module"). paseo comes from `packages/paseo`, which `callPackage`s upstream's `nix/package.nix` out of a `fetchFromGitHub` source. There is no flake input, no `overlays/` directory and no v0.3.1 pin. `home/programs/paseo.nix` already carries `hostnames`, `extraPath`, `environment` and `environmentCommand`, and later the plugins option (dotfiles-5nj7). Nothing in this plan is left to build against the current code.

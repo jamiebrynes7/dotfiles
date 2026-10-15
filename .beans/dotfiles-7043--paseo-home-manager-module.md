@@ -1,11 +1,11 @@
 ---
 # dotfiles-7043
 title: paseo home-manager module
-status: todo
+status: scrapped
 type: epic
 priority: normal
 created_at: 2026-08-19T10:54:25Z
-updated_at: 2026-08-19T11:00:24Z
+updated_at: 2026-10-15T10:00:58Z
 ---
 
 **Goal:** Expose paseo as `pkgs.dotfiles.paseo` plus a `dotfiles.programs.paseo` home-manager module that runs the daemon as a user service on both Linux (systemd user unit) and macOS (launchd agent).
@@ -32,3 +32,7 @@ That is **complementary**, not a duplicate, and the two are expected to coexist 
 - `paseo-module` — narrow, builds a tiny derivation, greps the *rendered* unit and launcher. Answers "does the module actually emit the wiring it promises".
 
 Neither blocks the other. Whichever lands second simply sits beside the first in the `checks` attribute. If `home-eval` is already present when this epic starts, add `mkPaseoModuleCheck` next to `mkHomeEvalCheck` and follow whatever placement convention that work established.
+
+## Reasons for Scrapping
+
+Superseded. This work landed through a different route under dotfiles-ajpl (e6a50de, "packages/paseo: vendor paseo and add a home-manager module"). paseo comes from `packages/paseo`, which `callPackage`s upstream's `nix/package.nix` out of a `fetchFromGitHub` source. There is no flake input, no `overlays/` directory and no v0.3.1 pin. `home/programs/paseo.nix` already carries `hostnames`, `extraPath`, `environment` and `environmentCommand`, and later the plugins option (dotfiles-5nj7). Nothing in this plan is left to build against the current code.

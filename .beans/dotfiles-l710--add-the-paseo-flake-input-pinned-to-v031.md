@@ -1,11 +1,11 @@
 ---
 # dotfiles-l710
 title: Add the paseo flake input pinned to v0.3.1
-status: todo
+status: scrapped
 type: task
 priority: normal
 created_at: 2026-08-19T10:54:52Z
-updated_at: 2026-08-19T10:54:58Z
+updated_at: 2026-10-15T10:00:58Z
 parent: dotfiles-pg0j
 ---
 
@@ -57,3 +57,7 @@ git commit -m "flake: add paseo input pinned to v0.3.1
 
 Bean: dotfiles-l710"
 ```
+
+## Reasons for Scrapping
+
+Superseded. This work landed through a different route under dotfiles-ajpl (e6a50de, "packages/paseo: vendor paseo and add a home-manager module"). paseo comes from `packages/paseo`, which `callPackage`s upstream's `nix/package.nix` out of a `fetchFromGitHub` source. There is no flake input, no `overlays/` directory and no v0.3.1 pin. `home/programs/paseo.nix` already carries `hostnames`, `extraPath`, `environment` and `environmentCommand`, and later the plugins option (dotfiles-5nj7). Nothing in this plan is left to build against the current code.

@@ -71,6 +71,14 @@ if [[ -z "$DESKTOP_SHA512" ]]; then
 fi
 DESKTOP_HASH="sha512-${DESKTOP_SHA512}"
 
+# Repo-local plugins pin the SDK to this exact version (ts/update-paseo-sdk.sh, run
+# below). npm publishing can trail the GitHub tag, so check before the slow steps,
+# and fail for the same reason as the desktop check above.
+if ! curl -sf "https://registry.npmjs.org/@getpaseo%2fplugin/${VERSION}" >/dev/null; then
+  echo "Error: @getpaseo/plugin@${VERSION} is not on npm yet." >&2
+  exit 1
+fi
+
 # Source tarball. fetchFromGitHub is a fetchzip, so --unpack gives the matching
 # NAR hash. The unpacked store path feeds the two steps below.
 echo "Prefetching source for ${TAG}..."
@@ -128,8 +136,11 @@ if [[ -z "$NPM_DEPS_HASH" ]]; then
   exit 1
 fi
 
-# Single write, only once every step above succeeded: a partially published
-# release leaves hashes.json untouched rather than half-bumped.
+# Rendered before the re-pin and copied into place after it, so the re-pin is the
+# last fallible step and hashes.json changes only once everything has succeeded: a
+# partially published release leaves it untouched rather than half-bumped.
+HASHES_TMP="$(mktemp)"
+trap 'rm -f "$HASHES_TMP"' EXIT
 jq -n \
   --arg version "$VERSION" \
   --arg tag "$TAG" \
@@ -146,6 +157,13 @@ jq -n \
       "aarch64-darwin": { artifact: $desktop_artifact, hash: $desktop_hash }
     }
   }' \
-  > "${SCRIPT_DIR}/hashes.json"
+  > "$HASHES_TMP"
+
+# Stages every plugin and copies back only on success, so a failure inside it
+# leaves both the plugins and hashes.json untouched.
+"${ROOT_DIR}/ts/update-paseo-sdk.sh" "$VERSION"
+
+# cp, not mv: writing into the existing file keeps its mode (mktemp creates 0600).
+cp "$HASHES_TMP" "${SCRIPT_DIR}/hashes.json"
 
 echo "Updated paseo to ${TAG}"

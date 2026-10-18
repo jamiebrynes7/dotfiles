@@ -66,6 +66,8 @@ jobs:
           title: "packages: update versions"
           body: |
             Updates `hashes.json` for each package under `packages/` to its latest upstream release.
+            A paseo bump also re-pins `@getpaseo/plugin` in each `ts/paseo-plugin-*` (`ts/update-paseo-sdk.sh`),
+            so a red `<dir>-typecheck` here means the new SDK broke that plugin.
           branch: update-packages-${{ steps.check.outputs.timestamp }}
           delete-branch: true
 

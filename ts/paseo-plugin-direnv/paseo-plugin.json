@@ -1,0 +1,6 @@
+{
+  "id": "direnv",
+  "name": "direnv",
+  "description": "Launches every agent with the environment direnv gives its directory",
+  "requirements": { "paseo": ">=0.11.4" }
+}

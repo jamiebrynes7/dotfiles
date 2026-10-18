@@ -424,6 +424,7 @@ in
         lib.mkDefault pkgs.dotfiles.paseo-plugin-catppuccin-theme;
       dotfiles.programs.paseo.plugins.last-response.package =
         lib.mkDefault pkgs.dotfiles.paseo-plugin-last-response;
+      dotfiles.programs.paseo.plugins.direnv.package = lib.mkDefault pkgs.dotfiles.paseo-plugin-direnv;
 
       # The daemon's chmod to 0600 when it loads the file is best-effort (it swallows
       # the EPERM from a root-owned store file), so it reads a store symlink fine.

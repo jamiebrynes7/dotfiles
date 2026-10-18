@@ -71,7 +71,7 @@ let
               echo "ts/${name}: ${sdk} ${where} is ${version}, but packages/paseo pins ${paseoVersion}." >&2
             '') wrong
           )}
-          echo "Pin it to exactly ${paseoVersion} in package.json and run npm install." >&2
+          echo "Run ts/update-paseo-sdk.sh ${paseoVersion} (packages/paseo/update.sh does this on a bump)." >&2
           exit 1
         ''
     );

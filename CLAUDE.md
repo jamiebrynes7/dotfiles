@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-10-06
+Freshness: 2026-10-18
 
 ## Tech Stack
 
@@ -11,6 +11,7 @@ Freshness: 2026-10-06
 - **home-manager** — user-level dotfiles and programs (`home/`)
 - **direnv** — development shells for this repo and project templates
 - **Rust** — Cargo workspace under `crates/` housing the `beans` issue-tracker daemon + CLI; see `crates/CLAUDE.md`
+- **TypeScript** — repo-local paseo plugins under `ts/`; see "Packages" below
 
 ## Commands
 
@@ -43,7 +44,8 @@ templates/
   systems/           # darwin, nixos, home-manager
 modules/             # Shared NixOS/nix-darwin modules (currently empty)
 crates/              # Rust workspace: beansd + beansctl + beansd-rpc — see crates/CLAUDE.md
-packages/            # Nix packages — built from this repo (beans-daemon) or vendored upstream binaries
+ts/                  # Repo-local paseo plugin source (paseo-plugin-<id>/) + buildPaseoPlugin/tsChecks overlay
+packages/            # Nix packages — built from this repo or vendored upstream binaries
 ```
 
 ## Conventions
@@ -61,6 +63,8 @@ Beyond that, `update.sh` should **fail** on anything it cannot resolve, includin
 `packages/paseo` is also the only package here that patches upstream source: a `postPatch` makes the daemon's `savePersistedConfig` throw rather than overwrite a `config.json` that is a symlink, because `home/programs/paseo.nix` always writes that file from the store and the daemon's atomic save would otherwise rename a temp file over it. Both anchors use `--replace-fail`, and `postInstall` greps `$out` for the sentinel, so an upstream rewrite fails the build instead of silently shipping an unguarded daemon.
 
 Paseo plugins are packaged one directory per plugin, named after the **plugin id** — `packages/paseo-plugin-<id>/` — so `dotfiles.programs.paseo.plugins.<id>.package = pkgs.dotfiles.paseo-plugin-<id>` needs no lookup table. An external plugin whose upstream publishes no releases is pinned by commit SHA literally in its `default.nix`, with **no** `hashes.json` and **no** `update.sh`: plugin code runs unsandboxed as the daemon user, so every bump is a reviewed commit rather than a nightly auto-update PR. Omitting `update.sh` is what keeps `auto-update.yml` away from it. `nix flake check`'s `paseo-plugin-requirements` check (`packages/paseo/plugin-requirements.nix`) evaluates every `paseo-plugin-*` package's `requirements.paseo` against the pinned paseo version, so a nightly paseo bump that a plugin no longer admits goes red instead of failing at load on a host.
+
+A repo-local plugin lives in `ts/paseo-plugin-<id>/`; its `packages/paseo-plugin-<id>/default.nix` is a one-liner over `buildPaseoPlugin` (from `ts/default.nix`), a plain copy, since the daemon compiles plugins itself. Each plugin gets two checks: `<dir>-typecheck` and `<dir>-sdk-version`. The second pins `@getpaseo/plugin` to paseo's exact version, so **a paseo bump turns it red on purpose**: re-pin the devDependency and run `npm install` in the same PR. Typechecking misses the daemon's layout rule (root modules are only `index.{client,server}.ts(x)`; everything else goes under `client/`, `server/` or `shared/`). Never `timeline.refetch` an agent the client hasn't seen live: it resumes a stored agent's provider session.
 
 ### Channel inputs
 

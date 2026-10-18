@@ -5,8 +5,8 @@ status: draft
 type: task
 priority: low
 created_at: 2026-09-21T17:32:18Z
-updated_at: 2026-09-21T17:32:18Z
-parent: dotfiles-vxsd
+updated_at: 2026-10-18T12:09:59Z
+parent: dotfiles-8v5j
 ---
 
 Follow-up from `docs/specs/2026-09-21-paseo-plugins.md`. Deferred with the rest of phase 2: there is nothing to format until the first repo-local plugin exists.

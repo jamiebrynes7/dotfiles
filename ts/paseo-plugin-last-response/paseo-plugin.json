@@ -1,0 +1,6 @@
+{
+  "id": "last-response",
+  "name": "Last response",
+  "description": "Shows how long ago each agent last responded, as a pill under its composer",
+  "requirements": { "paseo": ">=0.11.4" }
+}

@@ -288,10 +288,6 @@ in
 
         `types.path` accepts a derivation or a `"''${src}/plugins/foo"` string, so an
         inline `fetchFromGitHub` works without a `packages/` entry.
-
-        `catppuccin-theme` is configured by default: it is client-only theme data,
-        adding four flavours under Settings → Appearance. Opt out with
-        `plugins.catppuccin-theme.enable = false`.
       '';
     };
 
@@ -426,6 +422,8 @@ in
       # mkDefault so a host can point it elsewhere; opting out is `.enable = false`.
       dotfiles.programs.paseo.plugins.catppuccin-theme.package =
         lib.mkDefault pkgs.dotfiles.paseo-plugin-catppuccin-theme;
+      dotfiles.programs.paseo.plugins.last-response.package =
+        lib.mkDefault pkgs.dotfiles.paseo-plugin-last-response;
 
       # The daemon's chmod to 0600 when it loads the file is best-effort (it swallows
       # the EPERM from a root-owned store file), so it reads a store symlink fine.

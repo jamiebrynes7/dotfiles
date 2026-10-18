@@ -54,10 +54,11 @@
 
       # Discovers and builds the packages under ./packages. Plain assignment, not
       # a merge with `prev` — `dotfiles` deliberately shadows nixpkgs' own
-      # `dotfiles` attribute (a Python tool) with our package set. The `crates`
-      # overlay (applied after this one) extends the result with
-      # `internal.{rustToolchain,rustChecks}`, and `callPackage` auto-fills the
-      # `buildLocalRustBin` helper it exports for the package that declares it.
+      # `dotfiles` attribute (a Python tool) with our package set. The `crates` and
+      # `ts` overlays (applied after this one) extend the result with
+      # `internal.{rustToolchain,rustChecks,tsChecks}`, and `callPackage` auto-fills
+      # the `buildLocalRustBin` / `buildPaseoPlugin` helpers they export for the
+      # packages that declare them.
       dotfilesOverlay = final: _prev: {
         dotfiles = builtins.mapAttrs (_name: path: final.callPackage path { }) packagePaths;
       };
@@ -66,6 +67,7 @@
         inputs.alacritty-themes.overlays.default
         dotfilesOverlay
         (import ./crates { inherit inputs; })
+        (import ./ts)
       ];
 
       nixOsPkgs =
@@ -241,7 +243,10 @@
           ;
       };
       devShells = mkShells {
-        extraPackages = pkgs: [ pkgs.dotfiles.internal.rustToolchain ];
+        extraPackages = pkgs: [
+          pkgs.dotfiles.internal.rustToolchain
+          pkgs.nodejs
+        ];
         extraEnv = pkgs: {
           RUST_SRC_PATH = "${pkgs.dotfiles.internal.rustToolchain}/lib/rustlib/src/rust/library";
           shellHook = ''
@@ -275,6 +280,7 @@
           aarch64-darwin =
             self.packages.aarch64-darwin
             // darwinPkgs.dotfiles.internal.rustChecks
+            // darwinPkgs.dotfiles.internal.tsChecks
             // {
               nixfmt = mkNixfmtCheck darwinPkgs;
               paseo-plugin-requirements = darwinPkgs.callPackage ./packages/paseo/plugin-requirements.nix { };
@@ -282,6 +288,7 @@
           x86_64-linux =
             self.packages.x86_64-linux
             // linuxPkgs.dotfiles.internal.rustChecks
+            // linuxPkgs.dotfiles.internal.tsChecks
             // {
               nixfmt = mkNixfmtCheck linuxPkgs;
               paseo-plugin-requirements = linuxPkgs.callPackage ./packages/paseo/plugin-requirements.nix { };

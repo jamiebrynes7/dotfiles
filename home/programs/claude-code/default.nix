@@ -39,6 +39,7 @@ let
       {
         alwaysThinkingEnabled = true;
         autoMemoryEnabled = false;
+        disableClaudeAiConnectors = true;
         hooks = mergedHooks;
         permissions = {
           inherit (cfg.permissions) allow deny;

@@ -2,10 +2,34 @@ import type { PluginServerContext } from "@getpaseo/plugin/server";
 import path from "node:path";
 import { evaluate, TIMEOUT_MS } from "./server/evaluate";
 import { merge } from "./server/merge";
+import {
+  allowNewWorktree,
+  COMMAND_TIMEOUT_MS,
+  isInside,
+  MAX_COMMANDS,
+} from "./server/worktree-allow";
+
+// The longest an open waits on a pending worktree allow, out of the evaluation's
+// own budget. Covers the allow's whole command chain, so only a stuck allow is cut short.
+const ALLOW_WAIT_MS = COMMAND_TIMEOUT_MS * MAX_COMMANDS + 1_000;
 
 // Single-quoted so a suggested command survives copy-paste for a path with spaces.
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function settledWithin(work: Promise<unknown>[], ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
+    void Promise.allSettled(work).then(done);
+  });
 }
 
 // Every open re-evaluates and nothing is cached: env overrides are not persisted, so
@@ -14,14 +38,48 @@ function shellQuote(value: string): string {
 // Logs carry outcomes, directories and variable names, never values.
 export default function contribute(server: PluginServerContext) {
   let reportedUnavailable = false;
+  // Worktree allows in flight, by workspace directory. Events and hooks share the
+  // plugin's IPC channel and start in arrival order, so an entry set before the
+  // event handler's first await is visible to every later open.
+  const pendingAllows = new Map<string, Promise<unknown>>();
+
+  server.on("workspace.created", async ({ workspace }) => {
+    const { cwd } = workspace;
+    const allow = allowNewWorktree(cwd).then(
+      (decision) => {
+        if (decision.kind === "allowed") {
+          console.info(
+            `direnv: allowed new worktree ${decision.worktree} (source ${decision.source} is allowed)`,
+          );
+        } else {
+          console.info(`direnv: no allow for workspace ${cwd}: ${decision.reason}`);
+        }
+      },
+      (error: unknown) => {
+        console.warn(
+          `direnv: allow for workspace ${cwd} failed: ${error instanceof Error ? error.message : error}`,
+        );
+      },
+    );
+    pendingAllows.set(cwd, allow);
+    await allow;
+    if (pendingAllows.get(cwd) === allow) pendingAllows.delete(cwd);
+  });
 
   server.before("agent.session_open", async ({ request }, { signal }) => {
     // An archived agent opened to read its timeline; its directory may be gone.
     if (request.purpose === "history") return;
 
     const { cwd } = request;
+    const started = Date.now();
+    const pending = [...pendingAllows]
+      .filter(([dir]) => dir === cwd || isInside(cwd, dir))
+      .map(([, allow]) => allow);
+    if (pending.length > 0) await settledWithin(pending, ALLOW_WAIT_MS, signal);
+    const budget = TIMEOUT_MS - (Date.now() - started);
+
     const warm = `\`direnv exec ${shellQuote(cwd)} true\``;
-    const result = await evaluate(cwd, signal);
+    const result = await evaluate(cwd, signal, budget);
     switch (result.kind) {
       case "unavailable":
         if (!reportedUnavailable) {
@@ -52,7 +110,7 @@ export default function contribute(server: PluginServerContext) {
       case "timeout":
         console.warn(`direnv: refused ${request.reason} in ${cwd}: timed out`);
         throw new Error(
-          `direnv took longer than ${TIMEOUT_MS / 1000}s in ${cwd}. Run ${warm} in a terminal to warm its cache, then retry.`,
+          `direnv took longer than ${Math.round(budget / 1000)}s in ${cwd}. Run ${warm} in a terminal to warm its cache, then retry.`,
         );
       case "loaded": {
         const { env, unset } = merge(result.env, request.env);
@@ -62,7 +120,9 @@ export default function contribute(server: PluginServerContext) {
             .join(", ")}`,
         );
         if (unset.length > 0) {
-          console.debug(`direnv: ${cwd} unsets ${unset.join(", ")}; not sent, so the daemon's values stand`);
+          console.debug(
+            `direnv: ${cwd} unsets ${unset.join(", ")}; not sent, so the daemon's values stand`,
+          );
         }
         return { ...request, env };
       }

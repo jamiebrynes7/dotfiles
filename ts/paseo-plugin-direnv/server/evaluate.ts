@@ -47,8 +47,12 @@ const BLOCKED = /error (.+?) is blocked\./;
 // Runs `direnv export json` in `cwd` with the plugin's own environment, which is the
 // daemon's (plugin children are forked without an `env`). The hook's request env is
 // only an overlay, so it would leave direnv without PATH or HOME.
-export async function evaluate(cwd: string, signal: AbortSignal): Promise<Evaluation> {
-  const abort = AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]);
+export async function evaluate(
+  cwd: string,
+  signal: AbortSignal,
+  timeoutMs: number = TIMEOUT_MS,
+): Promise<Evaluation> {
+  const abort = AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]);
   // Its own process group, so a timeout also stops the `.envrc`'s bash and any nix
   // evaluation under it rather than orphaning them.
   const child = spawn("direnv", ["export", "json"], {

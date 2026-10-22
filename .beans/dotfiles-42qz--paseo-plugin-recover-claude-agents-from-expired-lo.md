@@ -5,7 +5,7 @@ status: in-progress
 type: task
 priority: normal
 created_at: 2026-10-22T13:03:04Z
-updated_at: 2026-10-22T14:34:51Z
+updated_at: 2026-10-22T15:38:42Z
 ---
 
 **Spec:** `docs/specs/2026-10-22-paseo-claude-reauth-plugin.md` — all sections
@@ -16,9 +16,10 @@ A repo-local paseo plugin, `claude-reauth`, packaged like the other repo-local p
 
 ## Acceptance criteria
 
-- [ ] A reply containing one of the spec's known phrases renders as the card, both when it arrives live and when the chat is reopened; a reply still streaming, or one with no known phrase, renders as plain text.
+- [x] A reply containing one of the known phrases renders as the card, both when it arrives live and when the chat is reopened; a reply still streaming renders as plain text unless it is exactly a known auth-error message, and one with no known phrase renders as plain text.
+- [ ] After **Log in & reload**, the card stays a card while the reload re-streams the agent's history, rather than reverting to plain text until the next message.
 - [ ] **Reload only** reloads the agent through `paseo agent reload`; the card moves through reloading to "Reloaded — send your message again", and the conversation survives.
-- [ ] **Log in & reload** runs `claude auth login` on the host (browser opens on the host), and after the login finishes the card reaches done without any shell step.
+- [x] **Log in & reload** runs `claude auth login` on the host (browser opens on the host), and after the login finishes the card reaches done without any shell step.
 - [x] Two cards that start a login at the same time share one `claude auth login` process.
 - [x] A login that exits non-zero, or is still running after 5 minutes, leaves the card failed at the login step with the error; the first URL the login printed, if any, shows as an "Open login page" link.
 - [x] A failed reload, including an unknown agent id or a missing `paseo` binary, leaves the card failed at the reload step with the error.

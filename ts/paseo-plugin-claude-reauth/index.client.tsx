@@ -9,9 +9,8 @@ export default function contribute(client: PluginClientContext) {
   const removeTransformer = client.addTimelineTransformer({
     id: AUTH_EXPIRED_KIND,
     query: { itemType: "assistant_message" },
-    // Only a finished reply: swapping a streaming one out halfway would lose text.
     transform: ({ item, phase }) => {
-      if (phase !== "complete" || !matchAuthFailure(item.text)) return undefined;
+      if (!matchAuthFailure(item.text, phase)) return undefined;
       const data: AuthExpiredData = { message: item.text };
       return { items: [{ type: "plugin", kind: AUTH_EXPIRED_KIND, version: 1, data }] };
     },

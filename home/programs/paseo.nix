@@ -425,6 +425,8 @@ in
       dotfiles.programs.paseo.plugins.last-response.package =
         lib.mkDefault pkgs.dotfiles.paseo-plugin-last-response;
       dotfiles.programs.paseo.plugins.direnv.package = lib.mkDefault pkgs.dotfiles.paseo-plugin-direnv;
+      dotfiles.programs.paseo.plugins.claude-reauth.package =
+        lib.mkDefault pkgs.dotfiles.paseo-plugin-claude-reauth;
       dotfiles.programs.paseo.plugins.paseo-chat-polish.package =
         lib.mkDefault pkgs.dotfiles.paseo-plugin-paseo-chat-polish;
 

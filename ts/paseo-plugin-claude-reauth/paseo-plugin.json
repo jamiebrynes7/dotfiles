@@ -1,0 +1,6 @@
+{
+  "id": "claude-reauth",
+  "name": "Claude re-auth",
+  "description": "Turns a Claude agent's expired-login reply into a card that logs in on the host and reloads the agent",
+  "requirements": { "paseo": ">=0.12.0" }
+}

@@ -1,11 +1,11 @@
 ---
 # dotfiles-23hw
 title: 'direnv plugin: allow new worktrees of allowed projects'
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-10-19T07:20:54Z
-updated_at: 2026-10-19T07:56:16Z
+updated_at: 2026-10-24T14:17:35Z
 parent: dotfiles-jf3q
 ---
 
@@ -17,8 +17,8 @@ When paseo creates a worktree workspace of a project whose root checkout's `.env
 
 ## Acceptance criteria
 
-- [ ] `paseo workspace create --isolation worktree` on a repo with an allowed root `.envrc`, immediately followed by `paseo run --workspace <id>`, launches the agent with the devshell environment and no refusal
-- [ ] `paseo run --new-workspace worktree` on the same repo launches its first agent with the devshell environment
+- [x] `paseo workspace create --isolation worktree` on a repo with an allowed root `.envrc`, immediately followed by `paseo run --workspace <id>`, launches the agent with the devshell environment and no refusal
+- [x] `paseo run --new-workspace worktree` on the same repo launches its first agent with the devshell environment
 - [x] A worktree of a repo whose root `.envrc` is not allowed (or was edited and not re-allowed) is not allowed, and its create is refused as blocked, as before
 - [x] Local (non-worktree) workspaces, and worktrees with no `.envrc`, get no allow attempt
 - [x] Every skip or failure in the allow path is logged with directories only and leaves the worktree as it was; nothing throws back to paseo
@@ -36,3 +36,9 @@ When paseo creates a worktree workspace of a project whose root checkout's `.env
 Code landed (PR to follow); the two live-daemon criteria (create-then-run, `--new-workspace`) are still to verify once this is applied on a host. Verified so far with a harness of real `git worktree add` worktrees under a fake `PASEO_HOME`, firing `workspace.created` then `agent.session_open` without waiting: allowed project, agent in a subdirectory, custom `worktrees.root`, not-allowed project, local workspace, parent-only `.envrc`, stale worktree, uncommitted or ignored `.envrc`, and an already-aborted open.
 
 Beyond the spec, from review: `workspace.created` also fires for local workspaces opened on existing worktrees and for agent-minted workspaces, so the allow additionally requires the worktree's `.git` to be under 2 minutes old and its `.envrc` to be tracked and unchanged from `HEAD`. This keeps an edited `.envrc` refused rather than re-approved.
+
+## Summary of Changes
+
+- `ts/paseo-plugin-direnv/server/worktree-allow.ts`: on `workspace.created`, runs `direnv allow` on a new worktree under paseo's worktrees root (`worktrees.root`, trimmed, else `$PASEO_HOME/worktrees`) when its source checkout's own `.envrc` is allowed, the worktree's `.git` is under 2 minutes old, and its `.envrc` is tracked and unchanged from `HEAD`. The last two gates go beyond the spec, from review: paseo emits `workspace.created` for any new workspace, so without them an edited `.envrc` in an existing worktree could be re-approved.
+- `index.server.ts`: `agent.session_open` waits for a pending allow on the agent's directory or an ancestor, capped to cover the allow's command chain and taken out of the 25 s evaluation budget (`evaluate.ts` now takes a budget).
+- Verified with a harness of real worktrees under a fake `PASEO_HOME` (allowed, not-allowed, local, parent-only, subdirectory, custom root, stale, edited, ignored, aborted), `nix flake check`, and on the live daemon by the user: create-then-run and `--new-workspace` both launch the first agent with the devshell.

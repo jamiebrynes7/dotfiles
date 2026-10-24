@@ -93,7 +93,7 @@ export default function contribute(server: PluginServerContext) {
         const dir = shellQuote(path.dirname(result.envrc));
         console.warn(`direnv: refused ${request.reason} in ${cwd}: ${result.envrc} is blocked`);
         throw new Error(
-          `.envrc at ${result.envrc} is blocked by direnv. Run \`direnv allow ${dir}\`, then retry.`,
+          `.envrc at ${result.envrc} is blocked by direnv. Use the direnv button in the workspace header (Allow), or run \`direnv allow ${dir}\`, then retry.`,
         );
       }
       case "failed":
@@ -102,7 +102,7 @@ export default function contribute(server: PluginServerContext) {
           [
             `direnv failed in ${cwd} (${result.exit}):`,
             result.stderrTail,
-            `Run ${warm} in a terminal to see the full output.`,
+            `Use the direnv button's Warm item, or run ${warm} in a terminal, to see the full output.`,
           ]
             .filter((line) => line !== "")
             .join("\n"),
@@ -110,7 +110,7 @@ export default function contribute(server: PluginServerContext) {
       case "timeout":
         console.warn(`direnv: refused ${request.reason} in ${cwd}: timed out`);
         throw new Error(
-          `direnv took longer than ${Math.round(budget / 1000)}s in ${cwd}. Run ${warm} in a terminal to warm its cache, then retry.`,
+          `direnv took longer than ${Math.round(budget / 1000)}s in ${cwd}. Use the direnv button's Warm item to build its cache, or run ${warm} in a terminal, then retry.`,
         );
       case "loaded": {
         const { env, unset } = merge(result.env, request.env);

@@ -4,12 +4,12 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ES2023"],
-    "types": ["node"],
+    "types": ["react"],
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["index.server.ts", "server/**/*.ts"]
+  "include": ["index.client.ts", "client/**/*.ts"]
 }

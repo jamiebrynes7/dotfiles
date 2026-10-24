@@ -1,11 +1,11 @@
 ---
 # dotfiles-lfp9
 title: 'direnv plugin: workspace header Allow / Warm button'
-status: todo
+status: in-progress
 type: task
 priority: normal
 created_at: 2026-10-18T16:07:54Z
-updated_at: 2026-10-18T16:07:54Z
+updated_at: 2026-10-24T15:35:50Z
 parent: dotfiles-jf3q
 blocked_by:
     - dotfiles-e2gj
@@ -23,10 +23,16 @@ Every workspace's header gets a `direnv` menu button with two items, each openin
 - [ ] Allow opens a terminal in the workspace directory running `direnv allow` with no confirmation step. Demo: in a new worktree an agent create is refused as blocked, then Allow, then retry succeeds
 - [ ] Warm opens a terminal in the workspace directory running `direnv exec . true` with its output visible. Demo: a slow `.envrc` is refused on timeout, then Warm, then retry succeeds
 - [ ] Failing to open the terminal surfaces as paseo's error toast
-- [ ] The blocked and timeout refusal messages from the launch hook name the Allow and Warm items respectively
-- [ ] The plugin's typecheck flake check covers the client half and passes
+- [x] The blocked and timeout refusal messages from the launch hook name the Allow and Warm items respectively
+- [x] The plugin's typecheck flake check covers the client half and passes
 
 ## Constraints
 
 - No server RPC: the client half never calls the daemon half, so the button needs only `workspace.write`, not `daemon.manage`
 - No per-workspace `.envrc` detection: the button shows in every workspace
+
+## Progress
+
+Code landed (PR to follow); the four in-app criteria (button lifecycle, Allow then retry, Warm then retry, error toast) are still to verify once this is applied on a host. Verified so far: both halves typecheck, `nix flake check` is green, and the `sh` wrapper keeps direnv's output and exit status on screen for both a blocked and an allowed `.envrc`.
+
+From review against paseo 0.12.0: the daemon removes a terminal as soon as its process exits, so each item runs direnv under `sh`, prints its exit status, and hands over to an interactive shell. The app adds plugin-opened terminals without focusing them, so the user picks the `direnv allow` / `direnv warm` tab. A failed re-subscribe after a reconnect is retried rather than stopping observation, and the plugin now requires paseo >= 0.12.0, the client SDK it is typed against.

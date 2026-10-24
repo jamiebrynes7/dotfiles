@@ -1,6 +1,6 @@
 {
   "id": "direnv",
   "name": "direnv",
-  "description": "Launches every agent with the environment direnv gives its directory",
-  "requirements": { "paseo": ">=0.11.4" }
+  "description": "Launches every agent with the environment direnv gives its directory, with a workspace header button to allow or warm it",
+  "requirements": { "paseo": ">=0.12.0" }
 }

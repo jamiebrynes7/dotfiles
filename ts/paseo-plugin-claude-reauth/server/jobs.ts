@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import type { RecoveryState } from "../shared/rpc";
+import type { Recovery, RecoveryState } from "../shared/rpc";
+import { resendFailedMessage, type Paseo } from "./resend";
 
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
 const RELOAD_TIMEOUT_MS = 2 * 60_000;
@@ -9,8 +10,8 @@ const ERROR_TAIL_CHARS = 2_000;
 const URL_PATTERN = /https:\/\/[^\s\x1b]+(?=[\s\x1b])/;
 
 export interface Recoveries {
-  start(agentId: string, login: boolean): RecoveryState;
-  status(agentId: string): RecoveryState;
+  start(agentId: string, login: boolean, paseo: Paseo): Recovery;
+  status(agentId: string): Recovery;
   /** Kills every running child; later results are dropped. */
   stop(): void;
 }
@@ -21,7 +22,9 @@ interface LoginJob {
 }
 
 function isRunning(state: RecoveryState): boolean {
-  return state.phase === "logging-in" || state.phase === "reloading";
+  return (
+    state.phase === "logging-in" || state.phase === "reloading" || state.phase === "resending"
+  );
 }
 
 function tail(text: string): string {
@@ -46,12 +49,25 @@ function messageOf(error: unknown): string {
 
 export function createRecoveries(): Recoveries {
   const states = new Map<string, RecoveryState>();
+  const lastDone = new Map<string, string>();
   const children = new Set<ChildProcess>();
   let login: LoginJob | undefined;
   let stopped = false;
 
   function set(agentId: string, state: RecoveryState) {
-    if (!stopped) states.set(agentId, state);
+    if (stopped) return;
+    states.set(agentId, state);
+    if (state.phase === "done") lastDone.set(agentId, state.at);
+  }
+
+  function fail(agentId: string, step: "login" | "reload" | "resend", error: unknown, url?: string) {
+    set(agentId, {
+      phase: "failed",
+      step,
+      error: messageOf(error),
+      ...(url ? { url } : {}),
+      at: new Date().toISOString(),
+    });
   }
 
   // Resolves on exit 0. Rejects with the stderr tail, the spawn error (ENOENT when
@@ -122,41 +138,52 @@ export function createRecoveries(): Recoveries {
     return job;
   }
 
-  function reload(agentId: string) {
+  function reload(agentId: string, paseo: Paseo) {
     set(agentId, { phase: "reloading" });
     run("paseo", ["agent", "reload", agentId], {
       timeoutMs: RELOAD_TIMEOUT_MS,
       timeoutMessage: "reload timed out",
     }).then(
-      () => set(agentId, { phase: "done" }),
-      (error: unknown) => set(agentId, { phase: "failed", step: "reload", error: messageOf(error) }),
+      () => resend(agentId, paseo),
+      (error: unknown) => fail(agentId, "reload", error),
     );
   }
 
-  function status(agentId: string): RecoveryState {
+  function resend(agentId: string, paseo: Paseo) {
+    if (stopped) return;
+    set(agentId, { phase: "resending" });
+    // Taken before sending: a resent message that fails auth again can be answered
+    // before `send` resolves, and its card must be newer than this cutoff to work.
+    // Re-streamed history keeps its original timestamps, so it stays older.
+    const at = new Date().toISOString();
+    resendFailedMessage(paseo, agentId, () => stopped).then(
+      (resent) => set(agentId, { phase: "done", at, resent }),
+      (error: unknown) => fail(agentId, "resend", error),
+    );
+  }
+
+  function current(agentId: string): RecoveryState {
     return states.get(agentId) ?? { phase: "idle" };
+  }
+
+  function status(agentId: string): Recovery {
+    const at = lastDone.get(agentId);
+    return { state: current(agentId), ...(at ? { lastDoneAt: at } : {}) };
   }
 
   return {
     status,
-    start(agentId, withLogin) {
-      const current = status(agentId);
-      if (stopped || isRunning(current)) return current;
+    start(agentId, withLogin, paseo) {
+      if (stopped || isRunning(current(agentId))) return status(agentId);
       if (!withLogin) {
-        reload(agentId);
+        reload(agentId, paseo);
         return status(agentId);
       }
       const job = sharedLogin();
       set(agentId, { phase: "logging-in", ...(job.url ? { url: job.url } : {}) });
       job.done.then(
-        () => reload(agentId),
-        (error: unknown) =>
-          set(agentId, {
-            phase: "failed",
-            step: "login",
-            error: messageOf(error),
-            ...(job.url ? { url: job.url } : {}),
-          }),
+        () => reload(agentId, paseo),
+        (error: unknown) => fail(agentId, "login", error, job.url),
       );
       return status(agentId);
     },

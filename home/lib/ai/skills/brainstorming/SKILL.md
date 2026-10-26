@@ -33,7 +33,14 @@ Map the design as a **decision tree**: every decision branches into the decision
 
 Work the tree in rounds. Each round, ask every question that can be answered *now* — whose prerequisites are already settled — as one numbered batch, then wait for the answers. Hold back any question whose answer depends on another question still open; it belongs to a later round. Each round's answers unblock the next set of questions.
 
-Give every question a recommended answer (➡️), and word the question so that replying "yes" accepts it:
+Give every question a recommended answer.
+
+**Ask through your structured question tool** — `AskUserQuestion` in Claude Code, or your assistant's equivalent — so the user picks answers instead of typing them:
+
+- Each question offers its candidate answers as options, recommended one first and marked "(Recommended)", with each option's trade-offs in its description. Even an open question (purpose, constraints) gets your best-guess answers as options; the user can always write their own.
+- If the tool caps questions per call, split the round across consecutive calls before moving on — the round is still one batch, and the next round waits for all of it.
+
+Only when no such tool is available, ask the round as plain text, wording each question so that replying "yes" accepts its recommendation (➡️):
 
 ```
 ❓ **Q1** - **<question title>**: <question body — context, and the choices if there are several>

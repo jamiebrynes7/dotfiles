@@ -1,7 +1,7 @@
 import { openExternalUrl, useRpc, type PluginTimelineItemProps } from "@getpaseo/plugin/client";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { recoveryStatus, startRecovery, type RecoveryState } from "../shared/rpc";
+import { recoveryStatus, startRecovery, type Recovery, type RecoveryState } from "../shared/rpc";
 import type { AuthExpiredData } from "../shared/timeline";
 
 const POLL_MS = 2_000;
@@ -9,7 +9,16 @@ const POLL_MS = 2_000;
 type Colors = PluginTimelineItemProps["theme"]["colors"];
 
 function isRunning(state: RecoveryState): boolean {
-  return state.phase === "logging-in" || state.phase === "reloading";
+  return (
+    state.phase === "logging-in" || state.phase === "reloading" || state.phase === "resending"
+  );
+}
+
+// Recovery state is per agent, so a run that ended before this card appeared was for
+// an earlier auth error, and this card reads as idle.
+function forCard(state: RecoveryState, card: Date): RecoveryState {
+  const ended = state.phase === "done" || state.phase === "failed";
+  return ended && Date.parse(state.at) < card.getTime() ? { phase: "idle" } : state;
 }
 
 function describe(state: RecoveryState): string | null {
@@ -20,10 +29,21 @@ function describe(state: RecoveryState): string | null {
       return "Finish signing in in the browser on your host";
     case "reloading":
       return "Reloading the agent…";
+    case "resending":
+      return "Resending your message…";
     case "done":
-      return "Reloaded — send your message again";
+      return state.resent
+        ? "Reloaded and resent your message"
+        : "Reloaded — send your message again";
     case "failed":
-      return `${state.step === "login" ? "Login" : "Reload"} failed: ${state.error}`;
+      switch (state.step) {
+        case "login":
+          return `Login failed: ${state.error}`;
+        case "reload":
+          return `Reload failed: ${state.error}`;
+        case "resend":
+          return `Reloaded, but resending failed: ${state.error} — send your message again`;
+      }
   }
 }
 
@@ -61,11 +81,16 @@ function Button({
 // Stateless by design: the daemon half owns recovery state, so the card asks for it
 // on mount (a second device, or a reopened chat, picks up a job in flight) and polls
 // only while a job runs.
-export function AuthCard({ agentId, item, theme }: PluginTimelineItemProps<AuthExpiredData>) {
+export function AuthCard({
+  agentId,
+  item,
+  theme,
+  timestamp,
+}: PluginTimelineItemProps<AuthExpiredData>) {
   const { colors } = theme;
   const start = useRpc(startRecovery);
   const status = useRpc(recoveryStatus);
-  const [state, setState] = useState<RecoveryState>({ phase: "idle" });
+  const [recovery, setRecovery] = useState<Recovery>({ state: { phase: "idle" } });
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   // Only the latest request's answer may land, so a slow mount-time status can't
@@ -79,10 +104,10 @@ export function AuthCard({ agentId, item, theme }: PluginTimelineItemProps<AuthE
     };
   }, []);
 
-  function request(call: () => Promise<RecoveryState>): Promise<void> {
+  function request(call: () => Promise<Recovery>): Promise<void> {
     const seq = ++latest.current;
     return call().then((next) => {
-      if (mounted.current && seq === latest.current) setState(next);
+      if (mounted.current && seq === latest.current) setRecovery(next);
     });
   }
 
@@ -96,6 +121,9 @@ export function AuthCard({ agentId, item, theme }: PluginTimelineItemProps<AuthE
 
   useEffect(refresh, [agentId]);
 
+  const state = forCard(recovery.state, timestamp);
+  const spent =
+    recovery.lastDoneAt !== undefined && Date.parse(recovery.lastDoneAt) > timestamp.getTime();
   const running = isRunning(state);
   useEffect(() => {
     if (!running) return;
@@ -117,7 +145,7 @@ export function AuthCard({ agentId, item, theme }: PluginTimelineItemProps<AuthE
 
   const line = startError ? `Could not start: ${startError}` : describe(state);
   const url = state.phase === "logging-in" || state.phase === "failed" ? state.url : undefined;
-  const disabled = running || starting;
+  const disabled = running || starting || spent;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface1, borderColor: colors.border }]}>

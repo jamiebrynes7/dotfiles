@@ -21,17 +21,38 @@ let
     exec ${pkgs.dotfiles.plannotator}/bin/plannotator "$@"
   '';
 
+  # The post-approval permission mode is a per-hostname browser cookie that
+  # defaults to acceptEdits, and config.json has no key for it -- so every new
+  # browser or remote hostname silently approves into acceptEdits. We always
+  # want auto, so rewrite the hook's setMode on the way out. Lines that are not
+  # JSON pass through untouched.
+  autoModeFilter = pkgs.writeText "plannotator-auto-mode.jq" ''
+    . as $line
+    | try (
+        fromjson
+        | (.hookSpecificOutput.decision.updatedPermissions[]?
+           | select(.type == "setMode" and .mode == "acceptEdits")
+           | .mode) = "auto"
+        | tojson
+      ) catch $line
+  '';
+
+  claudeCodeHookCommand = pkgs.writeShellScript "plannotator-claude-code-hook" ''
+    set -o pipefail
+    ${plannotatorWrapper}/bin/plannotator "$@" | ${lib.getExe pkgs.jq} -R -r -f ${autoModeFilter}
+  '';
+
   # Plannotator is one tool; only the plan-review hook event differs per
   # assistant (claude-code fires on the ExitPlanMode permission prompt; codex
   # fires on Stop). The command references the wrapper by store path so neither
   # assistant depends on the other being enabled.
-  plannotatorHook = event: matcher: {
+  plannotatorHook = event: matcher: command: {
     enable = true;
     inherit event matcher;
     hooks = [
       {
         type = "command";
-        command = "${plannotatorWrapper}/bin/plannotator";
+        inherit command;
         timeout = 345600;
       }
     ];
@@ -124,11 +145,14 @@ in
     (lib.mkIf cfg.claude-code.enable {
       dotfiles.programs.claude-code.skillsDirs = [ ./skills ];
       dotfiles.programs.claude-code.hooks.plannotator-review =
-        plannotatorHook "PermissionRequest" "ExitPlanMode";
+        plannotatorHook "PermissionRequest" "ExitPlanMode"
+          "${claudeCodeHookCommand}";
     })
     (lib.mkIf cfg.codex.enable {
       dotfiles.programs.codex.skillsDirs = [ ./skills ];
-      dotfiles.programs.codex.hooks.plannotator-review = plannotatorHook "Stop" null;
+      dotfiles.programs.codex.hooks.plannotator-review =
+        plannotatorHook "Stop" null
+          "${plannotatorWrapper}/bin/plannotator";
     })
   ];
 }

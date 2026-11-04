@@ -16,8 +16,24 @@ let
         name: type: type == "directory" && builtins.pathExists (dir + "/${name}/SKILL.md")
       ) entries
     );
+
+  # Process a single skill directory: copy all files, then overwrite SKILL.md
+  # with the variant-filtered version. The output is a real directory holding
+  # real files (not symlinks) — load-bearing for the codex `recursive = false`
+  # case, where the directory itself is symlinked but SKILL.md must stay a real
+  # file (codex ignores symlinked SKILL.md files).
+  processSkill =
+    variant: name: path:
+    pkgs.runCommand "skill-${variant}-${name}" { } ''
+      mkdir -p $out
+      cp -r ${path}/* $out/
+      chmod -R u+w $out
+      ${processFrontmatter}/bin/process-frontmatter ${variant} ${path}/SKILL.md > $out/SKILL.md
+    '';
 in
 {
+  inherit processSkill;
+
   # Path to the built-in skills directory, for consumers to include in skillsDirs.
   builtinSkillsDir = ./.;
 
@@ -64,24 +80,10 @@ in
           }
           skillsDirs;
 
-      # Process a single skill directory: copy all files, then overwrite SKILL.md
-      # with the variant-filtered version. The output is a real directory holding
-      # real files (not symlinks) — load-bearing for the codex `recursive = false`
-      # case, where the directory itself is symlinked but SKILL.md must stay a real
-      # file (codex ignores symlinked SKILL.md files).
-      processSkill =
-        name: path:
-        pkgs.runCommand "skill-${variant}-${name}" { } ''
-          mkdir -p $out
-          cp -r ${path}/* $out/
-          chmod -R u+w $out
-          ${processFrontmatter}/bin/process-frontmatter ${variant} ${path}/SKILL.md > $out/SKILL.md
-        '';
-
       skillFiles = lib.mapAttrs' (
         name: path:
         lib.nameValuePair "${targetDir}/${name}" {
-          source = processSkill name path;
+          source = processSkill variant name path;
           inherit recursive;
         }
       ) merged.skills;

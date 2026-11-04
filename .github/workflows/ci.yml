@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [master]
+  # Full check on demand for any branch, e.g. when master's results can't be
+  # trusted: `gh workflow run ci.yml --ref <branch>`.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,7 +14,108 @@ permissions:
 jobs:
   flake-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # the changed-checks comment
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The base commit is evaluated from local history.
+          fetch-depth: 0
       - uses: DeterminateSystems/nix-installer-action@v21
-      - run: nix flake check --print-build-logs
+
+      # Master always gets the full check, so a check that breaks without its
+      # derivation changing still goes red somewhere. PRs below trust it.
+      - name: Full flake check
+        if: github.event_name != 'pull_request'
+        run: nix flake check --print-build-logs
+
+      # `nix flake check` builds only `checks`; every other output is just
+      # evaluated. So PRs evaluate everything, then build the checks they change.
+      # A check whose derivation path matches the base's builds exactly what
+      # the base built, which master's full check already passed.
+      - name: Find changed checks
+        id: changed
+        if: github.event_name == 'pull_request'
+        run: |
+          system=$(nix eval --impure --raw --expr builtins.currentSystem)
+          apply='builtins.mapAttrs (_: c: c.drvPath)'
+          nix eval --json ".#checks.$system" --apply "$apply" > /tmp/head.json
+          # A pull_request checkout is the merge commit, whose first parent is the base.
+          base="git+file://$PWD?rev=$(git rev-parse HEAD^1)"
+          if nix eval --json "$base#checks.$system" --apply "$apply" > /tmp/base.json; then
+            changed=$(jq -r --slurpfile base /tmp/base.json \
+              '[to_entries[] | select($base[0][.key] != .value) | .key] | join(" ")' /tmp/head.json)
+          else
+            echo "::warning::Could not evaluate the base commit; building every check"
+            changed=$(jq -r 'keys | join(" ")' /tmp/head.json)
+            echo "fallback=true" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "base=$(git rev-parse HEAD^1)"
+            echo "total=$(jq length /tmp/head.json)"
+            echo "system=$system"
+            echo "checks=$changed"
+          } >> "$GITHUB_OUTPUT"
+
+      # Must follow the eval above: packages/paseo is import-from-derivation,
+      # and `--no-build` cannot fetch its source on a cold store.
+      - name: Evaluate all outputs
+        if: github.event_name == 'pull_request'
+        run: nix flake check --no-build
+
+      # One comment per PR, edited in place on each push. Best-effort: a token
+      # without write access (fork or Dependabot PRs) must not fail the check.
+      - name: Comment changed checks
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ steps.changed.outputs.base }}
+          CHECKS: ${{ steps.changed.outputs.checks }}
+          TOTAL: ${{ steps.changed.outputs.total }}
+          FALLBACK: ${{ steps.changed.outputs.fallback }}
+        run: |
+          marker='<!-- flake-check-changed-checks -->'
+          read -r -a checks <<< "$CHECKS"
+          {
+            echo "$marker"
+            echo "**Flake check** at ${HEAD_SHA::7}, compared against base ${BASE_SHA::7}:"
+            echo
+            if [ "$FALLBACK" = true ]; then
+              echo "The base commit could not be evaluated, so all $TOTAL checks were built."
+            elif [ ${#checks[@]} -eq 0 ]; then
+              echo "No check derivations changed, so nothing was built. All $TOTAL checks match the base."
+            else
+              echo "Built ${#checks[@]} of $TOTAL checks, the ones whose derivation changed:"
+              echo
+              # shellcheck disable=SC2016 # markdown backticks, not command substitution
+              printf -- '- `%s`\n' "${checks[@]}"
+              echo
+              echo "The other $((TOTAL - ${#checks[@]})) match the base, which master's full check already passed."
+            fi
+          } > /tmp/comment.md
+          existing=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n1)
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@/tmp/comment.md > /dev/null
+          else
+            gh pr comment "$PR" --repo "$REPO" --body-file /tmp/comment.md
+          fi
+
+      - name: Build changed checks
+        if: github.event_name == 'pull_request'
+        env:
+          SYSTEM: ${{ steps.changed.outputs.system }}
+          CHECKS: ${{ steps.changed.outputs.checks }}
+        run: |
+          read -r -a checks <<< "$CHECKS"
+          if [ ${#checks[@]} -eq 0 ]; then
+            echo "::notice::No check derivations changed; nothing to build"
+            exit 0
+          fi
+          echo "::notice::Building changed checks: ${checks[*]}"
+          nix build --no-link --print-build-logs "${checks[@]/#/.#checks.$SYSTEM.}"

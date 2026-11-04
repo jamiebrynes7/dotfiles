@@ -141,6 +141,11 @@ let
     cfg.settings
   ];
 
+  repoSkills = (import ../lib/paseo-repo-skills { inherit lib pkgs; }).render {
+    inherit (cfg) repoSkills;
+    dataDir = "${config.xdg.dataHome}/paseo-repo-skills";
+  };
+
   invalidPluginIds = lib.filter (id: builtins.match "[a-z][a-z0-9-]*" id == null) (
     lib.attrNames cfg.plugins
   );
@@ -291,6 +296,47 @@ in
       '';
     };
 
+    repoSkills = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options = {
+            source = lib.mkOption {
+              type = lib.types.path;
+              description = "Directory containing the skill's `SKILL.md`, as for the shared skills.";
+            };
+            repositories = lib.mkOption {
+              type = lib.types.nonEmptyListOf lib.types.str;
+              example = [ "github.com/owner/repo" ];
+              description = ''
+                Repositories the skill applies to, as normalised `host/owner/repo`
+                keys: lowercase host, no scheme, user, port or trailing `.git`.
+              '';
+            };
+          };
+        }
+      );
+      default = { };
+      example = lib.literalExpression ''
+        {
+          deploy-checklist = {
+            source = ./skills/deploy-checklist;
+            repositories = [ "github.com/owner/repo" ];
+          };
+        }
+      '';
+      description = ''
+        Skills that apply only to particular repositories, keyed by skill name.
+        Each repository gets one Claude Code plugin, named `<owner>-<repo>`, holding
+        every skill that lists it, linked at
+        `$XDG_DATA_HOME/paseo-repo-skills/<owner>-<repo>`.
+        `$XDG_CONFIG_HOME/paseo-repo-skills/config.json` maps each repository key to
+        that link. The link is stable across rebuilds, so a saved agent that
+        references it picks up a rebuilt plugin on its next launch.
+
+        Load one by hand with `claude --plugin-dir <link>`.
+      '';
+    };
+
     environment = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = { };
@@ -408,12 +454,17 @@ in
       # The desktop app is a signed upstream bundle with its own unpatched daemon, so
       # this is the one combination where a managed config.json is unprotected. A
       # warning, not an assertion: starting the daemon by hand is legitimate.
-      warnings = lib.optional (cfg.enable && cfg.desktop.enable && !cfg.service.enable) ''
-        dotfiles.programs.paseo: config.json is managed by Nix, but nothing on this host
-        runs the patched daemon. The desktop app bundles its own unpatched daemon, which
-        takes over when no service daemon is running and can overwrite the managed file.
-        Set service.enable = true, or expect activation to move clobbered files aside.
-      '';
+      warnings =
+        lib.optional (!cfg.enable && cfg.repoSkills != { }) ''
+          dotfiles.programs.paseo.repoSkills is set but dotfiles.programs.paseo.enable is not,
+          so no repository skills are installed.
+        ''
+        ++ lib.optional (cfg.enable && cfg.desktop.enable && !cfg.service.enable) ''
+          dotfiles.programs.paseo: config.json is managed by Nix, but nothing on this host
+          runs the patched daemon. The desktop app bundles its own unpatched daemon, which
+          takes over when no service daemon is running and can overwrite the managed file.
+          Set service.enable = true, or expect activation to move clobbered files aside.
+        '';
     }
 
     (lib.mkIf cfg.enable {
@@ -468,6 +519,20 @@ in
           run mv "$paseoConfig" "$paseoBackup"
         fi
       '';
+    })
+
+    (lib.mkIf (cfg.enable && cfg.repoSkills != { }) {
+      assertions = map (message: {
+        assertion = false;
+        inherit message;
+      }) repoSkills.errors;
+
+      xdg.dataFile = lib.mapAttrs' (
+        name: plugin: lib.nameValuePair "paseo-repo-skills/${name}" { source = plugin; }
+      ) repoSkills.plugins;
+
+      xdg.configFile."paseo-repo-skills/config.json".source =
+        configFormat.generate "paseo-repo-skills.json" repoSkills.config;
     })
 
     (lib.mkIf cfg.service.enable {

@@ -284,6 +284,7 @@
             // {
               nixfmt = mkNixfmtCheck darwinPkgs;
               paseo-plugin-requirements = darwinPkgs.callPackage ./packages/paseo/plugin-requirements.nix { };
+              paseo-repo-skills = darwinPkgs.callPackage ./home/lib/paseo-repo-skills/check.nix { };
             };
           x86_64-linux =
             self.packages.x86_64-linux
@@ -292,6 +293,7 @@
             // {
               nixfmt = mkNixfmtCheck linuxPkgs;
               paseo-plugin-requirements = linuxPkgs.callPackage ./packages/paseo/plugin-requirements.nix { };
+              paseo-repo-skills = linuxPkgs.callPackage ./home/lib/paseo-repo-skills/check.nix { };
             };
         };
       templates = {

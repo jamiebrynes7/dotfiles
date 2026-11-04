@@ -78,6 +78,22 @@ jobs:
         run: |
           gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --rebase --delete-branch
 
+      # Each run regenerates every bump from master, so the new PR contains
+      # everything an older unmerged one did. Close those rather than letting
+      # them pile up. Any hand-fix pushed to an older PR is lost here, so land
+      # it before the next nightly run.
+      - name: Close superseded pull requests
+        if: steps.check.outputs.update_needed == 'true' && steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          NEW_PR: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: |
+          gh pr list --state open --limit 100 --json number,headRefName \
+            --jq ".[] | select(.headRefName | startswith(\"update-packages-\")) | select(.number != $NEW_PR) | .number" |
+            while read -r pr; do
+              gh pr close "$pr" --delete-branch --comment "Superseded by #$NEW_PR."
+            done
+
       # Last, so a broken update script still surfaces as a red job without
       # having suppressed the updates that did work.
       - name: Report failed updates

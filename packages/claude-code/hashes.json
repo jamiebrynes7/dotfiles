@@ -1,21 +1,21 @@
 {
-  "version": "2.1.312",
+  "version": "2.1.318",
   "platforms": {
     "aarch64-darwin": {
       "artifact": "darwin-arm64",
-      "hash": "sha256-a17GkRleVRsCxB3599cj9Oph6qA8LfkKzv43NvGutiA="
+      "hash": "sha256-Z3oup79XbO3SDhkdlzkU7YpBeW9TpjsZIzgd3E1bXn0="
     },
     "x86_64-darwin": {
       "artifact": "darwin-x64",
-      "hash": "sha256-lTR3DhYs/W45MB2at3Wv/OIU3wMqaEhAhb26uWan+M8="
+      "hash": "sha256-7pyFd6Uoqo76R4v1UrF++kC7WKpJgdKRPBPTg6TUCaQ="
     },
     "aarch64-linux": {
       "artifact": "linux-arm64",
-      "hash": "sha256-3EryiRdFXgCdJnBLgqQ4NToGFJ6CW2zfeCkIstKGYfU="
+      "hash": "sha256-U6DX4hnXsIBOy6XbwAJ0Xon3hsyUbS3oWmRw1bLR+wY="
     },
     "x86_64-linux": {
       "artifact": "linux-x64",
-      "hash": "sha256-T0F4zkHYPiM0Hr+67NvPjqa/e66gaQAlq+Se7sOl0B0="
+      "hash": "sha256-cIx3sgTbMAhv9vHtNFd72gPhvnTO2AVXy/e1Qknr8L0="
     }
   }
 }

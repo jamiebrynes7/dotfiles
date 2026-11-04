@@ -43,17 +43,27 @@ daemon.overrideAttrs (old: {
   # Nix owns $PASEO_HOME/config.json, and the daemon's atomic save would rename a temp
   # file over the store symlink. Refuse the write so a Settings/CLI edit fails loudly
   # instead of surviving until the next home-manager switch silently reverts it.
-  # Scoped to savePersistedConfig: writePrivateFileAtomicSync is shared with the
-  # managed-plugin sources.json and other daemon state that must stay writable.
-  # throwIfNoEntry: a fresh PASEO_HOME has no config.json yet, and `paseo onboard`
-  # must still be able to create it.
+  # Scoped to savePersistedConfig{,Async}: writePrivateFileAtomic{,Sync} is shared
+  # with the managed-plugin sources.json and other daemon state that must stay
+  # writable. Both save functions open with the same serialize line, so one anchor
+  # guards each; the count check fails the build if upstream reshapes one of them
+  # (the async one is what the daemon's Settings path uses). throwIfNoEntry: a
+  # fresh PASEO_HOME has no config.json yet, and `paseo onboard` must still be
+  # able to create it.
   postPatch = (old.postPatch or "") + ''
-    substituteInPlace packages/server/src/server/persisted-config.ts \
+    configTs=packages/server/src/server/persisted-config.ts
+    substituteInPlace "$configTs" \
       --replace-fail 'import { existsSync, readFileSync } from "node:fs";' \
                      'import { existsSync, lstatSync, readFileSync } from "node:fs";' \
-      --replace-fail 'writePrivateFileAtomicSync(configPath, JSON.stringify(result.data, null, 2)' \
+      --replace-fail 'const data = serializePersistedConfig(config);' \
                      'if (lstatSync(configPath, { throwIfNoEntry: false })?.isSymbolicLink()) { throw new Error("${configGuardMessage}"); }
-    writePrivateFileAtomicSync(configPath, JSON.stringify(result.data, null, 2)'
+    const data = serializePersistedConfig(config);'
+
+    guards=$(grep -cF ${lib.escapeShellArg configGuardMessage} "$configTs")
+    if [ "$guards" -ne 2 ]; then
+      echo "paseo: expected the config-write guard in 2 save functions, found $guards" >&2
+      exit 1
+    fi
   '';
 
   # Ship node-pty's native addon, which upstream's build drops on the floor.

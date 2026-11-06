@@ -266,9 +266,12 @@ const styles = StyleSheet.create({
   lane: { borderWidth: 1, borderRadius: 8, overflow: "hidden" },
   laneHeader: { flexDirection: "row", alignItems: "center", gap: 8, padding: 8 },
   laneTitle: { fontWeight: "600", flexShrink: 1 },
-  // Columns share the lane's width, down to a floor below which the lane scrolls.
+  // Columns share the lane's width equally, down to a floor below which the lane scrolls.
   columns: { flexGrow: 1, gap: 8, paddingHorizontal: 8, paddingBottom: 8 },
-  column: { flex: 1, minWidth: 300, gap: 6 },
+  // A definite `width`, not `flex: 1`: each lane scrolls separately, and flex: 1 sizes
+  // columns from their content, misaligning them between epics. Not `width: 0` with
+  // `minWidth`: Yoga leaves the floor out of the content width, so a lane can't scroll.
+  column: { width: 300, flexGrow: 1, gap: 6 },
   columnTitle: { fontSize: 12, fontWeight: "600", textTransform: "uppercase" },
   laneGroup: { gap: 6 },
   groupTitle: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", marginTop: 6 },

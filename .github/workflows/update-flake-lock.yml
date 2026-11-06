@@ -23,12 +23,22 @@ jobs:
   update-lock:
     runs-on: ubuntu-latest
     steps:
+      # References live on the step, not in an OP_ENV_FILE: checkout needs the
+      # token minted from these, so no repo file exists yet.
+      - name: Load secrets
+        id: op
+        uses: 1password/load-secrets-action@v5
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          POPPET_BOT_CLIENT_ID: op://dev/poppet-bot-github/username
+          POPPET_BOT_PRIVATE_KEY: op://dev/poppet-bot-github/poppet-bot.2026-04-26.private-key.pem
+
       - name: Generate GitHub App token
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ vars.POPPET_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.POPPET_BOT_PRIVATE_KEY }}
+          client-id: ${{ steps.op.outputs.POPPET_BOT_CLIENT_ID }}
+          private-key: ${{ steps.op.outputs.POPPET_BOT_PRIVATE_KEY }}
 
       - name: Checkout repository
         uses: actions/checkout@v4

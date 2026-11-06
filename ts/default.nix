@@ -23,21 +23,27 @@ let
       fileset = lib.fileset.difference src (lib.fileset.maybeMissing (src + "/node_modules"));
     };
 
-  # npm only appears here, never in the shipped plugin, so a type error makes one
-  # check red instead of making the plugin unbuildable. importNpmLock fetches each
-  # dependency by the lockfile's own integrity hash, so there is no npmDepsHash to
-  # re-pin on every lockfile change.
-  typecheck =
-    name: src:
+  # npm only appears here, never in the shipped plugin, so a type error or a failing
+  # test makes one check red instead of making the plugin unbuildable. importNpmLock
+  # fetches each dependency by the lockfile's own integrity hash, so there is no
+  # npmDepsHash to re-pin on every lockfile change.
+  npmScriptCheck =
+    {
+      name,
+      src,
+      script,
+      nativeBuildInputs ? [ ],
+    }:
     final.buildNpmPackage {
-      pname = "${name}-typecheck";
+      pname = "${name}-${script}";
       version = "0.0.0";
       src = pluginSource src;
       npmDeps = final.importNpmLock { npmRoot = src; };
       npmConfigHook = final.importNpmLock.npmConfigHook;
+      inherit nativeBuildInputs;
       buildPhase = ''
         runHook preBuild
-        npm run typecheck
+        npm run ${script}
         runHook postBuild
       '';
       installPhase = "touch $out";
@@ -83,8 +89,20 @@ let
         src = ./. + "/${name}";
       in
       {
-        "${name}-typecheck" = typecheck name src;
+        "${name}-typecheck" = npmScriptCheck {
+          inherit name src;
+          script = "typecheck";
+        };
         "${name}-sdk-version" = sdkVersion name src;
+      }
+      # Node runs `.ts` tests directly (type stripping), so node:test needs no
+      # framework; git is there for tests that drive a real repository.
+      // lib.optionalAttrs ((lib.importJSON (src + "/package.json")).scripts ? test) {
+        "${name}-test" = npmScriptCheck {
+          inherit name src;
+          script = "test";
+          nativeBuildInputs = [ final.git ];
+        };
       }
     ) pluginNames
   );

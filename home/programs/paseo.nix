@@ -527,6 +527,10 @@ in
         inherit message;
       }) repoSkills.errors;
 
+      # Reads the config.json below on every Claude agent creation.
+      dotfiles.programs.paseo.plugins.repo-skills.package =
+        lib.mkDefault pkgs.dotfiles.paseo-plugin-repo-skills;
+
       xdg.dataFile = lib.mapAttrs' (
         name: plugin: lib.nameValuePair "paseo-repo-skills/${name}" { source = plugin; }
       ) repoSkills.plugins;

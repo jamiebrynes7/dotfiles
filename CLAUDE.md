@@ -54,6 +54,8 @@ packages/            # Nix packages — built from this repo or vendored upstrea
 
 Every directory under `packages/` is auto-discovered by `flake.nix` and exposed as `pkgs.dotfiles.<dir>` — **only** there, never as a top-level `pkgs.<name>`. Reference them as `pkgs.dotfiles.claude-code`, not `pkgs.claude-code`.
 
+A package that only builds on some systems declares `meta.platforms`; `mkPackages` drops it from every other system's `packages` (and so `checks`) output. `sudo-prompt`, a Swift app for macOS, is the case today. Its home-manager side, `dotfiles.programs.sudo-prompt`, is in no profile on purpose: it shadows `sudo` on `PATH`, so each Mac opts in explicitly.
+
 Vendored upstream binaries (`claude-code`, `codex`, `cship`, `plannotator`, `sprite`) follow a fixed shape: a `hashes.json` recording the version plus a per-platform artifact name and hash, a `default.nix` that reads it, and an `update.sh` that refreshes it. `update.sh` must be idempotent — re-running it when the recorded version already matches should exit 0 without touching `hashes.json`, since `.github/workflows/auto-update.yml` runs every script nightly and opens a PR only if `packages/` changed.
 
 Beyond that, `update.sh` should **fail** on anything it cannot resolve, including a release whose artifacts have not been uploaded yet. Exiting 0 there would pin the package indefinitely behind a green nightly, and a transient upload gap is indistinguishable from upstream renaming or dropping an artifact. `auto-update.yml` runs every script before reporting, so one failure surfaces as a red job without blocking the other packages' updates.

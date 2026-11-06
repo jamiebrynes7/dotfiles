@@ -217,7 +217,13 @@
           });
         };
 
-      mkPackages = pkgs: builtins.removeAttrs pkgs.dotfiles [ "internal" ];
+      # Drops packages whose meta.platforms excludes this system (e.g. the
+      # macOS-only sudo-prompt), so they stay out of that system's check set.
+      mkPackages =
+        pkgs:
+        pkgs.lib.filterAttrs (_: pkg: pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform pkg) (
+          builtins.removeAttrs pkgs.dotfiles [ "internal" ]
+        );
 
       # `nixfmt --check` gate as a flake check, mirroring crates/'s `rust-fmt`.
       # `fileFilter` over the git-filtered flake source keeps vendored `.direnv`

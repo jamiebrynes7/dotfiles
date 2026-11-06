@@ -1,7 +1,10 @@
 import type { PluginButtonRegistration, PluginClientContext } from "@getpaseo/plugin/client";
 import { BoardPanel } from "./client/board-panel.tsx";
+import { DetailPanel } from "./client/detail-panel.tsx";
+import { select } from "./client/selection.ts";
 
 const BOARD_PANEL = "beans-board";
+const DETAIL_PANEL = "beans-detail";
 const ICON = "SquareKanban";
 const RESUBSCRIBE_MS = 10_000;
 
@@ -15,7 +18,23 @@ export default function contribute(client: PluginClientContext) {
     id: BOARD_PANEL,
     title: "Beans",
     icon: ICON,
-    Component: BoardPanel,
+    Component: (props) => (
+      <BoardPanel
+        {...props}
+        onOpenBean={(workspaceId, beanId) => {
+          select(workspaceId, beanId);
+          client.openPanel(DETAIL_PANEL, { workspaceId, location: "explorer" });
+        }}
+      />
+    ),
+  });
+  // Explorer only: it reads beside the board, never as a tab of its own.
+  const removeDetail = client.addWorkspacePanel({
+    id: DETAIL_PANEL,
+    title: "Bean",
+    icon: "FileText",
+    locations: ["explorer"],
+    Component: DetailPanel,
   });
   const removeCommand = client.addCommandCenterItem({
     id: "open-board",
@@ -43,6 +62,7 @@ export default function contribute(client: PluginClientContext) {
   return async () => {
     stopButtons();
     await removeCommand();
+    await removeDetail();
     await removePanel();
   };
 }

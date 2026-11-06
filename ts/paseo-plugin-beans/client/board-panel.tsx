@@ -4,9 +4,9 @@ import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { z } from "zod";
 import { laneKey, layout, NO_EPIC_GROUP, type Lane } from "../shared/layout.ts";
 import type { BoardBean } from "../shared/rpc.ts";
-import { useBoard } from "./use-board.ts";
-
-type Colors = PluginWorkspacePanelProps["theme"]["colors"];
+import { PriorityIcon, Tags, TypeBadge, type Colors } from "./badges.tsx";
+import { useSelection } from "./selection.ts";
+import { useBoard } from "./use-polled.ts";
 
 const TabState = z.object({
   showScrapped: z.boolean(),
@@ -24,42 +24,33 @@ const COLUMN_TITLES: Record<string, string> = {
   scrapped: "Scrapped",
 };
 
-// Fixed hues rather than theme colours, so a type reads the same on every theme;
-// the theme supplies only four status colours, too few to tell types apart.
-const TYPE_STYLES: Record<string, { icon: string; color: string }> = {
-  task: { icon: "SquareCheck", color: "#3b82f6" },
-  bug: { icon: "Bug", color: "#ef4444" },
-  feature: { icon: "Sparkles", color: "#22c55e" },
-};
-const OTHER_TYPE = { icon: "Circle", color: "#94a3b8" };
-
-// Normal priority gets no icon, so only the beans that differ stand out.
-function priorityIcon(priority: string, colors: Colors): { name: string; color: string } | null {
-  switch (priority) {
-    case "critical":
-      return { name: "ChevronsUp", color: colors.statusDanger };
-    case "high":
-      return { name: "ChevronUp", color: colors.statusWarning };
-    case "low":
-      return { name: "ChevronDown", color: colors.foregroundMuted };
-    case "deferred":
-      return { name: "ChevronsDown", color: colors.foregroundMuted };
-    default:
-      return null;
-  }
-}
-
-function Card({ bean, colors }: { bean: BoardBean; colors: Colors }) {
-  const type = TYPE_STYLES[bean.type] ?? OTHER_TYPE;
-  const priority = priorityIcon(bean.priority, colors);
+function Card({
+  bean,
+  selected,
+  onPress,
+  colors,
+}: {
+  bean: BoardBean;
+  selected: boolean;
+  onPress(): void;
+  colors: Colors;
+}) {
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface1, borderColor: colors.border }]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${bean.id}: ${bean.title}`}
+      onPress={onPress}
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface1,
+          borderColor: selected ? colors.accent : colors.border,
+        },
+      ]}
+    >
       <Text style={[styles.cardTitle, { color: colors.foreground }]}>{bean.title}</Text>
       <View style={styles.cardRow}>
-        <View style={[styles.typeBadge, { backgroundColor: `${type.color}22` }]}>
-          <Icon name={type.icon} size={12} color={type.color} />
-          <Text style={[styles.small, styles.typeLabel, { color: type.color }]}>{bean.type}</Text>
-        </View>
+        <TypeBadge type={bean.type} />
         <View style={styles.cardIcons}>
           {bean.blocked && (
             <View style={styles.inline} accessibilityLabel="Blocked">
@@ -67,27 +58,12 @@ function Card({ bean, colors }: { bean: BoardBean; colors: Colors }) {
               <Text style={[styles.small, { color: colors.statusDanger }]}>blocked</Text>
             </View>
           )}
-          {priority && (
-            <View accessibilityLabel={`${bean.priority} priority`}>
-              <Icon name={priority.name} size={16} color={priority.color} />
-            </View>
-          )}
+          <PriorityIcon priority={bean.priority} colors={colors} />
         </View>
       </View>
-      {bean.tags.length > 0 && (
-        <View style={styles.tags}>
-          {bean.tags.map((tag) => (
-            <Text
-              key={tag}
-              style={[styles.small, styles.tag, { color: colors.foregroundMuted, borderColor: colors.border }]}
-            >
-              {tag}
-            </Text>
-          ))}
-        </View>
-      )}
+      <Tags tags={bean.tags} colors={colors} />
       <Text style={[styles.small, styles.cardId, { color: colors.foregroundMuted }]}>{bean.id}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -95,11 +71,15 @@ function LaneView({
   lane,
   collapsed,
   onToggle,
+  selected,
+  onOpenBean,
   colors,
 }: {
   lane: Lane;
   collapsed: boolean;
   onToggle(): void;
+  selected: string | null;
+  onOpenBean(beanId: string): void;
   colors: Colors;
 }) {
   const count = lane.cells.reduce((sum, cell) => sum + cell.cards.length, 0);
@@ -129,7 +109,13 @@ function LaneView({
                 {COLUMN_TITLES[cell.column] ?? cell.column} · {cell.cards.length}
               </Text>
               {cell.cards.map((bean) => (
-                <Card key={bean.id} bean={bean} colors={colors} />
+                <Card
+                  key={bean.id}
+                  bean={bean}
+                  selected={bean.id === selected}
+                  onPress={() => onOpenBean(bean.id)}
+                  colors={colors}
+                />
               ))}
             </View>
           ))}
@@ -139,9 +125,15 @@ function LaneView({
   );
 }
 
-export function BoardPanel({ workspaceId, tab, theme }: PluginWorkspacePanelProps) {
+export interface BoardPanelProps extends PluginWorkspacePanelProps {
+  /** Selects the bean and reveals its detail in the Explorer. */
+  onOpenBean(workspaceId: string, beanId: string): void;
+}
+
+export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelProps) {
   const { colors } = theme;
-  const { board, error, refresh } = useBoard(workspaceId);
+  const { data: board, error, refresh } = useBoard(workspaceId);
+  const selected = useSelection(workspaceId);
   const [state, setState] = useTabState(tab, TabState, DEFAULT_TAB_STATE);
 
   const toolbar = (
@@ -164,14 +156,16 @@ export function BoardPanel({ workspaceId, tab, theme }: PluginWorkspacePanelProp
     </View>
   );
 
-  const banner = error && (
+  // A ternary, not `&&`: an empty string would render bare text, which crashes
+  // React Native.
+  const banner = error ? (
     <View style={[styles.banner, { borderColor: colors.statusDanger }]}>
       <Text style={[styles.bannerText, { color: colors.statusDanger }]}>{error}</Text>
       <Pressable accessibilityRole="button" onPress={refresh}>
         <Text style={{ color: colors.accent }}>Retry</Text>
       </Pressable>
     </View>
-  );
+  ) : null;
 
   if (!board) {
     return error ? (
@@ -215,6 +209,8 @@ export function BoardPanel({ workspaceId, tab, theme }: PluginWorkspacePanelProp
             <LaneView
               lane={lane}
               collapsed={isCollapsed(lane)}
+              selected={selected}
+              onOpenBean={(beanId) => onOpenBean(workspaceId, beanId)}
               colors={colors}
               onToggle={() =>
                 setState({
@@ -267,17 +263,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontWeight: "500" },
   cardRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   cardIcons: { flexDirection: "row", alignItems: "center", gap: 6 },
-  typeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  typeLabel: { fontWeight: "600" },
-  tags: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
-  tag: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 },
   cardId: { alignSelf: "flex-end", fontStyle: "italic" },
   small: { fontSize: 11 },
   inline: { flexDirection: "row", alignItems: "center", gap: 2 },

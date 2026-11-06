@@ -3,7 +3,8 @@ import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { readBoard, readFingerprint } from "./board.ts";
+import { readBean, readBoard, readFingerprint } from "./board.ts";
+import { BeanId } from "../shared/rpc.ts";
 import { graphql } from "./cli.ts";
 
 const tmp = (prefix: string) => mkdtemp(path.join(os.tmpdir(), `beans-${prefix}-`));
@@ -124,4 +125,52 @@ test("graphql times out a hung CLI", async () => {
   const cwd = await tmp("cwd");
   const beans = await fakeBeans("exec sleep 10");
   await assert.rejects(graphql(cwd, "{}", {}, { beans, timeoutMs: 200 }), /timed out/);
+});
+
+const DETAIL = {
+  id: "x-1",
+  slug: "one",
+  title: "One",
+  status: "todo",
+  implicitStatus: null,
+  type: "task",
+  priority: null,
+  tags: [],
+  body: "# Hi",
+  createdAt: "2026-01-01T00:00:00Z",
+  updatedAt: "2026-01-02T00:00:00Z",
+  parent: { id: "x-0", title: "Epic", status: "todo", type: "epic" },
+  blockedBy: [],
+  children: [],
+};
+
+test("readBean passes the id as a variable and maps the bean", async () => {
+  const root = await project();
+  const beans = await fakeBeans(`echo '${JSON.stringify({ bean: DETAIL })}'`);
+  const result = await readBean(root, "x-1", { beans });
+  assert.equal(result.kind, "project");
+  assert.deepEqual(result.kind === "project" && result.bean, { ...DETAIL, priority: "normal" });
+  const argv = (await readFile(path.join(path.dirname(beans), "argv"), "utf8")).split("\n");
+  assert.equal(argv[3], '{"id":"x-1"}');
+});
+
+test("readBean is null for an unknown id", async () => {
+  const root = await project();
+  const beans = await fakeBeans(`echo '{"bean": null}'`);
+  const result = await readBean(root, "x-9", { beans });
+  assert.deepEqual(result.kind === "project" && result.bean, null);
+});
+
+test("readBean of a project without its data directory is null, without running beans", async () => {
+  const root = await tmp("no-data");
+  await writeFile(path.join(root, ".beans.yml"), "beans:\n  path: .beans\n");
+  const result = await readBean(root, "x-1", { beans: await fakeBeans("exit 99") });
+  assert.deepEqual(result.kind === "project" && result.bean, null);
+});
+
+test("the bean id fence admits prefixed ids and rejects anything else", () => {
+  for (const id of ["dotfiles-p38z", "my_app.v2-ab12"]) assert.ok(BeanId.safeParse(id).success, id);
+  for (const id of ["", "a b", 'x") { y } #', "a\nb", "../x"]) {
+    assert.ok(!BeanId.safeParse(id).success, JSON.stringify(id));
+  }
 });

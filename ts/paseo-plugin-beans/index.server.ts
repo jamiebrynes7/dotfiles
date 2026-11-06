@@ -1,6 +1,6 @@
 import type { PluginHandlerContext, PluginServerContext } from "@getpaseo/plugin/server";
-import { readBoard, readFingerprint } from "./server/board.ts";
-import { board, fingerprint } from "./shared/rpc.ts";
+import { readBean, readBoard, readFingerprint } from "./server/board.ts";
+import { bean, board, fingerprint } from "./shared/rpc.ts";
 
 // The workspace's own directory, so a worktree shows its branch's beans. Resolved
 // per call rather than cached: the daemon is the source of truth for the mapping.
@@ -18,6 +18,9 @@ export default function contribute(server: PluginServerContext) {
   );
   server.handle(board, async ({ workspaceId }, { paseo }) =>
     readBoard(await directoryOf(paseo, workspaceId)),
+  );
+  server.handle(bean, async ({ workspaceId, beanId }, { paseo }) =>
+    readBean(await directoryOf(paseo, workspaceId), beanId),
   );
   return () => {};
 }

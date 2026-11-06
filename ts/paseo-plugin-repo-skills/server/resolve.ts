@@ -13,7 +13,7 @@ export type Decision =
   // Not ours to touch: a non-Claude agent, no repository, no matching remote.
   | { kind: "unchanged" }
   // A declared repository may be involved, but its skills cannot be loaded.
-  | { kind: "skipped"; reason: string }
+  | { kind: "skipped"; reason: string; detail?: string }
   | { kind: "load"; key: string; pluginDir: string; alsoMatched: string[] };
 
 export interface Deps {
@@ -31,10 +31,10 @@ export async function decide(config: SessionConfig, deps: Deps): Promise<Decisio
   // when the config is broken.
   const remotes = await deps.listRemoteUrls(config.cwd);
   if (remotes.kind === "not-a-repository") return { kind: "unchanged" };
-  if (remotes.kind === "error") return { kind: "skipped", reason: remotes.reason };
+  if (remotes.kind === "error") return { ...remotes, kind: "skipped" };
 
   const read = await deps.readConfig();
-  if (read.kind === "error") return { kind: "skipped", reason: read.reason };
+  if (read.kind === "error") return { ...read, kind: "skipped" };
 
   const matched = matchKeys(remotes.urls, Object.keys(read.repositories));
   const [key, ...alsoMatched] = matched;
@@ -42,17 +42,27 @@ export async function decide(config: SessionConfig, deps: Deps): Promise<Decisio
 
   const pluginDir = read.repositories[key]!;
   if (!(await deps.isDirectory(pluginDir))) {
-    return { kind: "skipped", reason: `plugin folder missing or unreadable for ${key}: ${pluginDir}` };
+    return {
+      kind: "skipped",
+      reason: `plugin folder missing or unreadable for ${key}`,
+      detail: pluginDir,
+    };
   }
 
   const extraArgs = config.providerOptions?.extraArgs;
   if (extraArgs !== undefined && !isRecord(extraArgs)) {
     return { kind: "skipped", reason: "providerOptions.extraArgs is not an object" };
   }
+  // Our own value coming back: Paseo re-creates a stored agent that never got a
+  // provider session from its saved config, which already carries it.
+  if (extraArgs !== undefined && extraArgs["plugin-dir"] === pluginDir) {
+    return { kind: "unchanged" };
+  }
   if (extraArgs !== undefined && Object.hasOwn(extraArgs, "plugin-dir")) {
     return {
       kind: "skipped",
-      reason: `plugin-dir already set to ${JSON.stringify(extraArgs["plugin-dir"])}`,
+      reason: "plugin-dir already set",
+      detail: String(extraArgs["plugin-dir"]),
     };
   }
 

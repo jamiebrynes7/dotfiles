@@ -7,7 +7,7 @@ export const GIT_TIMEOUT_MS = 5_000;
 export type RemoteList =
   | { kind: "not-a-repository" }
   | { kind: "ok"; urls: string[] }
-  | { kind: "error"; reason: string };
+  | { kind: "error"; reason: string; detail?: string };
 
 export interface GitOptions {
   signal?: AbortSignal;
@@ -43,7 +43,8 @@ export async function listRemoteUrls(cwd: string, options: GitOptions = {}): Pro
     if (NO_REPOSITORY.test(inside.stderr)) return { kind: "not-a-repository" };
     return {
       kind: "error",
-      reason: `git rev-parse exited ${inside.code} in ${cwd}: ${inside.stderr.trim()}`,
+      reason: `git rev-parse exited ${inside.code}: ${inside.stderr.trim()}`,
+      detail: cwd,
     };
   }
 
@@ -58,7 +59,8 @@ export async function listRemoteUrls(cwd: string, options: GitOptions = {}): Pro
   if (listed.code !== 0) {
     return {
       kind: "error",
-      reason: `git config exited ${listed.code} in ${cwd}: ${listed.stderr.trim()}`,
+      reason: `git config exited ${listed.code}: ${listed.stderr.trim()}`,
+      detail: cwd,
     };
   }
   // --null prints `<key>\n<value>\0` per entry.

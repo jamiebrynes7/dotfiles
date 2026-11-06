@@ -35,9 +35,11 @@ test("a valid file gives its repositories", async () => {
 });
 
 test("a missing file is an error naming it", async () => {
-  const result = await readConfig("/nonexistent/config.json");
-  assert.equal(result.kind, "error");
-  assert.match(result.kind === "error" ? result.reason : "", /missing: \/nonexistent\/config.json/);
+  assert.deepEqual(await readConfig("/nonexistent/config.json"), {
+    kind: "error",
+    reason: "config file missing",
+    detail: "/nonexistent/config.json",
+  });
 });
 
 test("invalid JSON is an error", async () => {

@@ -95,9 +95,9 @@ test("several matching keys: the first in remote order wins, the rest are named"
 test("config and git failures, and a missing plugin folder, skip with a reason", async () => {
   const configError = await decide(
     claude,
-    deps({ config: { kind: "error", reason: "config file missing: /c" } }),
+    deps({ config: { kind: "error", reason: "config file missing", detail: "/c" } }),
   );
-  assert.deepEqual(configError, { kind: "skipped", reason: "config file missing: /c" });
+  assert.deepEqual(configError, { kind: "skipped", reason: "config file missing", detail: "/c" });
 
   const gitError = await decide(
     claude,
@@ -106,8 +106,11 @@ test("config and git failures, and a missing plugin folder, skip with a reason",
   assert.deepEqual(gitError, { kind: "skipped", reason: "git rev-parse --git-dir timed out" });
 
   const missing = await decide(claude, deps({ dirs: [] }));
-  assert.equal(missing.kind, "skipped");
-  assert.match(missing.kind === "skipped" ? missing.reason : "", /plugin folder missing.*\/plugins\/acme-web/);
+  assert.deepEqual(missing, {
+    kind: "skipped",
+    reason: "plugin folder missing or unreadable for github.com/acme/web",
+    detail: "/plugins/acme-web",
+  });
 });
 
 test("an existing plugin-dir is kept and the skip says so", async () => {
@@ -117,7 +120,8 @@ test("an existing plugin-dir is kept and the skip says so", async () => {
   };
   assert.deepEqual(await decide(config, deps({})), {
     kind: "skipped",
-    reason: 'plugin-dir already set to "/mine"',
+    reason: "plugin-dir already set",
+    detail: "/mine",
   });
 });
 

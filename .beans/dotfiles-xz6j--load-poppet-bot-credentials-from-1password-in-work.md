@@ -5,7 +5,7 @@ status: in-progress
 type: task
 priority: normal
 created_at: 2026-11-06T22:47:22Z
-updated_at: 2026-11-06T22:48:41Z
+updated_at: 2026-11-06T22:53:25Z
 ---
 
 Replace POPPET_BOT_CLIENT_ID / POPPET_BOT_PRIVATE_KEY repo config with 1password/load-secrets-action reading op://dev/poppet-bot-github, following nimbus infra.yml.
@@ -14,5 +14,5 @@ Replace POPPET_BOT_CLIENT_ID / POPPET_BOT_PRIVATE_KEY repo config with 1password
 - [x] auto-update.yml
 - [x] update-flake-lock.yml
 
-- [ ] Verify with a real workflow run
+- [x] Verify with a real workflow run
 - [ ] Delete POPPET_BOT_PRIVATE_KEY secret and POPPET_BOT_CLIENT_ID variable once verified

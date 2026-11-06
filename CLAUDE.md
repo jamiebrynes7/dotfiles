@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-11-05
+Freshness: 2026-11-06
 
 ## Tech Stack
 
@@ -65,6 +65,8 @@ Beyond that, `update.sh` should **fail** on anything it cannot resolve, includin
 Paseo plugins are packaged one directory per plugin, named after the **plugin id** — `packages/paseo-plugin-<id>/` — so `dotfiles.programs.paseo.plugins.<id>.package = pkgs.dotfiles.paseo-plugin-<id>` needs no lookup table. An external plugin whose upstream publishes no releases is pinned by commit SHA literally in its `default.nix`, with **no** `hashes.json` and **no** `update.sh`: plugin code runs unsandboxed as the daemon user, so every bump is a reviewed commit rather than a nightly auto-update PR. Omitting `update.sh` is what keeps `auto-update.yml` away from it. Such a plugin may carry a hand-run `bump.sh` instead (as `paseo-plugin-paseo-chat-polish` does) — never name it `update.sh`, which `auto-update.yml` globs. `nix flake check`'s `paseo-plugin-requirements` check (`packages/paseo/plugin-requirements.nix`) evaluates every `paseo-plugin-*` package's `requirements.paseo` against the pinned paseo version, so a nightly paseo bump that a plugin no longer admits goes red instead of failing at load on a host.
 
 A repo-local plugin lives in `ts/paseo-plugin-<id>/`; its `packages/paseo-plugin-<id>/default.nix` is a one-liner over `buildPaseoPlugin` (from `ts/default.nix`), a plain copy, since the daemon compiles plugins itself. Each plugin gets two checks: `<dir>-typecheck` and `<dir>-sdk-version`. The second pins `@getpaseo/plugin` to paseo's exact version; `packages/paseo/update.sh` keeps it there by running `ts/update-paseo-sdk.sh`, so a breaking SDK change surfaces as a red `<dir>-typecheck` on the auto-update PR. Typechecking misses the daemon's layout rule (root modules are only `index.{client,server}.ts(x)`; everything else goes under `client/`, `server/` or `shared/`). Never `timeline.refetch` an agent the client hasn't seen live: it resumes a stored agent's provider session.
+
+To try a repo-local plugin by hand before it reaches a host, run `ts/paseo-demo.sh <id>...` from the devShell. It builds `pkgs.dotfiles.paseo-plugin-<id>` (so `git add` edits first) and starts a throwaway daemon with its own `PASEO_HOME` (`/tmp/paseo-demo-home`, wiped each run) on `127.0.0.1:6868`, isolated from the real one. Add that address as a host in the Paseo app; Ctrl-C stops the daemon. If a plugin has a `ts/paseo-plugin-<id>/demo/seed.sh`, the script runs it once the daemon is listening, to create demo projects and register them as workspaces. `ts/default.nix` leaves `demo/` out of the plugin source, so the seed never ships. Re-run the script after a change to load the rebuilt plugin.
 
 ### Channel inputs
 

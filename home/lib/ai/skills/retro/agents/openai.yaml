@@ -1,0 +1,4 @@
+# Codex ignores `disable-model-invocation` in SKILL.md frontmatter; this is its
+# equivalent, so the skill runs only when invoked explicitly as `$retro`.
+policy:
+  allow_implicit_invocation: false

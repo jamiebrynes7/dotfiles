@@ -1,10 +1,11 @@
 ---
 # dotfiles-na0t
 title: Add a retro skill for session retrospectives
-status: todo
+status: completed
 type: feature
+priority: normal
 created_at: 2026-10-07T15:57:30Z
-updated_at: 2026-10-07T15:57:30Z
+updated_at: 2026-11-06T10:45:21Z
 ---
 
 Add a user-invoked `retro` skill under `home/lib/ai/skills/`. It reviews a coding session and reports what in the agent's setup should change so future runs go better. The output is a report for the user to read; the skill doesn't edit anything itself.
@@ -30,7 +31,16 @@ Adapted from mattpocock's `retro` skill (https://github.com/mattpocock/skills/bl
 
 ## Todo
 
-- [ ] Write `home/lib/ai/skills/retro/SKILL.md` (aim for ~50–60 lines), with variant-prefixed frontmatter where the assistants differ.
-- [ ] Check that `disable-model-invocation` comes through `process-frontmatter` correctly for each variant (and what Cursor/Codex do with it).
-- [ ] Find out where Claude Code and Codex store session logs, so the skill can name them per variant or describe them generally.
-- [ ] Run it once on a real session and adjust.
+- [x] Write `home/lib/ai/skills/retro/SKILL.md` (aim for ~50–60 lines), with variant-prefixed frontmatter where the assistants differ.
+- [x] Check that `disable-model-invocation` comes through `process-frontmatter` correctly for each variant (and what Cursor/Codex do with it).
+- [x] Find out where Claude Code and Codex store session logs, so the skill can name them per variant or describe them generally.
+- [x] Run it once on a real session and adjust.
+
+## Summary of Changes
+
+Added `home/lib/ai/skills/retro/`, a user-invoked skill adapted from mattpocock's `retro` (MIT, attributed in the skill's `LICENSE`). It gathers evidence from the current or a named past session, sorts candidates into the upstream categories, says whether each fix lands project- or user-level, reports by severity, and offers to track accepted findings in whatever the project uses.
+
+- User-invoked only: `cc:`/`cursor:disable-model-invocation: true` (both honour it). Codex ignores that key and instead reads `agents/openai.yaml` `policy.allow_implicit_invocation: false`, which ships in the skill dir. I checked the built output for all three variants.
+- Session log locations are listed for Claude Code (`~/.claude/projects/<cwd-slug>/<id>.jsonl`), Codex (`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`) and Cursor (`~/.cursor/projects/<slug>/agent-transcripts/`). Past-session reading goes to a subagent that parses the JSONL.
+- A trial run on a real dotfiles session produced a useful report. Its feedback, together with a critical review, shaped the final version: a tighter No-ops trigger (applied but made no difference), "no review step" counted as a finding, a severity rubric, a check against the current state, a fallback after compaction, and the evidence list the log subagent is asked for.
+- Renamed the "Global instructions" category to "Always-loaded instructions", since it covers project files too and "global" clashed with "user-level".

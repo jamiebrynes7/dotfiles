@@ -1,0 +1,6 @@
+{
+  "id": "beans",
+  "name": "Beans",
+  "description": "Shows a workspace's beans as a Kanban board in a workspace tab",
+  "requirements": { "paseo": ">=0.15.2" }
+}

@@ -5,21 +5,21 @@
   fetchFromGitHub,
   autoPatchelfHook,
 }:
-# Bumped by hand even though upstream tags releases: plugin server code runs
-# unsandboxed as the daemon user, so every update is a reviewed commit rather than a
-# nightly auto-update PR.
+# Bumped by hand with ./bump.sh even though upstream tags releases: plugin server
+# code runs unsandboxed as the daemon user, so every update is a reviewed commit
+# rather than a nightly auto-update PR.
 buildNpmPackage {
   pname = "paseo-plugin-paseo-chat-polish";
-  version = "0.7.0";
+  version = "0.9.1";
 
   src = fetchFromGitHub {
     owner = "lthieu96";
     repo = "paseo-chat-polish";
-    rev = "0782cd0c87f621a8211d4731717089767929bb88";
-    hash = "sha256-73dkGm6cR17j6OjH0OAyHs6u6JN2g0C67K39v1P6LZ4=";
+    rev = "41395d5d4d4c5242314779489e917dfb6c31ccae";
+    hash = "sha256-UffdwESAMrYhZ3XDap3khxn/gFN3Eq4ipHHoU/Xphns=";
   };
 
-  npmDepsHash = "sha256-jz+Ee4rghvrkbZV+YoY4bDrz0SfvrUZ+PeF2uH4veOY=";
+  npmDepsHash = "sha256-Y4+YIhBL+uA8c6tc8Z6fpNge+XQVj2MAJfzrdmNqJrE=";
 
   # The manifest's `build` step (`npm ci --omit=dev --ignore-scripts`) only runs for
   # git installs, never for a directory source, so it is reproduced here. sharp ships

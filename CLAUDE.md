@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-10-18
+Freshness: 2026-11-05
 
 ## Tech Stack
 
@@ -42,7 +42,7 @@ home/
 templates/
   projects/          # go, typescript — scaffolded via `spark`
   systems/           # darwin, nixos, home-manager
-modules/             # Shared NixOS/nix-darwin modules (currently empty)
+modules/             # Cross-platform modules imported by mkDarwin/mkNixosSystem/mkHomeManagerSystem (nix-gc)
 crates/              # Rust workspace: beansd + beansctl + beansd-rpc — see crates/CLAUDE.md
 ts/                  # Repo-local paseo plugin source (paseo-plugin-<id>/) + buildPaseoPlugin/tsChecks overlay
 packages/            # Nix packages — built from this repo or vendored upstream binaries
@@ -71,6 +71,12 @@ A repo-local plugin lives in `ts/paseo-plugin-<id>/`; its `packages/paseo-plugin
 `nixpkgs` (`nixos-26.05`) and `nixpkgs-darwin` (`nixpkgs-26.05-darwin`) are **the same `release-26.05` branch behind two different Hydra gates**, not two package sets — each is a pointer Hydra fast-forwards once its own jobset is green, Linux for one and Darwin for the other. They can therefore differ only in staleness, never in content, which is why they are always bumped together in one PR. The Darwin pointer exists for cache hit rate and to catch Darwin breakage the Linux gate would miss; `flake.nix` builds `pkgs` per-platform from the respective input, so neither platform ever sees the other's nixpkgs.
 
 Moving to the next release is a separate, hand-written change: `nixpkgs`, `nixpkgs-darwin`, `darwin` (`nix-darwin-26.05`) and `home-manager` (`release-26.05`) must all move in lockstep, since nix-darwin and home-manager cut a release branch per nixpkgs release.
+
+### Nix garbage collection
+
+`modules/nix-gc/` replaces the built-in `nix.gc` on every target, because `nix-collect-garbage` can only delete by age and nix-darwin's `nix.gc.automatic` asserts `nix.enable`, which a Determinate-managed Mac must set false. One script prunes each profile to its last `dotfiles.nix.gc.keepGenerations` (default 5) with `nix-env --delete-generations +N`, then collects and optimises, using whatever `nix` is on its `PATH`. A thin wrapper per target schedules it weekly: a root launchd daemon (`darwin.nix`), a systemd timer (`nixos.nix`), and a user agent or timer (`home-manager.nix`). The flake imports the home-manager wrapper only from `mkHomeManagerSystem`; on nix-darwin and NixOS the system job also prunes every home-manager user's profiles.
+
+Where Determinate manages the system, the darwin and NixOS wrappers disable Determinate Nixd's collector (`garbageCollector.strategy = "disabled"`). On darwin, `nix.enable = false` is the signal, set through Determinate's module option when it is imported and otherwise by writing `/etc/determinate/config.json`. On NixOS the signal is `determinate.enable`, and the wrapper takes over that file. Standalone home-manager can't do either, so there Determinate's collector keeps running alongside.
 
 ### Program module pattern
 

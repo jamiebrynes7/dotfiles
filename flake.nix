@@ -118,6 +118,7 @@
               };
             }
             ./darwin
+            ./modules/nix-gc/darwin.nix
             inputs.home-manager.darwinModules.home-manager
           ]
           ++ modules;
@@ -149,6 +150,7 @@
                 };
               };
             }
+            ./modules/nix-gc/nixos.nix
             inputs.home-manager.nixosModules.home-manager
           ]
           ++ modules;
@@ -182,6 +184,7 @@
                 })
               ];
             }
+            ./modules/nix-gc/home-manager.nix
           ];
         };
 

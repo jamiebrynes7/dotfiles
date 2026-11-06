@@ -1,0 +1,6 @@
+{
+  "id": "repo-skills",
+  "name": "Repository skills",
+  "description": "Loads the skills declared in dotfiles.programs.paseo.repoSkills into Claude agents created in a matching repository",
+  "requirements": { "paseo": ">=0.15.0" }
+}

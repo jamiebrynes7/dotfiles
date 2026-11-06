@@ -29,6 +29,7 @@ async function project() {
 const BEAN = {
   id: "x-1",
   slug: "one",
+  path: "x-1--one.md",
   title: "One",
   status: "todo",
   implicitStatus: null,
@@ -54,6 +55,30 @@ test("readBoard maps the query, marking blocked beans and defaulting priority", 
       ["x-2", "high", true],
     ],
   );
+});
+
+test("readBoard marks beans under archive/ as archived, without exposing the path", async () => {
+  const root = await project();
+  const output = {
+    beans: [
+      BEAN,
+      { ...BEAN, id: "x-2", path: "archive/x-2--two.md", status: "completed" },
+      { ...BEAN, id: "x-3", path: "archive-notes--three.md" },
+    ],
+    blocked: [],
+  };
+  const beans = await fakeBeans(`echo '${JSON.stringify(output)}'`);
+  const result = await readBoard(root, { beans });
+  assert.ok(result.kind === "project");
+  assert.deepEqual(
+    result.beans.map((bean) => [bean.id, bean.archived]),
+    [
+      ["x-1", false],
+      ["x-2", true],
+      ["x-3", false],
+    ],
+  );
+  assert.ok(result.beans.every((bean) => !("path" in bean)));
 });
 
 test("with no project, readBoard and readFingerprint say so without running beans", async () => {

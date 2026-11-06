@@ -7,7 +7,7 @@ import { findProject, fingerprintOf } from "./project.ts";
 // `isBlocked` covers explicit blockers and a blocked ancestor alike, which is what
 // the card's marker means.
 const BOARD_QUERY = `{
-  beans { id slug title status implicitStatus type priority parentId updatedAt tags }
+  beans { id slug path title status implicitStatus type priority parentId updatedAt tags }
   blocked: beans(filter: { isBlocked: true }) { id }
 }`;
 
@@ -16,6 +16,7 @@ const BoardResponse = z.object({
     z.object({
       id: z.string(),
       slug: z.string().nullable(),
+      path: z.string(),
       title: z.string(),
       status: z.string(),
       implicitStatus: z.string().nullable(),
@@ -72,10 +73,12 @@ export function readBoard(directory: string, options: CliOptions = {}): Promise<
     const data = parse(BoardResponse, await graphql(directory, BOARD_QUERY, {}, options), "board");
     const blocked = new Set(data.blocked.map((bean) => bean.id));
     return {
-      beans: data.beans.map((bean) => ({
+      beans: data.beans.map(({ path, ...bean }) => ({
         ...bean,
         priority: bean.priority ?? "normal",
         blocked: blocked.has(bean.id),
+        // The schema has no archived field; the CLI reports only the file's location.
+        archived: path.startsWith("archive/"),
       })),
     };
   });

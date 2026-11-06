@@ -18,6 +18,7 @@ export const BoardBean = z.object({
   updatedAt: z.string(),
   tags: z.array(z.string()),
   blocked: z.boolean(),
+  archived: z.boolean(),
 });
 export type BoardBean = z.infer<typeof BoardBean>;
 

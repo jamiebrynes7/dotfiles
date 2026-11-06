@@ -16,6 +16,7 @@ function bean(id: string, fields: Partial<BoardBean> = {}): BoardBean {
     updatedAt: "2026-01-01T00:00:00Z",
     tags: [],
     blocked: false,
+    archived: false,
     ...fields,
   };
 }
@@ -44,6 +45,7 @@ test("cards file under their nearest epic ancestor, with No epic last", () => {
       bean("t2", { parentId: "m1" }),
     ],
     false,
+    false,
   );
   assert.deepEqual(shape(lanes), [
     { epic: "e1", cells: { todo: ["f1"], "in-progress": ["t1"] } },
@@ -58,22 +60,65 @@ test("an inherited terminal status wins over the bean's own", () => {
       bean("t1", { parentId: "e1", status: "todo", implicitStatus: "completed" }),
     ],
     false,
+    false,
   );
   assert.deepEqual(shape(lanes), [{ epic: "e1", cells: { completed: ["t1"] } }]);
 });
 
 test("scrapped cards appear only with the toggle on", () => {
   const beans = [bean("a"), bean("s", { status: "scrapped" })];
-  assert.deepEqual(layout(beans, false)[0].cells.map((cell) => cell.column), [
+  assert.deepEqual(layout(beans, false, false)[0].cells.map((cell) => cell.column), [
     "draft",
     "todo",
     "in-progress",
     "completed",
   ]);
-  assert.deepEqual(shape(layout(beans, false)), [{ epic: null, cells: { todo: ["a"] } }]);
-  assert.deepEqual(shape(layout(beans, true)), [
+  assert.deepEqual(shape(layout(beans, false, false)), [{ epic: null, cells: { todo: ["a"] } }]);
+  assert.deepEqual(shape(layout(beans, true, false)), [
     { epic: null, cells: { todo: ["a"], scrapped: ["s"] } },
   ]);
+});
+
+test("archived cards appear only with the toggle on", () => {
+  const beans = [bean("a"), bean("old", { status: "completed", archived: true })];
+  assert.deepEqual(shape(layout(beans, false, false)), [{ epic: null, cells: { todo: ["a"] } }]);
+  assert.deepEqual(shape(layout(beans, false, true)), [
+    { epic: null, cells: { todo: ["a"], completed: ["old"] } },
+  ]);
+});
+
+test("the scrapped and archived toggles are independent", () => {
+  const beans = [bean("gone", { status: "scrapped", archived: true })];
+  assert.deepEqual(shape(layout(beans, true, false)), []);
+  assert.deepEqual(shape(layout(beans, false, true)), []);
+  assert.deepEqual(shape(layout(beans, true, true)), [
+    { epic: null, cells: { scrapped: ["gone"] } },
+  ]);
+});
+
+test("an archived epic still heads the lane of its unarchived cards", () => {
+  const lanes = layout(
+    [
+      bean("e1", { type: "epic", status: "completed", archived: true }),
+      bean("kept", { parentId: "e1", implicitStatus: "completed" }),
+      bean("old", { parentId: "e1", implicitStatus: "completed", archived: true }),
+    ],
+    false,
+    false,
+  );
+  assert.deepEqual(shape(lanes), [{ epic: "e1", cells: { completed: ["kept"] } }]);
+});
+
+test("a lane whose cards are all archived is omitted", () => {
+  const lanes = layout(
+    [
+      bean("e1", { type: "epic", status: "completed", archived: true }),
+      bean("old", { parentId: "e1", implicitStatus: "completed", archived: true }),
+    ],
+    false,
+    false,
+  );
+  assert.deepEqual(shape(lanes), []);
 });
 
 test("a lane with no visible cards is omitted", () => {
@@ -83,6 +128,7 @@ test("a lane with no visible cards is omitted", () => {
       bean("gone", { type: "epic" }),
       bean("s", { parentId: "gone", status: "scrapped" }),
     ],
+    false,
     false,
   );
   assert.deepEqual(shape(lanes), []);
@@ -100,6 +146,7 @@ test("lanes of completed or scrapped epics start collapsed", () => {
       bean("d"),
     ],
     true,
+    false,
   );
   assert.deepEqual(
     lanes.map((lane) => [lane.epic?.id ?? null, lane.collapsedByDefault]),
@@ -126,6 +173,7 @@ test("lanes order by epic priority then title; cards by priority then newest", (
       bean("q", { parentId: "e-hi" }),
     ],
     false,
+    false,
   );
   assert.deepEqual(shape(lanes), [
     { epic: "e-hi", cells: { todo: ["q"] } },
@@ -135,7 +183,7 @@ test("lanes order by epic priority then title; cards by priority then newest", (
 });
 
 test("a parent cycle does not hang", () => {
-  const lanes = layout([bean("a", { parentId: "b" }), bean("b", { parentId: "a" })], false);
+  const lanes = layout([bean("a", { parentId: "b" }), bean("b", { parentId: "a" })], false, false);
   assert.deepEqual(shape(lanes), [{ epic: null, cells: { todo: ["a", "b"] } }]);
 });
 
@@ -153,6 +201,7 @@ test("epic lanes group by the epic's status: in progress, todo, draft, completed
       ),
       bean("loose"),
     ],
+    false,
     false,
   );
   assert.deepEqual(

@@ -11,6 +11,7 @@ empty="${BEANS_DEMO_EMPTY:-/tmp/beans-demo-empty}"
 
 commit() { git -c user.name=demo -c user.email=demo@example.com commit -qm "$1"; }
 mk() { beans create --json "$@" | jq -r .bean.id; }
+archive() { beans graphql --json -v "{\"id\":\"$1\"}" 'mutation A($id: ID!) { archiveBean(id: $id) }' >/dev/null; }
 
 rm -rf "$project" "$empty"
 mkdir -p "$project" "$empty"
@@ -56,6 +57,17 @@ mk "Delete legacy flags" -t task -d "Flags" --parent "$legacy" >/dev/null
 
 mk "Fix flaky CI" -t bug -d "Flaky" -p high --tag ci --tag flaky >/dev/null
 mk "Update README" -t task -d "Docs" -s in-progress -p deferred >/dev/null
+
+# Archived beans, shown only with the toggle on: a lane that vanishes entirely, one
+# whose epic is archived but keeps an unarchived card, and a loose card.
+onboarding=$(mk "Old onboarding" -t epic -d "Retired" -s completed)
+archive "$(mk "Welcome email" -t task -d "Sent" --parent "$onboarding" -s completed)"
+archive "$onboarding"
+billing=$(mk "Billing migration" -t epic -d "Done" -s completed)
+mk "Move invoices" -t task -d "Moved" --parent "$billing" -s completed >/dev/null
+archive "$(mk "Export old invoices" -t task -d "Exported" --parent "$billing" -s completed)"
+archive "$billing"
+archive "$(mk "Fix favicon" -t bug -d "Fixed" -s completed)"
 
 git add -A
 commit "seed beans"

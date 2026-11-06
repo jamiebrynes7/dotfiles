@@ -1,11 +1,11 @@
 ---
 # dotfiles-xz6j
 title: Load poppet-bot credentials from 1Password in workflows
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-11-06T22:47:22Z
-updated_at: 2026-11-06T22:53:25Z
+updated_at: 2026-11-06T22:55:33Z
 ---
 
 Replace POPPET_BOT_CLIENT_ID / POPPET_BOT_PRIVATE_KEY repo config with 1password/load-secrets-action reading op://dev/poppet-bot-github, following nimbus infra.yml.
@@ -15,4 +15,8 @@ Replace POPPET_BOT_CLIENT_ID / POPPET_BOT_PRIVATE_KEY repo config with 1password
 - [x] update-flake-lock.yml
 
 - [x] Verify with a real workflow run
-- [ ] Delete POPPET_BOT_PRIVATE_KEY secret and POPPET_BOT_CLIENT_ID variable once verified
+- [x] Delete POPPET_BOT_PRIVATE_KEY secret and POPPET_BOT_CLIENT_ID variable once verified
+
+## Summary of Changes
+
+archive-beans, auto-update and update-flake-lock now read the poppet-bot client id and private key from op://dev/poppet-bot-github through load-secrets-action, using the dotfiles service account. Verified with a real archive-beans run. The POPPET_BOT_PRIVATE_KEY secret and POPPET_BOT_CLIENT_ID variable are removed once this merges.

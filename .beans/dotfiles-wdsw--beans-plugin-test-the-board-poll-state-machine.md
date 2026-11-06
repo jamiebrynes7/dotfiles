@@ -5,15 +5,15 @@ status: todo
 type: task
 priority: low
 created_at: 2026-11-06T14:44:57Z
-updated_at: 2026-11-06T14:44:57Z
+updated_at: 2026-11-06T15:02:31Z
 parent: dotfiles-oweh
 ---
 
-The client poll in `ts/paseo-plugin-beans/client/use-board.ts` (serialised request chain, forced refresh while busy, failed-fingerprint backoff, error-banner clearing, dropping results after unmount or workspace change) has no tests; every node:test covers server/shared code.
+The client poll in `ts/paseo-plugin-beans/client/use-polled.ts` (shared by the board and detail panels) (serialised request chain, forced refresh while busy, failed-fingerprint backoff, error-banner clearing, dropping results after unmount or workspace change) has no tests; every node:test covers server/shared code.
 
 ## What to build
 
-Extract the poll's state machine into a plain function under `shared/` that takes the two RPCs and a timer, keep `useBoard` as a thin React wrapper over it, and cover it with node:test.
+Extract the poll's state machine into a plain function under `shared/` that takes the two RPCs and a timer, keep `usePolled` as a thin React wrapper over it, and cover it with node:test.
 
 ## Acceptance criteria
 

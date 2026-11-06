@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
 import { z } from "zod";
-import type { Board, Fingerprint } from "../shared/rpc.ts";
+import { BeanDetail, type BeanResult, type Board, type Fingerprint } from "../shared/rpc.ts";
 import { graphql, type CliOptions } from "./cli.ts";
 import { findProject, fingerprintOf } from "./project.ts";
 
@@ -35,14 +35,20 @@ export async function readFingerprint(directory: string): Promise<Fingerprint> {
   return { kind: "project", fingerprint: await fingerprintOf(project) };
 }
 
+type ProjectRead<T> = { kind: "none"; directory: string } | ({ kind: "project"; fingerprint: string } & T);
+
 // The fingerprint is taken before the query, so a change landing mid-query shows up
-// as a mismatch on the next poll instead of being lost.
-export async function readBoard(directory: string, options: CliOptions = {}): Promise<Board> {
+// as a mismatch on the next poll instead of being lost. `empty` answers for a
+// project whose data directory is missing, which the CLI refuses but a fresh
+// checkout of a project with no beans has (git tracks no empty directories).
+async function readProject<T>(
+  directory: string,
+  empty: T,
+  query: () => Promise<T>,
+): Promise<ProjectRead<T>> {
   const project = await findProject(directory);
   if (!project) return { kind: "none", directory };
   const fingerprint = await fingerprintOf(project);
-  // The CLI refuses a missing data directory, which a fresh checkout of a project
-  // with no beans has (git tracks no empty directories): that is an empty board.
   const hasData = await stat(project.dataDir).then(
     () => true,
     (error: NodeJS.ErrnoException) => {
@@ -50,19 +56,51 @@ export async function readBoard(directory: string, options: CliOptions = {}): Pr
       throw error;
     },
   );
-  if (!hasData) return { kind: "project", fingerprint, beans: [] };
-  const parsed = BoardResponse.safeParse(await graphql(directory, BOARD_QUERY, {}, options));
+  return { kind: "project", fingerprint, ...(hasData ? await query() : empty) };
+}
+
+function parse<Schema extends z.ZodType>(schema: Schema, data: unknown, what: string): z.output<Schema> {
+  const parsed = schema.safeParse(data);
   if (!parsed.success) {
-    throw new Error(`beans returned an unexpected board shape: ${z.prettifyError(parsed.error)}`);
+    throw new Error(`beans returned an unexpected ${what} shape: ${z.prettifyError(parsed.error)}`);
   }
-  const blocked = new Set(parsed.data.blocked.map((bean) => bean.id));
-  return {
-    kind: "project",
-    fingerprint,
-    beans: parsed.data.beans.map((bean) => ({
-      ...bean,
-      priority: bean.priority ?? "normal",
-      blocked: blocked.has(bean.id),
-    })),
-  };
+  return parsed.data;
+}
+
+export function readBoard(directory: string, options: CliOptions = {}): Promise<Board> {
+  return readProject(directory, { beans: [] }, async () => {
+    const data = parse(BoardResponse, await graphql(directory, BOARD_QUERY, {}, options), "board");
+    const blocked = new Set(data.blocked.map((bean) => bean.id));
+    return {
+      beans: data.beans.map((bean) => ({
+        ...bean,
+        priority: bean.priority ?? "normal",
+        blocked: blocked.has(bean.id),
+      })),
+    };
+  });
+}
+
+const BEAN_QUERY = `query Bean($id: ID!) {
+  bean(id: $id) {
+    id slug title status implicitStatus type priority tags body createdAt updatedAt
+    parent { id title status type }
+    blockedBy { id title status type }
+    children { id title status type }
+  }
+}`;
+
+const BeanResponse = z.object({
+  bean: BeanDetail.extend({ priority: z.string().nullable() }).nullable(),
+});
+
+export function readBean(
+  directory: string,
+  beanId: string,
+  options: CliOptions = {},
+): Promise<BeanResult> {
+  return readProject(directory, { bean: null }, async () => {
+    const data = parse(BeanResponse, await graphql(directory, BEAN_QUERY, { id: beanId }, options), "bean");
+    return { bean: data.bean && { ...data.bean, priority: data.bean.priority ?? "normal" } };
+  });
 }

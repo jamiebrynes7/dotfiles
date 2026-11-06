@@ -66,8 +66,15 @@ function groupRank(group: string): number {
 /**
  * One lane per epic that has a visible card, grouped by the epic's status in
  * LANE_GROUPS order, then by epic priority and title, with "No epic" last. Epics and milestones are never cards; only epics are lanes.
+ *
+ * Archiving hides cards, not lanes: an archived epic still heads the lane of any
+ * unarchived descendants, which would otherwise scatter into "No epic".
  */
-export function layout(beans: readonly BoardBean[], showScrapped: boolean): Lane[] {
+export function layout(
+  beans: readonly BoardBean[],
+  showScrapped: boolean,
+  showArchived: boolean,
+): Lane[] {
   const columns: string[] = showScrapped ? [...COLUMNS, SCRAPPED] : [...COLUMNS];
   const visible = new Set(columns);
   const byId = new Map(beans.map((bean) => [bean.id, bean]));
@@ -75,6 +82,7 @@ export function layout(beans: readonly BoardBean[], showScrapped: boolean): Lane
   const groups = new Map<string | null, BoardBean[]>();
   for (const bean of beans) {
     if (CONTAINER_TYPES.has(bean.type) || !visible.has(columnOf(bean))) continue;
+    if (bean.archived && !showArchived) continue;
     const key = nearestEpic(bean, byId)?.id ?? null;
     const group = groups.get(key);
     if (group) group.push(bean);

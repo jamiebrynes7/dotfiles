@@ -10,11 +10,14 @@ import { useBoard } from "./use-polled.ts";
 
 const TabState = z.object({
   showScrapped: z.boolean(),
+  // Tabs saved before this field existed must still parse: useTabState discards the
+  // whole state on a parse failure, which would reset showScrapped and collapsed.
+  showArchived: z.boolean().default(false),
   /** Lane key → collapsed, only for lanes the user has toggled. */
   collapsed: z.record(z.string(), z.boolean()),
 });
 type TabState = z.infer<typeof TabState>;
-const DEFAULT_TAB_STATE: TabState = { showScrapped: false, collapsed: {} };
+const DEFAULT_TAB_STATE: TabState = { showScrapped: false, showArchived: false, collapsed: {} };
 
 const COLUMN_TITLES: Record<string, string> = {
   draft: "Draft",
@@ -138,12 +141,21 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
 
   const toolbar = (
     <View style={[styles.toolbar, { borderColor: colors.border }]}>
-      <View style={styles.toggle}>
-        <Switch
-          value={state.showScrapped}
-          onValueChange={(showScrapped) => setState({ ...state, showScrapped })}
-        />
-        <Text style={{ color: colors.foreground }}>Show scrapped</Text>
+      <View style={styles.toggles}>
+        <View style={styles.toggle}>
+          <Switch
+            value={state.showScrapped}
+            onValueChange={(showScrapped) => setState({ ...state, showScrapped })}
+          />
+          <Text style={{ color: colors.foreground }}>Show scrapped</Text>
+        </View>
+        <View style={styles.toggle}>
+          <Switch
+            value={state.showArchived}
+            onValueChange={(showArchived) => setState({ ...state, showArchived })}
+          />
+          <Text style={{ color: colors.foreground }}>Show archived</Text>
+        </View>
       </View>
       <Pressable
         accessibilityRole="button"
@@ -188,7 +200,7 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
     );
   }
 
-  const lanes = layout(board.beans, state.showScrapped);
+  const lanes = layout(board.beans, state.showScrapped, state.showArchived);
   const isCollapsed = (lane: Lane) => state.collapsed[laneKey(lane)] ?? lane.collapsedByDefault;
 
   return (
@@ -236,6 +248,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
   },
+  toggles: { flexDirection: "row", flexWrap: "wrap", flexShrink: 1, alignItems: "center", gap: 16 },
   toggle: { flexDirection: "row", alignItems: "center", gap: 8 },
   iconButton: { padding: 4 },
   banner: {

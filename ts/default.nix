@@ -15,12 +15,18 @@ let
   );
 
   # Flake source already drops the gitignored node_modules; this covers a `path:`
-  # eval of a working tree that has run `npm install`.
+  # eval of a working tree that has run `npm install`. `demo/` holds the seed script
+  # ts/paseo-demo.sh runs, which is for trying the plugin, not part of it.
   pluginSource =
     src:
     lib.fileset.toSource {
       root = src;
-      fileset = lib.fileset.difference src (lib.fileset.maybeMissing (src + "/node_modules"));
+      fileset = lib.fileset.difference src (
+        lib.fileset.unions [
+          (lib.fileset.maybeMissing (src + "/node_modules"))
+          (lib.fileset.maybeMissing (src + "/demo"))
+        ]
+      );
     };
 
   # npm only appears here, never in the shipped plugin, so a type error or a failing

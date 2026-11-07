@@ -1,11 +1,11 @@
 ---
 # dotfiles-zfye
 title: 'claude-reauth: gray out spent cards and resend the failed message'
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-10-26T10:55:08Z
-updated_at: 2026-10-26T12:24:54Z
+updated_at: 2026-11-07T18:45:56Z
 ---
 
 **Spec:** `docs/specs/2026-10-26-paseo-claude-reauth-resend.md` — whole spec
@@ -23,7 +23,7 @@ After a successful reload, the daemon half resends the user's failed message its
 - [x] A refetch or send error ends in `failed` with `step: "resend"`. The card shows "Reloaded, but resending failed: <error> — send your message again", the buttons come back on, and the resend is not retried.
 - [x] A card whose timestamp is earlier than the agent's `lastDoneAt` (its latest successful recovery) renders with both buttons disabled and grayed out, on every device. It stays gray while a later run is going and after that run fails. A card newer than `lastDoneAt` keeps working buttons, and a `done` or `failed` that ended before the card appeared reads as idle on it.
 - [x] `nix flake check` passes, including `paseo-plugin-claude-reauth-typecheck`.
-- [ ] Manual verification on a host passes the spec's Testing seams list (`claude auth logout`, then message a live agent).
+- [x] Manual verification on a host passes the spec's Testing seams list (`claude auth logout`, then message a live agent).
 
 ## Constraints
 
@@ -45,3 +45,7 @@ Deviations from the spec, folded into it before landing:
 - `done.at` is taken before the send, since the reply to a resent message can be timestamped before `send` resolves.
 
 Things to check on the host: a spent card on a second device updates without reopening the chat; whether the `[System Error]` form ever gets resent after a reload (it fails safe to 'send your message again').
+
+## Summary of Changes
+
+Landed in 0218b06 (`ts paseo-plugin-claude-reauth: resend the failed message and gray out spent cards`). After a successful reload the daemon refetches the agent's timeline tail and resends the failed user message when the timeline ends with that message followed directly by the auth error; otherwise the card asks the user to send again. A failed resend is reported, never retried. `start`/`status` return `{ state, lastDoneAt? }`, so cards older than the agent's last successful recovery are grayed out on every device, while newer auth-error cards stay usable. Manual verification done through day-to-day use on a host.

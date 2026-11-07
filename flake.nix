@@ -241,6 +241,28 @@
           touch $out
         '';
 
+      # Evaluates a home-manager configuration built from `home/` and fails on any
+      # failed module assertion (home-manager throws on any read of `config`) or
+      # eval error anywhere in the home. Eval-only: the activation package's
+      # drvPath is recorded with its string context discarded, so building the
+      # check builds none of the home closure.
+      mkHomeEvalCheck =
+        system:
+        let
+          hm = mkHomeManagerSystem {
+            inherit system;
+            user = "check";
+            directory = "/home/check";
+            home = ./checks/home-eval.nix;
+          };
+        in
+        hm.pkgs.writeText "home-eval" (
+          hm.pkgs.lib.concatLines (
+            [ (builtins.unsafeDiscardStringContext hm.activationPackage.drvPath) ]
+            ++ builtins.attrNames hm.config.home.file
+          )
+        );
+
     in
     {
       lib = {
@@ -303,6 +325,9 @@
               nixfmt = mkNixfmtCheck linuxPkgs;
               paseo-plugin-requirements = linuxPkgs.callPackage ./packages/paseo/plugin-requirements.nix { };
               paseo-repo-skills = linuxPkgs.callPackage ./home/lib/paseo-repo-skills/check.nix { };
+              # Linux only: `mkHomeManagerSystem` always uses `nixOsPkgs`, so a darwin
+              # variant would evaluate the non-darwin package set.
+              home-eval = mkHomeEvalCheck "x86_64-linux";
             };
         };
       templates = {

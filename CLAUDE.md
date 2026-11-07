@@ -42,6 +42,7 @@ home/
 templates/
   projects/          # go, typescript — scaffolded via `spark`
   systems/           # darwin, nixos, home-manager
+checks/              # home-eval.nix: home-manager config the x86_64-linux `home-eval` check evaluates (assertions + whole home, nothing built)
 modules/             # Cross-platform modules imported by mkDarwin/mkNixosSystem/mkHomeManagerSystem (nix-gc)
 crates/              # Rust workspace: beansd + beansctl + beansd-rpc — see crates/CLAUDE.md
 ts/                  # Repo-local paseo plugin source (paseo-plugin-<id>/) + buildPaseoPlugin/tsChecks overlay

@@ -28,12 +28,18 @@ test("a valid file gives its repositories", async () => {
   const file = await withFile(
     JSON.stringify({
       version: 1,
-      repositories: { "github.com/acme/web": { pluginDir: "/p/acme-web" }, "github.com/acme/api": {} },
+      repositories: {
+        "github.com/acme/web": { pluginDir: "/p/acme-web", settings: "/p/acme-web.json" },
+        "github.com/acme/api": {},
+      },
     }),
   );
   assert.deepEqual(await readConfig(file), {
     kind: "ok",
-    repositories: { "github.com/acme/web": { pluginDir: "/p/acme-web" }, "github.com/acme/api": {} },
+    repositories: {
+      "github.com/acme/web": { pluginDir: "/p/acme-web", settings: "/p/acme-web.json" },
+      "github.com/acme/api": {},
+    },
   });
 });
 
@@ -60,6 +66,7 @@ test("a wrong version or shape is an error", async () => {
     { version: 1, repositories: { "github.com/a/b": 3 } },
     { version: 1, repositories: { "github.com/a/b": "/p/a-b" } },
     { version: 1, repositories: { "github.com/a/b": { pluginDir: 3 } } },
+    { version: 1, repositories: { "github.com/a/b": { settings: { autoMode: {} } } } },
   ]) {
     const result = await readConfig(await withFile(JSON.stringify(contents)));
     assert.equal(result.kind, "error", JSON.stringify(contents));

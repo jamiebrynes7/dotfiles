@@ -1,10 +1,11 @@
 ---
 # dotfiles-y3c5
 title: Load per-repository Claude settings into Paseo agents via --settings
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-11-10T09:36:04Z
-updated_at: 2026-11-10T09:36:04Z
+updated_at: 2026-11-10T10:07:11Z
 parent: dotfiles-vg6h
 blocked_by:
     - dotfiles-g2b5
@@ -18,14 +19,18 @@ blocked_by:
 
 ## Acceptance criteria
 
-- [ ] With an `autoMode.environment` marker declared for a repository, a Claude agent created there is saved with `extraArgs.settings` set to the stable link, and `claude --settings <link> auto-mode config` shows the marker
-- [ ] A repository with settings but no skills gets a `settings` entry and no `pluginDir`, and the reverse holds too; the flake check asserts both
-- [ ] Settings for one repository declared in two modules render as one merged `settings.json`, with lists concatenated (flake check)
-- [ ] Unit tests: for each field independently, it is set, left alone when already ours (no warning), left alone with a warning when set elsewhere, and skipped with a warning when its target is missing
-- [ ] Unit test: one field skipped while the other applies yields one warning row that lists the skip and names what was loaded
-- [ ] Unit test: several problems in one creation (e.g. a multi-match plus a skipped field) yield one row carrying all of them, which the client card renders as a list
+- [x] With an `autoMode.environment` marker declared for a repository, a Claude agent created there is saved with `extraArgs.settings` set to the stable link, and `claude --settings <link> auto-mode config` shows the marker
+- [x] A repository with settings but no skills gets a `settings` entry and no `pluginDir`, and the reverse holds too; the flake check asserts both
+- [x] Settings for one repository declared in two modules render as one merged `settings.json`, with lists concatenated (flake check)
+- [x] Unit tests: for each field independently, it is set, left alone when already ours (no warning), left alone with a warning when set elsewhere, and skipped with a warning when its target is missing
+- [x] Unit test: one field skipped while the other applies yields one warning row that lists the skip and names what was loaded
+- [x] Unit test: several problems in one creation (e.g. a multi-match plus a skipped field) yield one row carrying all of them, which the client card renders as a list
 
 ## Constraints
 
 - Agent creation never fails because of the plugin.
 - The hook checks only that the settings file is readable. It does not parse it.
+
+## Summary of Changes
+
+Added `repoProfiles.<key>.settings`, typed `attrsOf` over the JSON format type: it merges across modules, and a non-object value fails at eval. It renders `<owner>-<repo>/settings.json` behind a stable link, and config.json entries carry `pluginDir` and/or `settings` only where declared. The plugin's `decide()` now goes through a field table (skills → `plugin-dir`, settings → `settings`). For each field it checks the target exists, keeps our own value, skips a value set elsewhere, or sets the field, independently of the other field. Every problem (multi-match, per-field skips, whole-profile failures) is collected into one v2 warning row with `problems`, `key` and `loaded`, and the card renders the problems as a list. Verified with unit tests, the renderer flake check (mutation-tested), a home-manager eval of a settings-only profile, and a demo-daemon agent: it was saved with both extraArgs, and `claude --settings <link> auto-mode config` showed the declared marker. The card's list rendering is covered by typecheck only; there is no client test harness.

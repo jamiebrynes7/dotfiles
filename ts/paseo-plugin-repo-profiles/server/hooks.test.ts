@@ -18,6 +18,7 @@ interface Setup {
   readConfig?: () => Promise<ConfigRead>;
   remotes?: RemoteList;
   dirs?: string[];
+  files?: string[];
   append?: (agentId: string, item: unknown) => Promise<unknown>;
 }
 
@@ -29,6 +30,7 @@ function harness(setup: Setup = {}) {
     config: setup.config ?? ({ kind: "ok", repositories } as ConfigRead),
     remotes: setup.remotes ?? ({ kind: "ok", urls: ["git@github.com:acme/web.git"] } as RemoteList),
     dirs: setup.dirs ?? pluginDirs,
+    files: setup.files ?? [],
   });
   const handlers = new Map<string, Handler>();
   const rows: { agentId: string; item: any }[] = [];
@@ -45,6 +47,7 @@ function harness(setup: Setup = {}) {
       readConfig: setup.readConfig ?? (async () => current().config),
       listRemoteUrls: async () => current().remotes,
       isDirectory: async (dir) => current().dirs.includes(dir),
+      isReadableFile: async (file) => current().files.includes(file),
     }),
   });
   const context = {
@@ -90,8 +93,10 @@ test("each warning case posts one row naming the reason, to that agent", async (
     const { launched } = await h.createAgent("agent-1", { config: claude });
     assert.equal(h.rows.length, 1, name);
     assert.equal(h.rows[0]!.agentId, "agent-1", name);
-    assert.match(h.rows[0]!.item.data.reason, reason, name);
-    assert.equal(h.rows[0]!.item.data.loaded, undefined, name);
+    assert.equal(h.rows[0]!.item.data.problems.length, 1, name);
+    assert.match(h.rows[0]!.item.data.problems[0].reason, reason, name);
+    assert.deepEqual(h.rows[0]!.item.data.loaded, [], name);
+    assert.equal(h.rows[0]!.item.version, 2, name);
     assert.equal(h.rows[0]!.item.kind, "repo-profiles-warning", name);
     assert.equal(launched.env[TOKEN_ENV], undefined, `${name}: token reaches the agent`);
   }
@@ -102,7 +107,11 @@ test("plugin-dir already set: kept, and a row says so", async () => {
   const config = { ...claude, providerOptions: { extraArgs: { "plugin-dir": "/mine" } } };
   const { created } = await h.createAgent("agent-1", { config });
   assert.deepEqual(created.config, config);
-  assert.deepEqual(h.rows[0]!.item.data, { reason: "plugin-dir already set", detail: "/mine" });
+  assert.deepEqual(h.rows[0]!.item.data, {
+    problems: [{ field: "skills", reason: "plugin-dir already set", detail: "/mine" }],
+    key: "github.com/acme/web",
+    loaded: [],
+  });
 });
 
 test("several matching keys: the first loads and the row names the others", async () => {
@@ -111,8 +120,9 @@ test("several matching keys: the first loads and the row names the others", asyn
   });
   const { created } = await h.createAgent("agent-1", { config: claude });
   assert.equal(created.config.providerOptions.extraArgs["plugin-dir"], "/plugins/acme-api");
-  assert.equal(h.rows[0]!.item.data.loaded, "github.com/acme/api");
-  assert.equal(h.rows[0]!.item.data.detail, "github.com/acme/web");
+  assert.equal(h.rows[0]!.item.data.key, "github.com/acme/api");
+  assert.deepEqual(h.rows[0]!.item.data.loaded, ["skills"]);
+  assert.equal(h.rows[0]!.item.data.problems[0].detail, "github.com/acme/web");
 });
 
 test("silent cases and a clean load add no row and no token", async () => {
@@ -198,5 +208,67 @@ test("an unexpected throw leaves the config unchanged and still posts a row", as
   });
   const { created } = await h.createAgent("agent-1", { config: claude });
   assert.deepEqual(created.config, claude);
-  assert.match(h.rows[0]!.item.data.reason, /boom/);
+  assert.match(h.rows[0]!.item.data.problems[0].reason, /boom/);
+});
+
+// A profile with skills and settings, for the cases where both fields are in play.
+const both: ConfigRead = {
+  kind: "ok",
+  repositories: {
+    "github.com/acme/web": { pluginDir: "/plugins/acme-web", settings: "/settings/acme-web.json" },
+    "github.com/acme/api": { pluginDir: "/plugins/acme-api" },
+  },
+};
+const settingsFiles = ["/settings/acme-web.json"];
+
+test("skills and settings both load, with no row", async () => {
+  const h = harness({ config: both, files: settingsFiles });
+  const { created } = await h.createAgent("agent-1", { config: claude });
+  assert.deepEqual(created.config.providerOptions.extraArgs, {
+    "plugin-dir": "/plugins/acme-web",
+    settings: "/settings/acme-web.json",
+  });
+  assert.deepEqual(h.rows, []);
+});
+
+test("one field skipped while the other applies: one row lists the skip and what loaded", async () => {
+  const h = harness({ config: both, files: [] });
+  const { created } = await h.createAgent("agent-1", { config: claude });
+  assert.deepEqual(created.config.providerOptions.extraArgs, { "plugin-dir": "/plugins/acme-web" });
+  assert.equal(h.rows.length, 1);
+  assert.deepEqual(h.rows[0]!.item.data, {
+    problems: [
+      {
+        field: "settings",
+        reason: "settings file missing or unreadable for github.com/acme/web",
+        detail: "/settings/acme-web.json",
+      },
+    ],
+    key: "github.com/acme/web",
+    loaded: ["skills"],
+  });
+});
+
+test("several problems in one creation share one row", async () => {
+  const h = harness({
+    config: both,
+    files: settingsFiles,
+    remotes: { kind: "ok", urls: ["git@github.com:acme/web.git", "https://github.com/acme/api"] },
+  });
+  const config = { ...claude, providerOptions: { extraArgs: { settings: "/mine.json" } } };
+  const { created } = await h.createAgent("agent-1", { config });
+  assert.deepEqual(created.config.providerOptions.extraArgs, {
+    settings: "/mine.json",
+    "plugin-dir": "/plugins/acme-web",
+  });
+  assert.equal(h.rows.length, 1);
+  const { problems, loaded } = h.rows[0]!.item.data;
+  assert.deepEqual(loaded, ["skills"]);
+  assert.deepEqual(
+    problems.map((p: { field?: string; detail?: string }) => [p.field, p.detail]),
+    [
+      [undefined, "github.com/acme/api"],
+      ["settings", "/mine.json"],
+    ],
+  );
 });

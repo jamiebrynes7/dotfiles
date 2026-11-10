@@ -41,10 +41,13 @@ function message(error: unknown): string {
  * tab keeps polling; a fingerprint is only file stats, so that is cheap.
  *
  * `target` names what is loaded (a workspace, or a workspace and bean); a new target
- * starts over. `fetch` may change identity every render.
+ * starts over. `scope` is coarser: a new target within the same scope (the board under
+ * another search) keeps showing the last data until its own arrives. `fetch` may
+ * change identity every render.
  */
 function usePolled<T extends Fingerprinted>(
   workspaceId: string,
+  scope: string,
   target: string,
   fetch: () => Promise<T>,
 ): Polled<T> {
@@ -60,6 +63,7 @@ function usePolled<T extends Fingerprinted>(
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const refreshRef = useRef<() => void>(() => {});
+  const loadedScope = useRef<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -71,7 +75,12 @@ function usePolled<T extends Fingerprinted>(
     // every tick; Retry still forces one.
     let failedKey: string | null = null;
     let timer: number | undefined;
-    setData(null);
+    // Teardown sets `live` false, so a response for the previous target is dropped
+    // even when its data stays on screen.
+    if (loadedScope.current !== scope) {
+      loadedScope.current = scope;
+      setData(null);
+    }
     setError(null);
 
     async function load(key: string | null = null) {
@@ -148,19 +157,23 @@ function usePolled<T extends Fingerprinted>(
       subscription.remove();
       refreshRef.current = () => {};
     };
-  }, [workspaceId, target]);
+  }, [workspaceId, scope, target]);
 
   return { data, error, refresh: () => refreshRef.current() };
 }
 
-export function useBoard(workspaceId: string): Polled<Board> {
+/** `search` is the CLI full-text query; blank reads the board without one. */
+export function useBoard(workspaceId: string, search: string): Polled<Board> {
   const callBoard = useRpc(boardRpc);
-  return usePolled(workspaceId, workspaceId, () => callBoard({ workspaceId }));
+  return usePolled(workspaceId, workspaceId, `${workspaceId}\0${search}`, () =>
+    callBoard(search ? { workspaceId, search } : { workspaceId }),
+  );
 }
 
 export function useBean(workspaceId: string, beanId: string): Polled<BeanResult> {
   const callBean = useRpc(beanRpc);
-  return usePolled(workspaceId, `${workspaceId}\0${beanId}`, () =>
+  const target = `${workspaceId}\0${beanId}`;
+  return usePolled(workspaceId, target, target, () =>
     callBean({ workspaceId, beanId }),
   );
 }

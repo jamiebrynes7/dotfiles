@@ -16,8 +16,8 @@ export default function contribute(server: PluginServerContext) {
   server.handle(fingerprint, async ({ workspaceId }, { paseo }) =>
     readFingerprint(await directoryOf(paseo, workspaceId)),
   );
-  server.handle(board, async ({ workspaceId }, { paseo }) =>
-    readBoard(await directoryOf(paseo, workspaceId)),
+  server.handle(board, async ({ workspaceId, search }, { paseo }) =>
+    readBoard(await directoryOf(paseo, workspaceId), search ?? null),
   );
   server.handle(bean, async ({ workspaceId, beanId }, { paseo }) =>
     readBean(await directoryOf(paseo, workspaceId), beanId),

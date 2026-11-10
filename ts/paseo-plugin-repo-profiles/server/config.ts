@@ -6,6 +6,7 @@ import path from "node:path";
 // stable link path, present only when the repository declares that part.
 export interface Profile {
   pluginDir?: string;
+  settings?: string;
 }
 
 // Repository key -> profile.
@@ -56,7 +57,11 @@ export async function readConfig(file: string): Promise<ConfigRead> {
 }
 
 function isProfile(value: unknown): value is Profile {
-  return isRecord(value) && (value.pluginDir === undefined || typeof value.pluginDir === "string");
+  return isRecord(value) && optionalString(value.pluginDir) && optionalString(value.settings);
+}
+
+function optionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

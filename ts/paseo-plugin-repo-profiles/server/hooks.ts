@@ -1,6 +1,6 @@
 import type { PluginHookContext, PluginServerContext } from "@getpaseo/plugin/server";
 import { WARNING_KIND, WARNING_VERSION, type WarningData } from "../shared/timeline.ts";
-import { decide, withPluginDir, type Deps } from "./resolve.ts";
+import { decide, withExtraArgs, type Deps } from "./resolve.ts";
 import { TOKEN_ENV, withoutToken, type WarningLedger } from "./warnings.ts";
 
 type Server = Pick<PluginServerContext, "addHook">;
@@ -24,32 +24,22 @@ export function registerHooks(server: Server, deps: HookDeps): () => void {
       let config = request.config;
       try {
         const decision = await decide(request.config, deps.resolve(signal));
-        switch (decision.kind) {
-          case "unchanged":
-            return;
-          case "skipped":
-            warning = { reason: decision.reason };
-            if (decision.detail !== undefined) warning.detail = decision.detail;
-            break;
-          case "load":
-            console.info(`repo-profiles: loading ${decision.key} skills in ${cwd}`);
-            config = withPluginDir(request.config, decision.pluginDir);
-            if (decision.alsoMatched.length > 0) {
-              warning = {
-                reason: "remotes also match other declared repositories; only one repository's skills can be loaded",
-                detail: decision.alsoMatched.join(", "),
-                loaded: decision.key,
-              };
-            }
-            break;
+        if (Object.keys(decision.set).length > 0) {
+          console.info(`repo-profiles: loading ${decision.key} ${decision.loaded.join(" and ")} in ${cwd}`);
+          config = withExtraArgs(request.config, decision.set);
+        }
+        if (decision.problems.length > 0) {
+          warning = { problems: decision.problems, loaded: decision.loaded };
+          if (decision.key !== undefined) warning.key = decision.key;
         }
       } catch (error) {
-        warning = { reason: error instanceof Error ? error.message : String(error) };
+        warning = { problems: [{ reason: error instanceof Error ? error.message : String(error) }], loaded: [] };
       }
-      if (warning === undefined) return { ...request, config };
-      const detail = warning.detail === undefined ? "" : `: ${warning.detail}`;
-      const loaded = warning.loaded === undefined ? "" : ` (loaded ${warning.loaded})`;
-      console.warn(`repo-profiles: ${cwd}: ${warning.reason}${detail}${loaded}`);
+      if (warning === undefined) return config === request.config ? undefined : { ...request, config };
+      for (const { field, reason, detail } of warning.problems) {
+        const scope = field === undefined ? "" : `${field}: `;
+        console.warn(`repo-profiles: ${cwd}: ${scope}${reason}${detail === undefined ? "" : `: ${detail}`}`);
+      }
       const token = deps.ledger.record(warning);
       return { ...request, config, env: { ...request.env, [TOKEN_ENV]: token } };
     }),

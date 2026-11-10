@@ -1,5 +1,7 @@
-# Renders a fixture repoProfiles declaration (one skill shared by two repositories)
-# and checks the generated plugins and config.json. Validation is checked at eval: a
+# Renders a fixture repoProfiles declaration, spread over two modules and merged
+# through the option's own type (one skill shared by two repositories, settings for
+# one of them from both modules, a settings-only repository and an empty one), and
+# checks the generated plugins, settings files and config.json. Validation is checked at eval: a
 # rendering whose errors miss a bad declaration fails evaluating this check, which
 # turns `nix flake check` red just the same.
 #
@@ -18,18 +20,43 @@ let
   # One value, listed under each repository that uses it.
   shared = ./fixtures/shared;
 
+  # Declarations from several modules, merged through the option's own type.
+  mergeOf =
+    modules:
+    (lib.evalModules {
+      modules = [
+        { options.repoProfiles = lib.mkOption { type = profilesLib.profilesType; }; }
+      ]
+      ++ modules;
+    }).config.repoProfiles;
+
   rendered = profilesLib.render {
     inherit dataDir;
-    repoProfiles = {
-      "github.com/acme/web".skills = { inherit shared; };
-      "github.com/acme/api".skills = {
-        inherit shared;
-        api-only = ./fixtures/api-only;
-      };
-      "github.com/acme/empty" = {
-        skills = { };
-      };
-    };
+    repoProfiles = mergeOf [
+      {
+        repoProfiles = {
+          "github.com/acme/web" = {
+            skills = { inherit shared; };
+            settings.autoMode.environment = [
+              "$defaults"
+              "from the first module"
+            ];
+          };
+          "github.com/acme/api".skills = {
+            inherit shared;
+            api-only = ./fixtures/api-only;
+          };
+          "github.com/acme/settings-only".settings.autoMode.allow = [ "allowed" ];
+          "github.com/acme/empty" = { };
+        };
+      }
+      {
+        repoProfiles."github.com/acme/web".settings = {
+          autoMode.environment = [ "from the second module" ];
+          model = "opus";
+        };
+      }
+    ];
   };
 
   # Link path -> plugin name and the skills it must hold, sorted as `ls` lists them.
@@ -47,11 +74,31 @@ let
     };
   };
 
+  # Link path -> the settings.json it must hold.
+  expectedSettings = {
+    "acme-web/settings.json" = {
+      autoMode.environment = [
+        "$defaults"
+        "from the first module"
+        "from the second module"
+      ];
+      model = "opus";
+    };
+    "acme-settings-only/settings.json" = {
+      autoMode.allow = [ "allowed" ];
+    };
+  };
+
+  # Each field only where declared; the empty profile not at all.
   expectedConfig = {
     version = 1;
     repositories = {
-      "github.com/acme/web".pluginDir = "${dataDir}/acme-web/plugin";
+      "github.com/acme/web" = {
+        pluginDir = "${dataDir}/acme-web/plugin";
+        settings = "${dataDir}/acme-web/settings.json";
+      };
       "github.com/acme/api".pluginDir = "${dataDir}/acme-api/plugin";
+      "github.com/acme/settings-only".settings = "${dataDir}/acme-settings-only/settings.json";
     };
   };
 
@@ -78,20 +125,14 @@ let
   notNormalised = rejects "is not normalised";
   collide = rejects "produce the same profile name";
 
-  # Declarations from two modules, merged through the option's own type.
-  mergeOf =
-    modules:
-    (lib.evalModules {
-      modules = [
-        { options.repoProfiles = lib.mkOption { type = profilesLib.profilesType; }; }
-      ]
-      ++ modules;
-    }).config.repoProfiles;
   conflicting = builtins.tryEval (
     builtins.deepSeq (mergeOf [
       { repoProfiles."github.com/acme/web".skills.shared = ./fixtures/shared; }
       { repoProfiles."github.com/acme/web".skills.shared = ./fixtures/api-only; }
     ]) true
+  );
+  nonObjectSettings = builtins.tryEval (
+    builtins.deepSeq (mergeOf [ { repoProfiles."github.com/acme/web".settings = "x"; } ]) true
   );
   agreeing = mergeOf [
     { repoProfiles."github.com/acme/web".skills.shared = shared; }
@@ -103,9 +144,11 @@ let
     lib.assertMsg (
       rendered.errors == [ ]
     ) "fixture rendering reported errors: ${toString rendered.errors}"
-    && lib.assertMsg (
-      lib.attrNames rendered.links == lib.attrNames expectedPlugins
-    ) "links are ${toString (lib.attrNames rendered.links)}, expected acme-api/plugin acme-web/plugin"
+    &&
+      lib.assertMsg (lib.attrNames rendered.links == lib.attrNames (expectedPlugins // expectedSettings))
+        "links are ${toString (lib.attrNames rendered.links)}, expected ${
+          toString (lib.attrNames (expectedPlugins // expectedSettings))
+        }"
     && lib.assertMsg (notNormalised [
       "git@github.com:acme/web.git"
     ]) "an SSH clone URL was accepted as a key"
@@ -136,6 +179,7 @@ let
     && lib.assertMsg (
       errorsOf { "github.com/acme/web".skills.shared = shared; } == [ ]
     ) "a normalised key was rejected"
+    && lib.assertMsg (!nonObjectSettings.success) "a settings value that is not an attrset was accepted"
     && lib.assertMsg (
       !conflicting.success
     ) "two modules giving one repository the same skill name with different sources did not conflict"
@@ -145,6 +189,11 @@ let
         "shared"
       ]
     ) "skills declared for one repository in several modules did not merge";
+
+  checkSettings = link: expected: ''
+    [ "$(jq -S . ${rendered.links.${link}})" = "$(jq -S . <<<${lib.escapeShellArg (builtins.toJSON expected)})" ] \
+      || fail "${link} is $(cat ${rendered.links.${link}})"
+  '';
 
   checkPlugin = link: expected: ''
     plugin=${rendered.links.${link}}
@@ -169,6 +218,7 @@ runCommandLocal "paseo-repo-profiles"
     fail() { echo "FAIL: $1" >&2; exit 1; }
 
     ${lib.concatStrings (lib.mapAttrsToList checkPlugin expectedPlugins)}
+    ${lib.concatStrings (lib.mapAttrsToList checkSettings expectedSettings)}
 
     skill=${rendered.links."acme-api/plugin"}/skills/shared
     [ -f "$skill/notes.md" ] || fail "supporting file notes.md was not copied"

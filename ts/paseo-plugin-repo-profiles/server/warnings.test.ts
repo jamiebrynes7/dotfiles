@@ -4,15 +4,15 @@ import { TOKEN_ENV, WARNING_TTL_MS, createWarningLedger, withoutToken } from "./
 
 test("a recorded warning reaches the agent that claimed its token", () => {
   const ledger = createWarningLedger();
-  const token = ledger.record({ reason: "config file missing: /c" });
+  const token = ledger.record({ problems: [{ reason: "config file missing: /c" }], loaded: [] });
   ledger.claim(token, "agent-1");
-  assert.deepEqual(ledger.take("agent-1"), { reason: "config file missing: /c" });
+  assert.deepEqual(ledger.take("agent-1"), { problems: [{ reason: "config file missing: /c" }], loaded: [] });
   assert.equal(ledger.take("agent-1"), undefined, "posted once");
 });
 
 test("a failed creation's warning never reaches the next agent in the directory", () => {
   const ledger = createWarningLedger();
-  ledger.record({ reason: "from the failed creation" });
+  ledger.record({ problems: [{ reason: "from the failed creation" }], loaded: [] });
   // The retry succeeds silently: no token, so nothing is claimed for it.
   assert.equal(ledger.take("agent-2"), undefined);
 });
@@ -20,8 +20,8 @@ test("a failed creation's warning never reaches the next agent in the directory"
 test("unclaimed and untaken entries expire", () => {
   let clock = 0;
   const ledger = createWarningLedger(() => clock);
-  const stale = ledger.record({ reason: "stale" });
-  const claimed = ledger.record({ reason: "claimed" });
+  const stale = ledger.record({ problems: [{ reason: "stale" }], loaded: [] });
+  const claimed = ledger.record({ problems: [{ reason: "claimed" }], loaded: [] });
   ledger.claim(claimed, "agent-1");
   clock = WARNING_TTL_MS + 1;
   ledger.claim(stale, "agent-2");

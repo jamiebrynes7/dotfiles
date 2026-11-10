@@ -4,6 +4,8 @@
 # into xdg files, and the flake check renders a fixture through it directly.
 { lib, pkgs }:
 let
+  settingsFormat = pkgs.formats.json { };
+
   aiSkills = import ../ai/skills { inherit lib pkgs; };
 
   # The plugin matches git remotes normalised to this form: lowercase host with no
@@ -58,11 +60,20 @@ in
         default = { };
         description = "Skill name -> directory containing the skill's `SKILL.md`.";
       };
+      options.settings = lib.mkOption {
+        # The JSON format's type merges declarations from several modules: attrsets
+        # recursively, lists by concatenation, conflicting scalars as an eval error.
+        # attrsOf on top, because Claude Code's settings file must be an object.
+        type = lib.types.attrsOf settingsFormat.type;
+        default = { };
+        description = "Claude Code settings, passed to the agent as `--settings`.";
+      };
     }
   );
 
   # Arguments:
-  #   repoProfiles: the option value, <repository key> -> { skills }
+  #   repoProfiles: the option value, <repository key> -> { skills, settings }, either
+  #     of which may be absent
   #   dataDir: absolute directory the links are installed under
   #
   # Returns: {
@@ -76,7 +87,10 @@ in
       keys = lib.attrNames repoProfiles;
       badKeys = lib.filter (key: !isNormalisedKey key) keys;
       goodKeys = lib.filter isNormalisedKey keys;
-      withSkills = lib.filter (key: repoProfiles.${key}.skills != { }) goodKeys;
+      skillsOf = key: repoProfiles.${key}.skills or { };
+      settingsOf = key: repoProfiles.${key}.settings or { };
+      withSkills = lib.filter (key: skillsOf key != { }) goodKeys;
+      withSettings = lib.filter (key: settingsOf key != { }) goodKeys;
 
       # Case-folded, since owner/repo keep their case and the links sit side by
       # side on what may be a case-insensitive filesystem (macOS by default). Over
@@ -87,7 +101,7 @@ in
       );
 
       skillEntries = lib.concatMap (
-        key: lib.mapAttrsToList (skill: source: { inherit key skill source; }) repoProfiles.${key}.skills
+        key: lib.mapAttrsToList (skill: source: { inherit key skill source; }) (skillsOf key)
       ) keys;
       # The name is the `<plugin>:<skill>` identifier and a path in a build script,
       # so it is held to Claude Code's own skill-name rule.
@@ -97,22 +111,34 @@ in
       missingSkillMd = lib.filter (e: !builtins.pathExists (e.source + "/SKILL.md")) skillEntries;
 
       pluginPath = key: "${profileName key}/plugin";
+      settingsPath = key: "${profileName key}/settings.json";
     in
     {
-      links = lib.listToAttrs (
-        map (
-          key: lib.nameValuePair (pluginPath key) (mkPlugin (profileName key) key repoProfiles.${key}.skills)
-        ) withSkills
-      );
+      links =
+        lib.listToAttrs (
+          map (
+            key: lib.nameValuePair (pluginPath key) (mkPlugin (profileName key) key (skillsOf key))
+          ) withSkills
+        )
+        // lib.listToAttrs (
+          map (
+            key:
+            lib.nameValuePair (settingsPath key) (
+              settingsFormat.generate "paseo-repo-profiles-${profileName key}-settings.json" (settingsOf key)
+            )
+          ) withSettings
+        );
 
       config = {
         version = 1;
         # Only profiles with something to load: the plugin takes the first key a
         # checkout's remotes match, so an empty profile listed here would shadow a
         # real one matched by a later remote.
-        repositories = lib.genAttrs withSkills (key: {
-          pluginDir = "${dataDir}/${pluginPath key}";
-        });
+        repositories = lib.genAttrs (lib.unique (withSkills ++ withSettings)) (
+          key:
+          lib.optionalAttrs (lib.elem key withSkills) { pluginDir = "${dataDir}/${pluginPath key}"; }
+          // lib.optionalAttrs (lib.elem key withSettings) { settings = "${dataDir}/${settingsPath key}"; }
+        );
       };
 
       errors =

@@ -314,7 +314,10 @@ in
         in
         {
           "github.com/owner/repo".skills.deploy-checklist = deployChecklist;
-          "github.com/owner/other".skills.deploy-checklist = deployChecklist;
+          "github.com/owner/other" = {
+            skills.deploy-checklist = deployChecklist;
+            settings.autoMode.environment = [ "$defaults" "Branches named me/* are my own." ];
+          };
         }
       '';
       description = ''
@@ -329,7 +332,16 @@ in
         its links. The links are stable across rebuilds, so a saved agent that
         references one picks up a rebuilt plugin on its next launch.
 
-        Load a plugin by hand with `claude --plugin-dir <link>`.
+        `settings` are Claude Code settings, rendered to
+        `$XDG_DATA_HOME/paseo-repo-profiles/<owner>-<repo>/settings.json` and passed as
+        `--settings`. This is the only way to scope settings Claude Code reads solely
+        from user or flag settings (such as `autoMode`) to particular repositories.
+        Declarations from several modules merge: attrsets recursively, lists by
+        concatenation. Removing a repository's settings later makes its saved agents
+        fail to launch until recreated, since Paseo reads the file on every launch.
+
+        Load a plugin by hand with `claude --plugin-dir <link>`, and settings with
+        `claude --settings <link>`.
       '';
     };
 

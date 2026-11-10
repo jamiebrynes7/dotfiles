@@ -8,7 +8,7 @@
     "test": "node --test server/*.test.ts"
   },
   "devDependencies": {
-    "@getpaseo/plugin": "0.15.3",
+    "@getpaseo/plugin": "0.15.4",
     "@types/node": "^24.0.0",
     "@types/react": "~19.2.0",
     "react": "19.1.0",

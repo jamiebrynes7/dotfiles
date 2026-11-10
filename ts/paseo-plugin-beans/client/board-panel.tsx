@@ -1,9 +1,10 @@
 import { useTabState, type PluginWorkspacePanelProps } from "@getpaseo/plugin/client";
 import { Icon, Loading, ScrollView } from "@getpaseo/plugin/client/ui";
-import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { z } from "zod";
 import { laneKey, layout, NO_EPIC_GROUP, type Lane } from "../shared/layout.ts";
-import type { BoardBean } from "../shared/rpc.ts";
+import { MAX_SEARCH_LENGTH, type BoardBean } from "../shared/rpc.ts";
 import { PriorityIcon, Tags, TypeBadge, type Colors } from "./badges.tsx";
 import { useSelection } from "./selection.ts";
 import { useBoard } from "./use-polled.ts";
@@ -18,6 +19,11 @@ const TabState = z.object({
 });
 type TabState = z.infer<typeof TabState>;
 const DEFAULT_TAB_STATE: TabState = { showScrapped: false, showArchived: false, collapsed: {} };
+
+const SEARCH_DEBOUNCE_MS = 300;
+// The CLI's Bleve query syntax; whole words match, so prefixes need `*`.
+const SEARCH_HINT =
+  "Whole words · log* prefix · login~ fuzzy · a AND b · a OR b · title: body: slug: id:";
 
 const COLUMN_TITLES: Record<string, string> = {
   draft: "Draft",
@@ -73,6 +79,7 @@ function Card({
 function LaneView({
   lane,
   collapsed,
+  searching,
   onToggle,
   selected,
   onOpenBean,
@@ -80,6 +87,8 @@ function LaneView({
 }: {
   lane: Lane;
   collapsed: boolean;
+  /** Lanes are held open while searching, so the header does not toggle. */
+  searching: boolean;
   onToggle(): void;
   selected: string | null;
   onOpenBean(beanId: string): void;
@@ -88,12 +97,19 @@ function LaneView({
   const count = lane.cells.reduce((sum, cell) => sum + cell.cards.length, 0);
   return (
     <View style={[styles.lane, { borderColor: colors.border }]}>
-      <Pressable accessibilityRole="button" onPress={onToggle} style={styles.laneHeader}>
-        <Icon
-          name={collapsed ? "ChevronRight" : "ChevronDown"}
-          size={16}
-          color={colors.foregroundMuted}
-        />
+      <Pressable
+        accessibilityRole="button"
+        onPress={onToggle}
+        disabled={searching}
+        style={styles.laneHeader}
+      >
+        {!searching && (
+          <Icon
+            name={collapsed ? "ChevronRight" : "ChevronDown"}
+            size={16}
+            color={colors.foregroundMuted}
+          />
+        )}
         <Text style={[styles.laneTitle, { color: colors.foreground }]} numberOfLines={1}>
           {lane.epic ? lane.epic.title : "No epic"}
         </Text>
@@ -133,15 +149,74 @@ export interface BoardPanelProps extends PluginWorkspacePanelProps {
   onOpenBean(workspaceId: string, beanId: string): void;
 }
 
+/**
+ * The query to search for: `text` once it has been still for SEARCH_DEBOUNCE_MS, but
+ * blank at once when `text` is cleared.
+ */
+function useDebouncedSearch(text: string): string {
+  const trimmed = text.trim();
+  const [query, setQuery] = useState(trimmed);
+  useEffect(() => {
+    if (!trimmed) {
+      setQuery("");
+      return;
+    }
+    const timer = setTimeout(() => setQuery(trimmed), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [trimmed]);
+  return trimmed ? query : "";
+}
+
 export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelProps) {
   const { colors } = theme;
-  const { data: board, error, refresh } = useBoard(workspaceId);
+  // Plain state, not tab state: a forgotten filter must not outlive the tab.
+  const [searchText, setSearchText] = useState("");
+  const query = useDebouncedSearch(searchText);
+  const { data: board, error, refresh } = useBoard(workspaceId, query);
   const selected = useSelection(workspaceId);
   const [state, setState] = useTabState(tab, TabState, DEFAULT_TAB_STATE);
+
+  // Like `matches` below, only while a query is active, so clearing the box drops it.
+  const searchError = query && board?.kind === "project" ? board.searchError : null;
 
   const toolbar = (
     <View style={[styles.toolbar, { borderColor: colors.border }]}>
       <View style={styles.toggles}>
+        <View style={styles.searchGroup}>
+          <View
+            style={[styles.search, { backgroundColor: colors.surface1, borderColor: colors.border }]}
+          >
+            <Icon name="Search" size={14} color={colors.foregroundMuted} />
+            <TextInput
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder="Search beans"
+              placeholderTextColor={colors.foregroundMuted}
+              maxLength={MAX_SEARCH_LENGTH}
+              autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel="Search beans"
+              style={[styles.searchInput, { color: colors.foreground }]}
+            />
+            {searchText ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                onPress={() => setSearchText("")}
+              >
+                <Icon name="X" size={14} color={colors.foregroundMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+          <Text
+            style={[
+              styles.small,
+              { color: searchError ? colors.statusDanger : colors.foregroundMuted },
+            ]}
+          >
+            {searchError ? `Can't parse search: ${searchError}` : SEARCH_HINT}
+          </Text>
+        </View>
         <View style={styles.toggle}>
           <Switch
             value={state.showScrapped}
@@ -200,8 +275,14 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
     );
   }
 
-  const lanes = layout(board.beans, state.showScrapped, state.showArchived);
-  const isCollapsed = (lane: Lane) => state.collapsed[laneKey(lane)] ?? lane.collapsedByDefault;
+  // Gated on `query` too, so clearing the box shows the full board at once instead of
+  // the last search's matches until the unsearched read lands. A new query keeps the
+  // previous one's matches on screen until its own arrive.
+  const matches = query && board.matches ? new Set(board.matches) : null;
+  const searching = matches !== null;
+  const lanes = layout(board.beans, state.showScrapped, state.showArchived, matches);
+  const isSaved = (lane: Lane) => state.collapsed[laneKey(lane)] ?? lane.collapsedByDefault;
+  const isCollapsed = (lane: Lane) => !searching && isSaved(lane);
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.surface0 }]}>
@@ -209,7 +290,9 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
       {banner}
       <ScrollView contentContainerStyle={styles.lanes}>
         {lanes.length === 0 && (
-          <Text style={[styles.empty, { color: colors.foregroundMuted }]}>Nothing to show</Text>
+          <Text style={[styles.empty, { color: colors.foregroundMuted }]}>
+            {searching ? "No beans match" : "Nothing to show"}
+          </Text>
         )}
         {lanes.map((lane, index) => (
           <View key={laneKey(lane)} style={styles.laneGroup}>
@@ -221,6 +304,7 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
             <LaneView
               lane={lane}
               collapsed={isCollapsed(lane)}
+              searching={searching}
               selected={selected}
               onOpenBean={(beanId) => onOpenBean(workspaceId, beanId)}
               colors={colors}
@@ -250,6 +334,18 @@ const styles = StyleSheet.create({
   },
   toggles: { flexDirection: "row", flexWrap: "wrap", flexShrink: 1, alignItems: "center", gap: 16 },
   toggle: { flexDirection: "row", alignItems: "center", gap: 8 },
+  searchGroup: { gap: 4, flexShrink: 1 },
+  search: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minWidth: 220,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderRadius: 6,
+  },
+  searchInput: { flex: 1, paddingVertical: 2 },
   iconButton: { padding: 4 },
   banner: {
     flexDirection: "row",

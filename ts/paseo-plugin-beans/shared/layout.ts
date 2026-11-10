@@ -69,11 +69,16 @@ function groupRank(group: string): number {
  *
  * Archiving hides cards, not lanes: an archived epic still heads the lane of any
  * unarchived descendants, which would otherwise scatter into "No epic".
+ *
+ * `matches`, when given, narrows the cards to those ids, plus every card in the lane of
+ * a matching epic. Lanes still come from every bean, so a matching card stays under
+ * its epic whether or not the epic matched.
  */
 export function layout(
   beans: readonly BoardBean[],
   showScrapped: boolean,
   showArchived: boolean,
+  matches: ReadonlySet<string> | null = null,
 ): Lane[] {
   const columns: string[] = showScrapped ? [...COLUMNS, SCRAPPED] : [...COLUMNS];
   const visible = new Set(columns);
@@ -84,6 +89,7 @@ export function layout(
     if (CONTAINER_TYPES.has(bean.type) || !visible.has(columnOf(bean))) continue;
     if (bean.archived && !showArchived) continue;
     const key = nearestEpic(bean, byId)?.id ?? null;
+    if (matches && !matches.has(bean.id) && !(key !== null && matches.has(key))) continue;
     const group = groups.get(key);
     if (group) group.push(bean);
     else groups.set(key, [bean]);

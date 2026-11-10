@@ -217,3 +217,52 @@ test("epic lanes group by the epic's status: in progress, todo, draft, completed
     ],
   );
 });
+
+test("a match set places only matching cards and drops lanes left without any", () => {
+  const beans = [
+    bean("e1", { type: "epic" }),
+    bean("t1", { parentId: "e1" }),
+    bean("t2", { parentId: "e1" }),
+    bean("e2", { type: "epic" }),
+    bean("t3", { parentId: "e2" }),
+    bean("loose"),
+  ];
+  assert.deepEqual(shape(layout(beans, false, false, new Set(["t2", "loose"]))), [
+    { epic: "e1", cells: { todo: ["t2"] } },
+    { epic: null, cells: { todo: ["loose"] } },
+  ]);
+  assert.deepEqual(shape(layout(beans, false, false, new Set())), []);
+});
+
+test("a matching card keeps its lane even when only the epic is archived or unmatched", () => {
+  const beans = [
+    bean("e1", { type: "epic", status: "completed", archived: true }),
+    bean("t1", { parentId: "e1", status: "completed" }),
+  ];
+  assert.deepEqual(shape(layout(beans, false, false, new Set(["t1"]))), [
+    { epic: "e1", cells: { completed: ["t1"] } },
+  ]);
+});
+
+test("a match set does not override the scrapped and archived toggles", () => {
+  const beans = [bean("s", { status: "scrapped" }), bean("a", { archived: true }), bean("t")];
+  const all = new Set(["s", "a", "t"]);
+  assert.deepEqual(shape(layout(beans, false, false, all)), [{ epic: null, cells: { todo: ["t"] } }]);
+  assert.deepEqual(shape(layout(beans, true, true, all)), [
+    { epic: null, cells: { todo: ["a", "t"], scrapped: ["s"] } },
+  ]);
+});
+
+test("a matching epic keeps its whole lane, still subject to the toggles", () => {
+  const beans = [
+    bean("e1", { type: "epic" }),
+    bean("t1", { parentId: "e1" }),
+    bean("t2", { parentId: "e1", status: "in-progress" }),
+    bean("t3", { parentId: "e1", archived: true }),
+    bean("e2", { type: "epic" }),
+    bean("t4", { parentId: "e2" }),
+  ];
+  assert.deepEqual(shape(layout(beans, false, false, new Set(["e1"]))), [
+    { epic: "e1", cells: { todo: ["t1"], "in-progress": ["t2"] } },
+  ]);
+});

@@ -10,6 +10,15 @@ export interface CliOptions {
   beans?: string;
 }
 
+/** `beans` ran and exited non-zero; `stderr` is its full output, for callers that classify it. */
+export class CliError extends Error {
+  readonly stderr: string;
+  constructor(message: string, stderr: string) {
+    super(message);
+    this.stderr = stderr;
+  }
+}
+
 function tail(text: string): string {
   const trimmed = text.trim();
   return trimmed.length > STDERR_TAIL ? `…${trimmed.slice(-STDERR_TAIL)}` : trimmed;
@@ -59,7 +68,9 @@ export function graphql(
     child.on("close", (code, signal) => {
       if (code !== 0) {
         const how = code === null ? `was killed by ${signal}` : `exited ${code}`;
-        finish(new Error([`beans ${how} in ${cwd}`, tail(stderr)].filter(Boolean).join(": ")));
+        finish(
+          new CliError([`beans ${how} in ${cwd}`, tail(stderr)].filter(Boolean).join(": "), stderr),
+        );
         return;
       }
       let parsed: unknown;

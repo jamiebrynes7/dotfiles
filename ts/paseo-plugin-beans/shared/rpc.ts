@@ -32,7 +32,15 @@ export type Fingerprint = z.infer<typeof Fingerprint>;
 
 export const Board = z.discriminatedUnion("kind", [
   NoProject,
-  z.object({ kind: z.literal("project"), fingerprint: z.string(), beans: z.array(BoardBean) }),
+  z.object({
+    kind: z.literal("project"),
+    fingerprint: z.string(),
+    beans: z.array(BoardBean),
+    /** Ids the search matched, or null when the read had no search. */
+    matches: z.array(z.string()).nullable(),
+    /** Why the CLI could not parse the search, which then matches nothing. */
+    searchError: z.string().nullable(),
+  }),
 ]);
 export type Board = z.infer<typeof Board>;
 
@@ -43,10 +51,15 @@ export const fingerprint = defineRpc({
   output: Fingerprint,
 });
 
-/** Every bean of the project, with the fingerprint taken just before the query. */
+export const MAX_SEARCH_LENGTH = 500;
+
+/**
+ * Every bean of the project, with the fingerprint taken just before the query.
+ * `search` is passed verbatim to the CLI's full-text search; `matches` lists its hits.
+ */
 export const board = defineRpc({
   name: "beans.board",
-  input: WorkspaceInput,
+  input: WorkspaceInput.extend({ search: z.string().max(MAX_SEARCH_LENGTH).optional() }),
   output: Board,
 });
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const WARNING_KIND = "repo-skills-warning";
+export const WARNING_KIND = "repo-profiles-warning";
 export const WARNING_VERSION = 1;
 
 // `detail` is the path or value the reason is about, drawn as code on its own line.

@@ -12,7 +12,7 @@ export interface HookDeps {
 }
 
 // One row per agent, so a fixed id is enough; reusing it would replace the row.
-const ROW_ID = "repo-skills-warning";
+const ROW_ID = "repo-profiles-warning";
 
 // Every failure leaves the request unchanged, because a throw from a before hook
 // would fail agent creation.
@@ -32,7 +32,7 @@ export function registerHooks(server: Server, deps: HookDeps): () => void {
             if (decision.detail !== undefined) warning.detail = decision.detail;
             break;
           case "load":
-            console.info(`repo-skills: loading ${decision.key} skills in ${cwd}`);
+            console.info(`repo-profiles: loading ${decision.key} skills in ${cwd}`);
             config = withPluginDir(request.config, decision.pluginDir);
             if (decision.alsoMatched.length > 0) {
               warning = {
@@ -49,7 +49,7 @@ export function registerHooks(server: Server, deps: HookDeps): () => void {
       if (warning === undefined) return { ...request, config };
       const detail = warning.detail === undefined ? "" : `: ${warning.detail}`;
       const loaded = warning.loaded === undefined ? "" : ` (loaded ${warning.loaded})`;
-      console.warn(`repo-skills: ${cwd}: ${warning.reason}${detail}${loaded}`);
+      console.warn(`repo-profiles: ${cwd}: ${warning.reason}${detail}${loaded}`);
       const token = deps.ledger.record(warning);
       return { ...request, config, env: { ...request.env, [TOKEN_ENV]: token } };
     }),
@@ -86,7 +86,7 @@ async function postWarning(paseo: Paseo, agentId: string, data: WarningData) {
     });
   } catch (error) {
     console.warn(
-      `repo-skills: could not post a warning to agent ${agentId}: ${error instanceof Error ? error.message : error}`,
+      `repo-profiles: could not post a warning to agent ${agentId}: ${error instanceof Error ? error.message : error}`,
     );
   }
 }

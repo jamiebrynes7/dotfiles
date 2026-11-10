@@ -141,9 +141,10 @@ let
     cfg.settings
   ];
 
-  repoSkills = (import ../lib/paseo-repo-skills { inherit lib pkgs; }).render {
-    inherit (cfg) repoSkills;
-    dataDir = "${config.xdg.dataHome}/paseo-repo-skills";
+  repoProfilesLib = import ../lib/paseo-repo-profiles { inherit lib pkgs; };
+  repoProfiles = repoProfilesLib.render {
+    inherit (cfg) repoProfiles;
+    dataDir = "${config.xdg.dataHome}/paseo-repo-profiles";
   };
 
   invalidPluginIds = lib.filter (id: builtins.match "[a-z][a-z0-9-]*" id == null) (
@@ -178,6 +179,14 @@ let
       '';
 in
 {
+  imports = [
+    (lib.mkRemovedOptionModule [ "dotfiles" "programs" "paseo" "repoSkills" ] ''
+      Declare repository skills per repository instead:
+      dotfiles.programs.paseo.repoProfiles."<host/owner/repo>".skills.<skill> = <directory with SKILL.md>.
+      A skill shared by several repositories is one Nix value listed under each.
+    '')
+  ];
+
   options.dotfiles.programs.paseo = {
     enable = lib.mkEnableOption "Enable paseo (the `paseo` CLI and `paseo-server` daemon)";
 
@@ -296,44 +305,31 @@ in
       '';
     };
 
-    repoSkills = lib.mkOption {
-      type = lib.types.attrsOf (
-        lib.types.submodule {
-          options = {
-            source = lib.mkOption {
-              type = lib.types.path;
-              description = "Directory containing the skill's `SKILL.md`, as for the shared skills.";
-            };
-            repositories = lib.mkOption {
-              type = lib.types.nonEmptyListOf lib.types.str;
-              example = [ "github.com/owner/repo" ];
-              description = ''
-                Repositories the skill applies to, as normalised `host/owner/repo`
-                keys: lowercase host, no scheme, user, port or trailing `.git`.
-              '';
-            };
-          };
-        }
-      );
+    repoProfiles = lib.mkOption {
+      type = repoProfilesLib.profilesType;
       default = { };
       example = lib.literalExpression ''
+        let
+          deployChecklist = ./skills/deploy-checklist;
+        in
         {
-          deploy-checklist = {
-            source = ./skills/deploy-checklist;
-            repositories = [ "github.com/owner/repo" ];
-          };
+          "github.com/owner/repo".skills.deploy-checklist = deployChecklist;
+          "github.com/owner/other".skills.deploy-checklist = deployChecklist;
         }
       '';
       description = ''
-        Skills that apply only to particular repositories, keyed by skill name.
-        Each repository gets one Claude Code plugin, named `<owner>-<repo>`, holding
-        every skill that lists it, linked at
-        `$XDG_DATA_HOME/paseo-repo-skills/<owner>-<repo>`.
-        `$XDG_CONFIG_HOME/paseo-repo-skills/config.json` maps each repository key to
-        that link. The link is stable across rebuilds, so a saved agent that
-        references it picks up a rebuilt plugin on its next launch.
+        Claude agent profiles for particular repositories, keyed by normalised
+        `host/owner/repo` (lowercase host, no scheme, user, port or trailing `.git`).
+        The repo-profiles Paseo plugin applies a repository's profile to every Claude
+        agent created through Paseo in a checkout whose remotes match the key.
 
-        Load one by hand with `claude --plugin-dir <link>`.
+        `skills` become one Claude Code plugin per repository, named `<owner>-<repo>`,
+        linked at `$XDG_DATA_HOME/paseo-repo-profiles/<owner>-<repo>/plugin`.
+        `$XDG_CONFIG_HOME/paseo-repo-profiles/config.json` maps each repository key to
+        its links. The links are stable across rebuilds, so a saved agent that
+        references one picks up a rebuilt plugin on its next launch.
+
+        Load a plugin by hand with `claude --plugin-dir <link>`.
       '';
     };
 
@@ -455,9 +451,9 @@ in
       # this is the one combination where a managed config.json is unprotected. A
       # warning, not an assertion: starting the daemon by hand is legitimate.
       warnings =
-        lib.optional (!cfg.enable && cfg.repoSkills != { }) ''
-          dotfiles.programs.paseo.repoSkills is set but dotfiles.programs.paseo.enable is not,
-          so no repository skills are installed.
+        lib.optional (!cfg.enable && cfg.repoProfiles != { }) ''
+          dotfiles.programs.paseo.repoProfiles is set but dotfiles.programs.paseo.enable is not,
+          so no repository profiles are installed.
         ''
         ++ lib.optional (cfg.enable && cfg.desktop.enable && !cfg.service.enable) ''
           dotfiles.programs.paseo: config.json is managed by Nix, but nothing on this host
@@ -521,22 +517,26 @@ in
       '';
     })
 
-    (lib.mkIf (cfg.enable && cfg.repoSkills != { }) {
+    (lib.mkIf (cfg.enable && cfg.repoProfiles != { }) {
       assertions = map (message: {
         assertion = false;
         inherit message;
-      }) repoSkills.errors;
+      }) repoProfiles.errors;
+    })
 
+    # Only once a repository declares something to load: profiles that are all empty
+    # install nothing.
+    (lib.mkIf (cfg.enable && repoProfiles.links != { }) {
       # Reads the config.json below on every Claude agent creation.
-      dotfiles.programs.paseo.plugins.repo-skills.package =
-        lib.mkDefault pkgs.dotfiles.paseo-plugin-repo-skills;
+      dotfiles.programs.paseo.plugins.repo-profiles.package =
+        lib.mkDefault pkgs.dotfiles.paseo-plugin-repo-profiles;
 
       xdg.dataFile = lib.mapAttrs' (
-        name: plugin: lib.nameValuePair "paseo-repo-skills/${name}" { source = plugin; }
-      ) repoSkills.plugins;
+        link: source: lib.nameValuePair "paseo-repo-profiles/${link}" { inherit source; }
+      ) repoProfiles.links;
 
-      xdg.configFile."paseo-repo-skills/config.json".source =
-        configFormat.generate "paseo-repo-skills.json" repoSkills.config;
+      xdg.configFile."paseo-repo-profiles/config.json".source =
+        configFormat.generate "paseo-repo-profiles.json" repoProfiles.config;
     })
 
     (lib.mkIf cfg.service.enable {

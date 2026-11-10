@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { configPath, readConfig } from "./config.ts";
 
 async function withFile(contents: string): Promise<string> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "repo-skills-config-"));
+  const dir = await mkdtemp(path.join(os.tmpdir(), "repo-profiles-config-"));
   const file = path.join(dir, "config.json");
   await writeFile(file, contents);
   return file;
@@ -15,22 +15,25 @@ async function withFile(contents: string): Promise<string> {
 test("configPath follows XDG_CONFIG_HOME, else ~/.config", () => {
   assert.equal(
     configPath({ XDG_CONFIG_HOME: "/x" }, "/home/u"),
-    "/x/paseo-repo-skills/config.json",
+    "/x/paseo-repo-profiles/config.json",
   );
-  assert.equal(configPath({}, "/home/u"), "/home/u/.config/paseo-repo-skills/config.json");
+  assert.equal(configPath({}, "/home/u"), "/home/u/.config/paseo-repo-profiles/config.json");
   assert.equal(
     configPath({ XDG_CONFIG_HOME: "" }, "/home/u"),
-    "/home/u/.config/paseo-repo-skills/config.json",
+    "/home/u/.config/paseo-repo-profiles/config.json",
   );
 });
 
 test("a valid file gives its repositories", async () => {
   const file = await withFile(
-    JSON.stringify({ version: 1, repositories: { "github.com/acme/web": "/p/acme-web" } }),
+    JSON.stringify({
+      version: 1,
+      repositories: { "github.com/acme/web": { pluginDir: "/p/acme-web" }, "github.com/acme/api": {} },
+    }),
   );
   assert.deepEqual(await readConfig(file), {
     kind: "ok",
-    repositories: { "github.com/acme/web": "/p/acme-web" },
+    repositories: { "github.com/acme/web": { pluginDir: "/p/acme-web" }, "github.com/acme/api": {} },
   });
 });
 
@@ -55,6 +58,8 @@ test("a wrong version or shape is an error", async () => {
     [],
     { version: 1 },
     { version: 1, repositories: { "github.com/a/b": 3 } },
+    { version: 1, repositories: { "github.com/a/b": "/p/a-b" } },
+    { version: 1, repositories: { "github.com/a/b": { pluginDir: 3 } } },
   ]) {
     const result = await readConfig(await withFile(JSON.stringify(contents)));
     assert.equal(result.kind, "error", JSON.stringify(contents));

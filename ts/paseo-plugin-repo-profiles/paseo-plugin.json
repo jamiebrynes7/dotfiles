@@ -1,0 +1,6 @@
+{
+  "id": "repo-profiles",
+  "name": "Repository profiles",
+  "description": "Gives Claude agents created in a matching repository the profile declared in dotfiles.programs.paseo.repoProfiles",
+  "requirements": { "paseo": ">=0.15.0" }
+}

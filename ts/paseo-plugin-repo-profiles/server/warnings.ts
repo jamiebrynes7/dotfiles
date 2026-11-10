@@ -12,7 +12,7 @@ import type { WarningData } from "../shared/timeline.ts";
 //   its next prompt whenever this plugin starts, stops or restarts.
 // - The token is not private: other plugins' hooks that run after this one see it,
 //   and Paseo saves it in the agent's launchEnv.
-export const TOKEN_ENV = "PASEO_REPO_SKILLS_WARNING";
+export const TOKEN_ENV = "PASEO_REPO_PROFILES_WARNING";
 
 // Far longer than any creation takes. Only bounds what failed creations leave behind.
 export const WARNING_TTL_MS = 5 * 60_000;

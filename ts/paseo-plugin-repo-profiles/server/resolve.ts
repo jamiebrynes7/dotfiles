@@ -40,7 +40,8 @@ export async function decide(config: SessionConfig, deps: Deps): Promise<Decisio
   const [key, ...alsoMatched] = matched;
   if (key === undefined) return { kind: "unchanged" };
 
-  const pluginDir = read.repositories[key]!;
+  const { pluginDir } = read.repositories[key]!;
+  if (pluginDir === undefined) return { kind: "unchanged" };
   if (!(await deps.isDirectory(pluginDir))) {
     return {
       kind: "skipped",

@@ -1,10 +1,11 @@
 ---
 # dotfiles-g2b5
 title: Rename repo-skills to repo-profiles and key skills by repository
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-11-10T09:36:04Z
-updated_at: 2026-11-10T09:36:04Z
+updated_at: 2026-11-10T09:50:59Z
 parent: dotfiles-vg6h
 ---
 
@@ -16,13 +17,13 @@ Repository skills are declared per repository as `dotfiles.programs.paseo.repoPr
 
 ## Acceptance criteria
 
-- [ ] A Claude agent created through Paseo in a repository declared under `repoProfiles` with skills loads them as `<owner>-<repo>:<skill>`, and an agent in an undeclared repository loads none
-- [ ] Declaring `dotfiles.programs.paseo.repoSkills` fails eval with a message that names `repoProfiles`
-- [ ] The renamed flake check renders a fixture where one skill value is shared by two repositories, and asserts both generated plugins and the config's `pluginDir` entries
-- [ ] Bad repository keys, bad skill names, a missing `SKILL.md` and plugin-name collisions each still fail eval with a message naming the offender
-- [ ] Two modules that give one repository the same skill name with different sources fail eval
-- [ ] No `repo-skills` / `repoSkills` name remains outside `docs/specs/` and `.beans/`, apart from the removed-option shim
-- [ ] The `<dir>-typecheck`, `<dir>-sdk-version` and unit-test checks run under the new directory name
+- [x] A Claude agent created through Paseo in a repository declared under `repoProfiles` with skills loads them as `<owner>-<repo>:<skill>`, and an agent in an undeclared repository loads none
+- [x] Declaring `dotfiles.programs.paseo.repoSkills` fails eval with a message that names `repoProfiles`
+- [x] The renamed flake check renders a fixture where one skill value is shared by two repositories, and asserts both generated plugins and the config's `pluginDir` entries
+- [x] Bad repository keys, bad skill names, a missing `SKILL.md` and plugin-name collisions each still fail eval with a message naming the offender
+- [x] Two modules that give one repository the same skill name with different sources fail eval
+- [x] No `repo-skills` / `repoSkills` name remains outside `docs/specs/` and `.beans/`, apart from the removed-option shim
+- [x] The `<dir>-typecheck`, `<dir>-sdk-version` and unit-test checks run under the new directory name
 
 ## Constraints
 
@@ -32,3 +33,7 @@ Repository skills are declared per repository as `dotfiles.programs.paseo.repoPr
 ## Notes
 
 Once this lands, re-word `dotfiles-zr0x` (home-eval coverage of the module wiring) to `repoProfiles`.
+
+## Summary of Changes
+
+Renamed the repo-skills Paseo plugin to repo-profiles throughout: plugin id, ts/ and packages/ dirs, the home/lib renderer and its flake check, config and data paths, log prefixes, timeline row id/kind and the warning token env var. Replaced `dotfiles.programs.paseo.repoSkills` (skill → repositories) with `repoProfiles."host/owner/repo".skills.<name> = <path>`. The option type lives in the renderer lib, so the check can evaluate module merging. `repoSkills` is now an mkRemovedOptionModule that points at repoProfiles. config.json maps each key to `{ pluginDir }`, and plugins link at `paseo-repo-profiles/<owner>-<repo>/plugin`. Profiles with nothing to load are left out of the config so they can't shadow a later-matched profile. Verified with the flake checks, home-manager evals and a demo-daemon run: an agent in a declared repo loaded the skills, and one outside it didn't.

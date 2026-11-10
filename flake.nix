@@ -315,7 +315,7 @@
             // {
               nixfmt = mkNixfmtCheck darwinPkgs;
               paseo-plugin-requirements = darwinPkgs.callPackage ./packages/paseo/plugin-requirements.nix { };
-              paseo-repo-skills = darwinPkgs.callPackage ./home/lib/paseo-repo-skills/check.nix { };
+              paseo-repo-profiles = darwinPkgs.callPackage ./home/lib/paseo-repo-profiles/check.nix { };
             };
           x86_64-linux =
             self.packages.x86_64-linux
@@ -324,7 +324,7 @@
             // {
               nixfmt = mkNixfmtCheck linuxPkgs;
               paseo-plugin-requirements = linuxPkgs.callPackage ./packages/paseo/plugin-requirements.nix { };
-              paseo-repo-skills = linuxPkgs.callPackage ./home/lib/paseo-repo-skills/check.nix { };
+              paseo-repo-profiles = linuxPkgs.callPackage ./home/lib/paseo-repo-profiles/check.nix { };
               # Linux only: `mkHomeManagerSystem` always uses `nixOsPkgs`, so a darwin
               # variant would evaluate the non-darwin package set.
               home-eval = mkHomeEvalCheck "x86_64-linux";

@@ -8,9 +8,10 @@ import { TOKEN_ENV, createWarningLedger } from "./warnings.ts";
 type Handler = (payload: any, context: any) => Promise<any>;
 
 const repositories = {
-  "github.com/acme/web": "/plugins/acme-web",
-  "github.com/acme/api": "/plugins/acme-api",
+  "github.com/acme/web": { pluginDir: "/plugins/acme-web" },
+  "github.com/acme/api": { pluginDir: "/plugins/acme-api" },
 };
+const pluginDirs = Object.values(repositories).map((profile) => profile.pluginDir);
 
 interface Setup {
   config?: ConfigRead;
@@ -27,7 +28,7 @@ function harness(setup: Setup = {}) {
   const current = () => ({
     config: setup.config ?? ({ kind: "ok", repositories } as ConfigRead),
     remotes: setup.remotes ?? ({ kind: "ok", urls: ["git@github.com:acme/web.git"] } as RemoteList),
-    dirs: setup.dirs ?? Object.values(repositories),
+    dirs: setup.dirs ?? pluginDirs,
   });
   const handlers = new Map<string, Handler>();
   const rows: { agentId: string; item: any }[] = [];
@@ -91,7 +92,7 @@ test("each warning case posts one row naming the reason, to that agent", async (
     assert.equal(h.rows[0]!.agentId, "agent-1", name);
     assert.match(h.rows[0]!.item.data.reason, reason, name);
     assert.equal(h.rows[0]!.item.data.loaded, undefined, name);
-    assert.equal(h.rows[0]!.item.kind, "repo-skills-warning", name);
+    assert.equal(h.rows[0]!.item.kind, "repo-profiles-warning", name);
     assert.equal(launched.env[TOKEN_ENV], undefined, `${name}: token reaches the agent`);
   }
 });

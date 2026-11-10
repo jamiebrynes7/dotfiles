@@ -6,7 +6,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { listRemoteUrls } from "./git.ts";
 
-const tmp = (prefix: string) => mkdtemp(path.join(os.tmpdir(), `repo-skills-${prefix}-`));
+const tmp = (prefix: string) => mkdtemp(path.join(os.tmpdir(), `repo-profiles-${prefix}-`));
 
 // Identity and config isolation, so the tests run the same in the Nix sandbox.
 function git(cwd: string, ...args: string[]) {

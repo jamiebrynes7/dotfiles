@@ -5,15 +5,16 @@ import type { RemoteList } from "./git.ts";
 import { decide, matchKeys, withPluginDir, type Deps, type SessionConfig } from "./resolve.ts";
 
 const repositories = {
-  "github.com/acme/web": "/plugins/acme-web",
-  "github.com/acme/api": "/plugins/acme-api",
+  "github.com/acme/web": { pluginDir: "/plugins/acme-web" },
+  "github.com/acme/api": { pluginDir: "/plugins/acme-api" },
 };
+const pluginDirs = Object.values(repositories).map((profile) => profile.pluginDir);
 
 function deps(overrides: Partial<{ config: ConfigRead; remotes: RemoteList; dirs: string[] }>): Deps {
   const {
     config = { kind: "ok", repositories },
     remotes = { kind: "ok", urls: ["git@github.com:acme/web.git"] },
-    dirs = Object.values(repositories),
+    dirs = pluginDirs,
   } = overrides;
   return {
     readConfig: async () => config,
@@ -154,4 +155,9 @@ test("withPluginDir keeps every other provider option and extraArg", () => {
     },
   });
   assert.deepEqual(withPluginDir(claude, "/p").providerOptions, { extraArgs: { "plugin-dir": "/p" } });
+});
+
+test("a matched repository whose profile has no skills is unchanged", async () => {
+  const config: ConfigRead = { kind: "ok", repositories: { "github.com/acme/web": {} } };
+  assert.deepEqual(await decide(claude, deps({ config, dirs: [] })), { kind: "unchanged" });
 });

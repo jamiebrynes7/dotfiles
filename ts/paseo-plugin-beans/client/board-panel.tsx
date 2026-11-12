@@ -3,9 +3,20 @@ import { Icon, Loading, ScrollView } from "@getpaseo/plugin/client/ui";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { z } from "zod";
-import { laneKey, layout, NO_EPIC_GROUP, type Lane } from "../shared/layout.ts";
+import {
+  columnCounts,
+  columnOf,
+  laneCount,
+  laneKey,
+  layout,
+  NO_EPIC_GROUP,
+  progress,
+  type Lane,
+  type Progress,
+  type Row,
+} from "../shared/layout.ts";
 import { MAX_SEARCH_LENGTH, type BoardBean } from "../shared/rpc.ts";
-import { PriorityIcon, Tags, TypeBadge, type Colors } from "./badges.tsx";
+import { PriorityIcon, Tags, TypeBadge, typeColor, type Colors } from "./badges.tsx";
 import { useSelection } from "./selection.ts";
 import { useBoard } from "./use-polled.ts";
 
@@ -14,7 +25,7 @@ const TabState = z.object({
   // Tabs saved before this field existed must still parse: useTabState discards the
   // whole state on a parse failure, which would reset showScrapped and collapsed.
   showArchived: z.boolean().default(false),
-  /** Lane key → collapsed, only for lanes the user has toggled. */
+  /** Lane key or feature id → collapsed, only for lanes and rows the user has toggled. */
   collapsed: z.record(z.string(), z.boolean()),
 });
 type TabState = z.infer<typeof TabState>;
@@ -38,16 +49,31 @@ function Card({
   selected,
   onPress,
   colors,
+  progress,
+  heading = false,
+  context = false,
 }: {
   bean: BoardBean;
   selected: boolean;
   onPress(): void;
   colors: Colors;
+  progress?: Progress;
+  /** Leads its feature row, so it gets the feature's accent edge. */
+  heading?: boolean;
+  /** Shown only to head its row: dimmed, still pressable. */
+  context?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${bean.id}: ${bean.title}`}
+      // The Pressable's label replaces its children's, so progress and context go here.
+      accessibilityLabel={[
+        `${bean.id}: ${bean.title}`,
+        progress && `${progress.done} of ${progress.total} done`,
+        context && "shown for context",
+      ]
+        .filter(Boolean)
+        .join(", ")}
       onPress={onPress}
       style={[
         styles.card,
@@ -55,6 +81,8 @@ function Card({
           backgroundColor: colors.surface1,
           borderColor: selected ? colors.accent : colors.border,
         },
+        heading && { borderLeftWidth: 3, borderLeftColor: typeColor(bean.type) },
+        context && styles.context,
       ]}
     >
       <Text style={[styles.cardTitle, { color: colors.foreground }]}>{bean.title}</Text>
@@ -67,6 +95,11 @@ function Card({
               <Text style={[styles.small, { color: colors.statusDanger }]}>blocked</Text>
             </View>
           )}
+          {progress && (
+            <Text style={[styles.small, { color: colors.foregroundMuted }]}>
+              {progress.done}/{progress.total}
+            </Text>
+          )}
           <PriorityIcon priority={bean.priority} colors={colors} />
         </View>
       </View>
@@ -76,25 +109,77 @@ function Card({
   );
 }
 
+/** A feature row's header, which toggles it; a collapsed row shows only this. */
+function RowHeader({
+  feature,
+  collapsed,
+  searching,
+  progress,
+  onToggle,
+  colors,
+}: {
+  feature: BoardBean;
+  collapsed: boolean;
+  searching: boolean;
+  progress?: Progress;
+  onToggle(): void;
+  colors: Colors;
+}) {
+  const muted = { color: colors.foregroundMuted };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} ${feature.title}`}
+      onPress={onToggle}
+      disabled={searching}
+      style={styles.rowHeader}
+    >
+      {!searching && (
+        <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} size={14} color={colors.foregroundMuted} />
+      )}
+      <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>
+        {feature.title}
+      </Text>
+      <Text style={[styles.small, muted]}>{feature.id}</Text>
+      <Text style={[styles.small, styles.rowStatus, muted]}>
+        {COLUMN_TITLES[columnOf(feature)] ?? columnOf(feature)}
+      </Text>
+      {progress && (
+        <Text style={[styles.small, muted]}>
+          {progress.done}/{progress.total}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
 function LaneView({
   lane,
   collapsed,
   searching,
   onToggle,
+  isRowCollapsed,
+  onToggleRow,
+  progressOf,
   selected,
   onOpenBean,
   colors,
 }: {
   lane: Lane;
   collapsed: boolean;
-  /** Lanes are held open while searching, so the header does not toggle. */
+  /** Lanes and rows are held open while searching, so their headers do not toggle. */
   searching: boolean;
   onToggle(): void;
+  isRowCollapsed(row: Row): boolean;
+  onToggleRow(row: Row): void;
+  progressOf: ReadonlyMap<string, Progress>;
   selected: string | null;
   onOpenBean(beanId: string): void;
   colors: Colors;
 }) {
-  const count = lane.cells.reduce((sum, cell) => sum + cell.cards.length, 0);
+  const counts = columnCounts(lane);
+  // A lane with no feature rows keeps today's single row, with no "Other" header.
+  const hasFeatureRows = lane.rows.some((row) => row.feature !== null);
   return (
     <View style={[styles.lane, { borderColor: colors.border }]}>
       <Pressable
@@ -118,26 +203,63 @@ function LaneView({
             {lane.epic.id}
           </Text>
         )}
-        <Text style={[styles.small, { color: colors.foregroundMuted }]}>{count}</Text>
+        <Text style={[styles.small, { color: colors.foregroundMuted }]}>{laneCount(lane)}</Text>
       </Pressable>
       {!collapsed && (
-        <ScrollView horizontal contentContainerStyle={styles.columns}>
-          {lane.cells.map((cell) => (
-            <View key={cell.column} style={styles.column}>
-              <Text style={[styles.columnTitle, { color: colors.foregroundMuted }]}>
-                {COLUMN_TITLES[cell.column] ?? cell.column} · {cell.cards.length}
+        <ScrollView horizontal contentContainerStyle={styles.laneBody}>
+          <View style={styles.row}>
+            {lane.rows[0].cells.map((cell, index) => (
+              <Text
+                key={cell.column}
+                style={[styles.column, styles.columnTitle, { color: colors.foregroundMuted }]}
+              >
+                {COLUMN_TITLES[cell.column] ?? cell.column} · {counts[index]}
               </Text>
-              {cell.cards.map((bean) => (
-                <Card
-                  key={bean.id}
-                  bean={bean}
-                  selected={bean.id === selected}
-                  onPress={() => onOpenBean(bean.id)}
-                  colors={colors}
-                />
-              ))}
-            </View>
-          ))}
+            ))}
+          </View>
+          {lane.rows.map((row) => {
+            const feature = row.feature;
+            const rowCollapsed = feature !== null && isRowCollapsed(row);
+            return (
+              <View
+                key={feature?.id ?? "other"}
+                style={[styles.rowBlock, hasFeatureRows && { borderTopWidth: 1, borderColor: colors.border }]}
+              >
+                {feature !== null ? (
+                  <RowHeader
+                    feature={feature}
+                    collapsed={rowCollapsed}
+                    searching={searching}
+                    progress={progressOf.get(feature.id)}
+                    onToggle={() => onToggleRow(row)}
+                    colors={colors}
+                  />
+                ) : hasFeatureRows ? (
+                  <Text style={[styles.columnTitle, { color: colors.foregroundMuted }]}>Other</Text>
+                ) : null}
+                {!rowCollapsed && (
+                  <View style={styles.row}>
+                    {row.cells.map((cell) => (
+                      <View key={cell.column} style={[styles.column, styles.cell]}>
+                        {cell.cards.map((bean) => (
+                          <Card
+                            key={bean.id}
+                            bean={bean}
+                            selected={bean.id === selected}
+                            onPress={() => onOpenBean(bean.id)}
+                            colors={colors}
+                            progress={progressOf.get(bean.id)}
+                            heading={bean.id === feature?.id}
+                            context={bean.id === feature?.id && row.featureIsContext}
+                          />
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </ScrollView>
       )}
     </View>
@@ -281,8 +403,12 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
   const matches = query && board.matches ? new Set(board.matches) : null;
   const searching = matches !== null;
   const lanes = layout(board.beans, state.showScrapped, state.showArchived, matches);
+  const progressOf = progress(board.beans);
   const isSaved = (lane: Lane) => state.collapsed[laneKey(lane)] ?? lane.collapsedByDefault;
   const isCollapsed = (lane: Lane) => !searching && isSaved(lane);
+  // Feature ids and lane keys share the map: bean ids are unique, and "no-epic" is none.
+  const isRowCollapsed = (row: Row) =>
+    !searching && row.feature !== null && (state.collapsed[row.feature.id] ?? row.collapsedByDefault);
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.surface0 }]}>
@@ -308,6 +434,15 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
               selected={selected}
               onOpenBean={(beanId) => onOpenBean(workspaceId, beanId)}
               colors={colors}
+              progressOf={progressOf}
+              isRowCollapsed={isRowCollapsed}
+              onToggleRow={(row) => {
+                if (!row.feature) return;
+                setState({
+                  ...state,
+                  collapsed: { ...state.collapsed, [row.feature.id]: !isRowCollapsed(row) },
+                });
+              }}
               onToggle={() =>
                 setState({
                   ...state,
@@ -362,16 +497,24 @@ const styles = StyleSheet.create({
   lane: { borderWidth: 1, borderRadius: 8, overflow: "hidden" },
   laneHeader: { flexDirection: "row", alignItems: "center", gap: 8, padding: 8 },
   laneTitle: { fontWeight: "600", flexShrink: 1 },
-  // Columns share the lane's width equally, down to a floor below which the lane scrolls.
-  columns: { flexGrow: 1, gap: 8, paddingHorizontal: 8, paddingBottom: 8 },
+  // A column, not the default row: the lane's rows stack, and stretch to its width.
+  laneBody: { flexGrow: 1, flexDirection: "column", gap: 6, paddingHorizontal: 8, paddingBottom: 8 },
+  // Columns share the row's width equally, down to a floor below which the lane scrolls.
+  row: { flexDirection: "row", gap: 8 },
+  rowBlock: { gap: 6, paddingTop: 6 },
+  rowHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  rowTitle: { fontSize: 13, fontWeight: "500", flexShrink: 1 },
+  rowStatus: { textTransform: "uppercase" },
   // A definite `width`, not `flex: 1`: each lane scrolls separately, and flex: 1 sizes
   // columns from their content, misaligning them between epics. Not `width: 0` with
   // `minWidth`: Yoga leaves the floor out of the content width, so a lane can't scroll.
-  column: { width: 300, flexGrow: 1, gap: 6 },
+  column: { width: 300, flexGrow: 1 },
+  cell: { gap: 6 },
   columnTitle: { fontSize: 12, fontWeight: "600", textTransform: "uppercase" },
   laneGroup: { gap: 6 },
   groupTitle: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", marginTop: 6 },
   card: { borderWidth: 1, borderRadius: 6, padding: 10, gap: 6 },
+  context: { opacity: 0.5 },
   cardTitle: { fontWeight: "500" },
   cardRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   cardIcons: { flexDirection: "row", alignItems: "center", gap: 6 },

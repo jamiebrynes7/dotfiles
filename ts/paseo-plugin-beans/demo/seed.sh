@@ -27,6 +27,8 @@ checkout=$(mk "Checkout flow" -t epic -d "Rebuild checkout" -p high -s in-progre
 search=$(mk "Search revamp" -t epic -d "Faster search")
 legacy=$(mk "Legacy cleanup" -t epic -d "Old stuff" -s completed)
 
+# The feature and its tasks sit in different columns (in progress, todo, completed),
+# all in the feature's row.
 form=$(mk "Payment form" -t feature -d "Card entry" --parent "$checkout" -s in-progress --tag ui)
 luhn=$(mk "Validate card numbers" -t task --parent "$form" -p critical --tag payments --tag security \
   -d "$(cat <<'BODY'
@@ -45,7 +47,12 @@ BODY
 )")
 mk "3-D Secure challenge" -t task -d "SCA" --parent "$form" --blocked-by "$luhn" \
   --tag payments --tag compliance >/dev/null
+mk "Card field layout" -t task -d "Layout" --parent "$form" -s completed >/dev/null
 mk "Order summary panel" -t task -d "Totals" --parent "$checkout" -s completed >/dev/null
+# A finished feature, so its row starts collapsed to just its card (2/2).
+guest=$(mk "Guest checkout" -t feature -d "No account needed" --parent "$checkout" -s completed)
+mk "Email-only order lookup" -t task -d "Lookup" --parent "$guest" -s completed >/dev/null
+mk "Skip account step" -t task -d "Skip" --parent "$guest" -s completed >/dev/null
 
 mk "Index product titles" -t task -d "Index" --parent "$search" --tag backend >/dev/null
 mk "Typeahead UI" -t feature -d "UI" --parent "$search" -s draft -p low --tag ui --tag frontend >/dev/null

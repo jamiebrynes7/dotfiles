@@ -204,6 +204,46 @@ export function laneKey(lane: Lane): string {
   return lane.epic?.id ?? "no-epic";
 }
 
+export type FeatureRow = Row & { feature: BoardBean };
+
+export function featureRows(lanes: readonly Lane[]): FeatureRow[] {
+  return lanes.flatMap((lane) => lane.rows.filter((row): row is FeatureRow => row.feature !== null));
+}
+
+/** A row's collapse state as saved in the tab, ignoring the hold-open while searching. */
+export function isRowSaved(saved: Readonly<Record<string, boolean>>, row: FeatureRow): boolean {
+  return saved[row.feature.id] ?? row.collapsedByDefault;
+}
+
+/**
+ * Whether any feature row you can see is expanded: rows in collapsed lanes are out of
+ * sight, so they count only when every lane is collapsed.
+ */
+export function anyFeatureRowExpanded(
+  saved: Readonly<Record<string, boolean>>,
+  lanes: readonly Lane[],
+): boolean {
+  const open = lanes.filter((lane) => !(saved[laneKey(lane)] ?? lane.collapsedByDefault));
+  return featureRows(open.length > 0 ? open : lanes).some((row) => !isRowSaved(saved, row));
+}
+
+/**
+ * `saved` with every row of `lanes` set to `collapsed`; lane keys untouched. A row that
+ * lands on its default loses its key, so the default applies again if it changes.
+ */
+export function withFeatureRowsCollapsed(
+  saved: Readonly<Record<string, boolean>>,
+  lanes: readonly Lane[],
+  collapsed: boolean,
+): Record<string, boolean> {
+  const next = { ...saved };
+  for (const row of featureRows(lanes)) {
+    if (collapsed === row.collapsedByDefault) delete next[row.feature.id];
+    else next[row.feature.id] = collapsed;
+  }
+  return next;
+}
+
 function isContext(row: Row, card: BoardBean): boolean {
   return row.featureIsContext && card.id === row.feature?.id;
 }

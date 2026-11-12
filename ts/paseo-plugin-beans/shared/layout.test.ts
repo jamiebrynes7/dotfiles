@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { columnCounts, laneCount, layout, progress, type Lane } from "./layout.ts";
+import {
+  columnCounts,
+  laneCount,
+  layout,
+  progress,
+  anyFeatureRowExpanded,
+  withFeatureRowsCollapsed,
+  type Lane,
+} from "./layout.ts";
 import type { BoardBean } from "./rpc.ts";
 
 function bean(id: string, fields: Partial<BoardBean> = {}): BoardBean {
@@ -566,4 +574,48 @@ test("search and archive together: an archived, unmatched feature is context for
   assert.deepEqual(rows([lane]), [{ epic: null, rows: [{ feature: "f1", cells: { todo: ["f1", "t1"] } }] }]);
   assert.equal(lane.rows[0].featureIsContext, true);
   assert.equal(layout(beans, false, false, new Set(["f1"]))[0].rows[0].featureIsContext, true);
+});
+
+function collapseBoard() {
+  return layout(
+    [
+      bean("e1", { type: "epic" }),
+      bean("f1", { type: "feature", parentId: "e1" }),
+      bean("t1", { parentId: "f1" }),
+      bean("f2", { type: "feature", status: "completed" }),
+      bean("t2", { parentId: "f2", implicitStatus: "completed" }),
+      bean("loose"),
+    ],
+    false,
+    false,
+  );
+}
+
+test("collapsing all feature rows writes only rows off their default, leaving lane keys alone", () => {
+  const lanes = collapseBoard();
+  const saved = { e1: true, "no-epic": false, f1: false, f2: false, gone: false };
+  assert.deepEqual(withFeatureRowsCollapsed(saved, lanes, true), {
+    e1: true,
+    "no-epic": false,
+    f1: true,
+    gone: false,
+  });
+  assert.deepEqual(withFeatureRowsCollapsed(saved, lanes, false), {
+    e1: true,
+    "no-epic": false,
+    f2: false,
+    gone: false,
+  });
+});
+
+test("any feature row expanded: defaults, saved overrides, and rows in collapsed lanes", () => {
+  const lanes = collapseBoard();
+  // f1 defaults open, f2 (completed) defaults collapsed.
+  assert.equal(anyFeatureRowExpanded({}, lanes), true);
+  assert.equal(anyFeatureRowExpanded({ f1: true }, lanes), false);
+  assert.equal(anyFeatureRowExpanded({ f1: true, f2: false }, lanes), true);
+  // f1 is out of sight in its collapsed lane, so only f2 counts.
+  assert.equal(anyFeatureRowExpanded({ e1: true }, lanes), false);
+  // With every lane collapsed, every row counts again.
+  assert.equal(anyFeatureRowExpanded({ e1: true, "no-epic": true }, lanes), true);
 });

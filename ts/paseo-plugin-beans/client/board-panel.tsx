@@ -6,11 +6,16 @@ import { z } from "zod";
 import {
   columnCounts,
   columnOf,
+  featureRows,
+  type FeatureRow,
   laneCount,
   laneKey,
   layout,
   NO_EPIC_GROUP,
   progress,
+  anyFeatureRowExpanded,
+  isRowSaved,
+  withFeatureRowsCollapsed,
   type Lane,
   type Progress,
   type Row,
@@ -301,6 +306,80 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
   // Like `matches` below, only while a query is active, so clearing the box drops it.
   const searchError = query && board?.kind === "project" ? board.searchError : null;
 
+  // A ternary, not `&&`: an empty string would render bare text, which crashes
+  // React Native.
+  const banner = error ? (
+    <View style={[styles.banner, { borderColor: colors.statusDanger }]}>
+      <Text style={[styles.bannerText, { color: colors.statusDanger }]}>{error}</Text>
+      <Pressable accessibilityRole="button" onPress={refresh}>
+        <Text style={{ color: colors.accent }}>Retry</Text>
+      </Pressable>
+    </View>
+  ) : null;
+
+  if (!board) {
+    return error ? (
+      <View style={[styles.fill, { backgroundColor: colors.surface0 }]}>{banner}</View>
+    ) : (
+      <Loading />
+    );
+  }
+
+  if (board.kind === "none") {
+    return (
+      <View style={[styles.fill, { backgroundColor: colors.surface0 }]}>
+        {banner}
+        <View style={styles.empty}>
+          <Text style={{ color: colors.foregroundMuted }}>
+            No beans project in {board.directory}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Gated on `query` too, so clearing the box shows the full board at once instead of
+  // the last search's matches until the unsearched read lands. A new query keeps the
+  // previous one's matches on screen until its own arrive.
+  const matches = query && board.matches ? new Set(board.matches) : null;
+  const searching = matches !== null;
+  const lanes = layout(board.beans, state.showScrapped, state.showArchived, matches);
+  const progressOf = progress(board.beans);
+  const isSaved = (lane: Lane) => state.collapsed[laneKey(lane)] ?? lane.collapsedByDefault;
+  const isCollapsed = (lane: Lane) => !searching && isSaved(lane);
+  // Feature ids and lane keys share the map: bean ids are unique, and "no-epic" is none.
+  const isRowCollapsed = (row: Row) =>
+    !searching && row.feature !== null && isRowSaved(state.collapsed, row as FeatureRow);
+
+  // From the unsearched board, so a search only disables the button, never hides or
+  // relabels it.
+  const boardLanes = searching ? layout(board.beans, state.showScrapped, state.showArchived) : lanes;
+  const anyExpanded = anyFeatureRowExpanded(state.collapsed, boardLanes);
+  const featureToggle =
+    featureRows(boardLanes).length > 0 ? (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint={searching ? "Unavailable while searching" : undefined}
+        onPress={() =>
+          setState({
+            ...state,
+            collapsed: withFeatureRowsCollapsed(state.collapsed, boardLanes, anyExpanded),
+          })
+        }
+        disabled={searching}
+        style={[styles.toolbarButton, { borderColor: colors.border }, searching && styles.disabled]}
+      >
+        <Icon
+          name={anyExpanded ? "ChevronsDownUp" : "ChevronsUpDown"}
+          size={14}
+          color={colors.foreground}
+        />
+        <Text style={{ color: colors.foreground }}>
+          {anyExpanded ? "Collapse features" : "Expand features"}
+        </Text>
+      </Pressable>
+    ) : null;
+
   const toolbar = (
     <View style={[styles.toolbar, { borderColor: colors.border }]}>
       <View style={styles.toggles}>
@@ -353,6 +432,7 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
           />
           <Text style={{ color: colors.foreground }}>Show archived</Text>
         </View>
+        {featureToggle}
       </View>
       <Pressable
         accessibilityRole="button"
@@ -364,51 +444,6 @@ export function BoardPanel({ workspaceId, tab, theme, onOpenBean }: BoardPanelPr
       </Pressable>
     </View>
   );
-
-  // A ternary, not `&&`: an empty string would render bare text, which crashes
-  // React Native.
-  const banner = error ? (
-    <View style={[styles.banner, { borderColor: colors.statusDanger }]}>
-      <Text style={[styles.bannerText, { color: colors.statusDanger }]}>{error}</Text>
-      <Pressable accessibilityRole="button" onPress={refresh}>
-        <Text style={{ color: colors.accent }}>Retry</Text>
-      </Pressable>
-    </View>
-  ) : null;
-
-  if (!board) {
-    return error ? (
-      <View style={[styles.fill, { backgroundColor: colors.surface0 }]}>{banner}</View>
-    ) : (
-      <Loading />
-    );
-  }
-
-  if (board.kind === "none") {
-    return (
-      <View style={[styles.fill, { backgroundColor: colors.surface0 }]}>
-        {banner}
-        <View style={styles.empty}>
-          <Text style={{ color: colors.foregroundMuted }}>
-            No beans project in {board.directory}
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  // Gated on `query` too, so clearing the box shows the full board at once instead of
-  // the last search's matches until the unsearched read lands. A new query keeps the
-  // previous one's matches on screen until its own arrive.
-  const matches = query && board.matches ? new Set(board.matches) : null;
-  const searching = matches !== null;
-  const lanes = layout(board.beans, state.showScrapped, state.showArchived, matches);
-  const progressOf = progress(board.beans);
-  const isSaved = (lane: Lane) => state.collapsed[laneKey(lane)] ?? lane.collapsedByDefault;
-  const isCollapsed = (lane: Lane) => !searching && isSaved(lane);
-  // Feature ids and lane keys share the map: bean ids are unique, and "no-epic" is none.
-  const isRowCollapsed = (row: Row) =>
-    !searching && row.feature !== null && (state.collapsed[row.feature.id] ?? row.collapsedByDefault);
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.surface0 }]}>
@@ -482,6 +517,16 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, paddingVertical: 2 },
   iconButton: { padding: 4 },
+  toolbarButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderRadius: 6,
+  },
+  disabled: { opacity: 0.5 },
   banner: {
     flexDirection: "row",
     alignItems: "center",

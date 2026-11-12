@@ -15,6 +15,10 @@ const TYPE_STYLES: Record<string, { icon: string; color: string }> = {
 };
 const OTHER_TYPE = { icon: "Circle", color: "#94a3b8" };
 
+export function typeColor(type: string): string {
+  return (TYPE_STYLES[type] ?? OTHER_TYPE).color;
+}
+
 /** Just the coloured icon, for compact rows; the label goes to accessibility. */
 export function TypeIcon({ type }: { type: string }) {
   const style = TYPE_STYLES[type] ?? OTHER_TYPE;

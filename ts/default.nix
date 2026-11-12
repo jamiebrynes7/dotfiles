@@ -102,12 +102,16 @@ let
         "${name}-sdk-version" = sdkVersion name src;
       }
       # Node runs `.ts` tests directly (type stripping), so node:test needs no
-      # framework; git is there for tests that drive a real repository.
+      # framework; git is there for tests that drive a real repository, jq for tests
+      # that run a plugin's shell hook.
       // lib.optionalAttrs ((lib.importJSON (src + "/package.json")).scripts ? test) {
         "${name}-test" = npmScriptCheck {
           inherit name src;
           script = "test";
-          nativeBuildInputs = [ final.git ];
+          nativeBuildInputs = [
+            final.git
+            final.jq
+          ];
         };
       }
     ) pluginNames

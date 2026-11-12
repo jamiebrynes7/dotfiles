@@ -132,12 +132,67 @@ let
     }) cfg.plugins;
   };
 
+  # Plugin agent tools reach agents only through Paseo's injected MCP server, and
+  # injecting it also hands every agent Paseo's own tools: spawning and killing
+  # agents, driving terminals, answering permission prompts. So every built-in is
+  # denied unless allowlisted. The names come from the pinned source rather than a
+  # list kept here, so a tool added upstream is denied the day it lands. The source
+  # is the fetch packages/paseo already builds during eval, so this adds no second
+  # import-from-derivation.
+  paseoSource = cfg.package.src;
+  readPaseoSource = file: builtins.readFile "${paseoSource}/${file}";
+  captures = regex: text: lib.flatten (lib.filter lib.isList (builtins.split regex text));
+
+  builtinToolNames = lib.unique (
+    lib.concatMap (file: captures ''registerTool\([[:space:]]*"([a-z_]+)"'' (readPaseoSource file)) [
+      "packages/server/src/server/agent/tools/paseo-tools.ts"
+      "packages/server/src/server/browser-tools/tools.ts"
+    ]
+  );
+
+  # Providers Paseo ships, including the ones its bundled provider plugins register.
+  # The policy is per provider, so a provider missing here would get every built-in;
+  # a third-party provider plugin is not covered.
+  coreProviderIds = captures ''"([a-z][a-z0-9-]*)"'' (
+    lib.concatStrings (
+      captures ''BUILTIN_PROVIDER_IDS = \[([^]]*)]'' (
+        readPaseoSource "packages/protocol/src/provider-config.ts"
+      )
+    )
+  );
+  # A provider that `requiresConfiguration` stays out of the provider list until it
+  # has a config entry, and a policy entry counts as one, so those get the policy
+  # only once configured through `settings`.
+  bundledProviderPluginIds =
+    lib.concatMap
+      (
+        dir:
+        let
+          source = readPaseoSource "plugins/${dir}/server/provider.ts";
+          ids = lib.take 1 (captures ''id: "([a-z][a-z0-9-]*)"'' source);
+          configured = lib.any (id: cfg.settings ? agents.providers.${id}) ids;
+        in
+        if lib.hasInfix "requiresConfiguration: true" source && !configured then [ ] else ids
+      )
+      (
+        lib.filter (lib.hasSuffix "-provider") (lib.attrNames (builtins.readDir "${paseoSource}/plugins"))
+      );
+  builtinProviderIds = coreProviderIds ++ bundledProviderPluginIds;
+
+  toolPolicy = {
+    daemon.mcp.injectIntoAgents = true;
+    agents.providers = lib.genAttrs builtinProviderIds (_: {
+      paseoTools.disabledTools = lib.subtractLists cfg.builtinTools.allow builtinToolNames;
+    });
+  };
+
   # cfg.settings last, so an explicit `pluginsEnabled = false` stays expressible.
   # Deep-merged at every layer: a shallow `//` would let `settings.plugins` replace
   # the whole generated plugins record instead of adding to it.
   renderedSettings = lib.foldl' lib.recursiveUpdate { } [
     creationDefaults
     pluginEntries
+    toolPolicy
     cfg.settings
   ];
 
@@ -232,6 +287,21 @@ in
         Hostnames the daemon accepts in the Host header (DNS rebinding
         protection). Localhost and IP addresses are always allowed. A leading dot
         matches a domain and its subdomains. `true` allows any host.
+      '';
+    };
+
+    builtinTools.allow = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [
+        "list_agents"
+        "get_agent_status"
+      ];
+      description = ''
+        Paseo built-in agent tools (its `paseo` MCP server) to leave enabled for every
+        provider. Every other built-in is denied, including ones a Paseo update adds,
+        so plugin agent tools can be injected without handing agents Paseo's
+        orchestration tools. `speak` is always available; Paseo exempts it.
       '';
     };
 
@@ -437,6 +507,14 @@ in
     {
       assertions = [
         {
+          assertion = !cfg.enable || (builtinToolNames != [ ] && builtinProviderIds != [ ]);
+          message = "dotfiles.programs.paseo: could not read Paseo's built-in tool names or provider ids from its source; the parser in home/programs/paseo.nix needs updating for this Paseo version.";
+        }
+        {
+          assertion = !cfg.enable || lib.all (name: lib.elem name builtinToolNames) cfg.builtinTools.allow;
+          message = "dotfiles.programs.paseo.builtinTools.allow names tools Paseo does not have: ${lib.concatStringsSep ", " (lib.subtractLists builtinToolNames cfg.builtinTools.allow)}";
+        }
+        {
           assertion = cfg.service.enable -> cfg.enable;
           message = "dotfiles.programs.paseo.service.enable requires dotfiles.programs.paseo.enable (the unit runs paseo-server).";
         }
@@ -488,6 +566,8 @@ in
         lib.mkDefault pkgs.dotfiles.paseo-plugin-claude-reauth;
       dotfiles.programs.paseo.plugins.paseo-chat-polish.package =
         lib.mkDefault pkgs.dotfiles.paseo-plugin-paseo-chat-polish;
+      dotfiles.programs.paseo.plugins.agent-status.package =
+        lib.mkDefault pkgs.dotfiles.paseo-plugin-agent-status;
 
       # The daemon's chmod to 0600 when it loads the file is best-effort (it swallows
       # the EPERM from a root-owned store file), so it reads a store symlink fine.
@@ -527,6 +607,12 @@ in
           run mv "$paseoConfig" "$paseoBackup"
         fi
       '';
+    })
+
+    # Paseo starts Claude agents in its `default` permission mode, which prompts for
+    # an unlisted MCP tool, and agents update their status at least once a turn.
+    (lib.mkIf (cfg.enable && cfg.plugins.agent-status.enable or false) {
+      dotfiles.programs.claude-code.permissions.allow = [ "mcp__paseo__set_status" ];
     })
 
     (lib.mkIf (cfg.enable && cfg.repoProfiles != { }) {

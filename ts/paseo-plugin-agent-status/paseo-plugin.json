@@ -1,0 +1,6 @@
+{
+  "id": "agent-status",
+  "name": "Agent status",
+  "description": "Lets each agent keep a one-line status at the bottom of its chat: what it is doing and what it is waiting on",
+  "requirements": { "paseo": ">=0.15.4" }
+}

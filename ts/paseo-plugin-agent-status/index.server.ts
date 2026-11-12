@@ -1,6 +1,7 @@
 import { defineAgentTool, type PluginServerContext } from "@getpaseo/plugin/server";
 import { createStatusRows } from "./server/status-rows.ts";
-import { SET_STATUS_TOOL, statusInputSchema } from "./shared/status.ts";
+import { statusInputSchema } from "./shared/status.ts";
+import { SET_STATUS_TOOL, STATUS_ENV } from "./shared/tool-contract.ts";
 
 const DESCRIPTION = `Set the status shown at the bottom of your chat, so the user can tell at a glance what you are doing and what you are waiting on when they come back to you among many parallel agents. It appears when your turn ends.
 
@@ -29,7 +30,11 @@ export default function contribute(server: PluginServerContext) {
 
   const removeOpenHook = server.addHook("agent.open.before", async ({ request }) => {
     if (request.purpose !== "interactive") return request;
-    return { ...request, tools: [...request.tools, setStatus] };
+    return {
+      ...request,
+      tools: [...request.tools, setStatus],
+      env: { ...request.env, [STATUS_ENV]: "1" },
+    };
   });
   // Every outcome counts: a cancelled or failed turn still leaves the agent idle with
   // its last status worth showing.

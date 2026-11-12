@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
-    "test": "node --test shared/*.test.ts"
+    "test": "node --test server/*.test.ts shared/*.test.ts"
   },
   "devDependencies": {
     "@getpaseo/plugin": "0.15.4",

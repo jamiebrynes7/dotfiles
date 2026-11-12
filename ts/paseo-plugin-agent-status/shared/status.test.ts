@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { formatAge } from "./age.ts";
-import { isSetStatusToolName, statusInputSchema } from "./status.ts";
+import { statusInputSchema } from "./status.ts";
+import { isSetStatusToolName } from "./tool-contract.ts";
 
 const MINUTE = 60_000;
 

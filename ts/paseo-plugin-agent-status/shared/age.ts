@@ -9,11 +9,3 @@ export function formatAge(ageMs: number): string {
   if (ageMs < DAY) return `${Math.floor(ageMs / HOUR)}h ago`;
   return `${Math.floor(ageMs / DAY)}d ago`;
 }
-
-export function formatStatusLine(
-  status: { summary: string; waitingOn?: string; setAt: number },
-  now: number,
-): string {
-  const waiting = status.waitingOn ? ` — waiting on ${status.waitingOn}` : "";
-  return `${status.summary}${waiting} · ${formatAge(now - status.setAt)}`;
-}

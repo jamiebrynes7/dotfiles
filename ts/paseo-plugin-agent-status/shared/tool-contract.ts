@@ -1,5 +1,5 @@
-// Shared with the Claude Code Stop hook, which runs from the packaged plugin with no
-// node_modules, so this module must not import anything.
+// The Claude Code Stop hook (server/stop-hook.sh) repeats STATUS_ENV and the tool-name
+// pattern below; change them together.
 
 export const SET_STATUS_TOOL = "set_status";
 

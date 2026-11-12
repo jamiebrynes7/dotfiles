@@ -5,7 +5,7 @@ status: completed
 type: task
 priority: normal
 created_at: 2026-11-12T11:43:19Z
-updated_at: 2026-11-12T14:34:00Z
+updated_at: 2026-11-12T14:51:28Z
 parent: dotfiles-jpfs
 blocked_by:
     - dotfiles-vkn0
@@ -47,3 +47,5 @@ The plugin sets `PASEO_STATUS=1` in every interactive agent's env at session ope
 - Claude ignores `permissions.allow` from an untrusted project's `.claude/settings.json`, while still running that project's hooks. That's why the demo still prompted for `set_status`. The real allow rule lives in user settings, which workspace trust doesn't affect; it's only confirmed once a host switches.
 
 - **Closing line:** Claude Code (2.1.322) won't let a turn end on a silent tool call. It adds an `isMeta` note ("Your previous response had no visible output…"), and the agent then repeats its answer. Decided with the user to accept a fixed closer: the block reason has the agent call `set_status` and then end with exactly "Status updated.". Three runs of the no-tools prompt ended "hi" → status update → "Status updated.", with no forced-reply note.
+
+- **Rewritten as a shell script** at the user's request, to keep Node out of the hook. `server/stop-hook.sh` (bash + jq) is built with `writeShellApplication` as the plugin package's `passthru.stopHook`; its closure is bash and jq. The fixture tests run the real script from `node --test`, and the plugin test check now has `jq`. Re-ran the no-tools check on the demo daemon with the same result.

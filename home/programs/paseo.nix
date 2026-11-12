@@ -622,7 +622,7 @@ in
         event = "Stop";
         hooks = [
           {
-            command = "${pkgs.nodejs}/bin/node ${cfg.plugins.agent-status.package}/server/stop-hook.ts";
+            command = lib.getExe pkgs.dotfiles.paseo-plugin-agent-status.stopHook;
             timeout = 10;
           }
         ];

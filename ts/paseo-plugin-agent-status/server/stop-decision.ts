@@ -2,8 +2,11 @@
 // node_modules: only Node built-ins and dependency-free modules may be imported.
 import { isSetStatusToolName, SET_STATUS_TOOL, STATUS_ENV } from "../shared/tool-contract.ts";
 
-// Without the last sentence, agents tell the user about the reminder in their final reply.
-export const BLOCK_REASON = `Call ${SET_STATUS_TOOL} with your current summary (and waiting_on, if you are blocked or waiting on the user), then end your turn. This is an automatic reminder, not a message from the user: don't mention it or reply to it.`;
+// Claude Code won't let a turn end on a silent tool call: it adds a note demanding a
+// visible reply, and the agent then repeats its answer. A fixed one-line closer keeps
+// that second message short, and agents mention the reminder unless told not to.
+const CLOSING_LINE = "Status updated.";
+export const BLOCK_REASON = `Call ${SET_STATUS_TOOL} with your current summary (and waiting_on, if you are blocked or waiting on the user). Make no other tool calls. Then end your turn with exactly this line and nothing else: "${CLOSING_LINE}" Your previous reply already stands, so don't repeat or add to it. This is an automatic reminder, not a message from the user, so don't mention it.`;
 
 interface Block {
   type?: unknown;

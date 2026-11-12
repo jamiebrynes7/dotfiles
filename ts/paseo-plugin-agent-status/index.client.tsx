@@ -1,6 +1,7 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
 import { StatusCardView } from "./client/status-card.tsx";
-import { isSetStatusToolName, STATUS_ROW_KIND, STATUS_ROW_VERSION, statusRowSchema } from "./shared/status.ts";
+import { STATUS_ROW_KIND, STATUS_ROW_VERSION, statusRowSchema } from "./shared/status.ts";
+import { isSetStatusToolName } from "./shared/tool-contract.ts";
 
 export default function contribute(client: PluginClientContext) {
   const removeRenderer = client.addTimelineRenderer({

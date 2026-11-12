@@ -613,6 +613,20 @@ in
     # an unlisted MCP tool, and agents update their status at least once a turn.
     (lib.mkIf (cfg.enable && cfg.plugins.agent-status.enable or false) {
       dotfiles.programs.claude-code.permissions.allow = [ "mcp__paseo__set_status" ];
+
+      # Agents don't call set_status reliably on their own, so this hook sends them back to
+      # it before a turn ends. It does nothing outside a Paseo agent with the plugin
+      # loaded, since the plugin sets PASEO_STATUS only in those agents' env.
+      dotfiles.programs.claude-code.hooks.paseo-agent-status-stop = {
+        enable = true;
+        event = "Stop";
+        hooks = [
+          {
+            command = "${pkgs.nodejs}/bin/node ${cfg.plugins.agent-status.package}/server/stop-hook.ts";
+            timeout = 10;
+          }
+        ];
+      };
     })
 
     (lib.mkIf (cfg.enable && cfg.repoProfiles != { }) {

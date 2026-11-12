@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-export const SET_STATUS_TOOL = "set_status";
-
 export const statusInputSchema = z.object({
   summary: z
     .string()
@@ -34,11 +32,3 @@ export const statusRowSchema = z.union([
   }),
 ]);
 export type StatusRow = z.output<typeof statusRowSchema>;
-
-/**
- * Providers name MCP tools differently (Claude: `mcp__paseo__set_status`), so this matches
- * any name that ends in the tool name under Paseo's `paseo` MCP server.
- */
-export function isSetStatusToolName(name: string): boolean {
-  return /(^|[\W_])paseo(__|[./:])set_status$/.test(name);
-}

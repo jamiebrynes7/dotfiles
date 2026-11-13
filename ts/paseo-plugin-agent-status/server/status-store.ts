@@ -2,9 +2,15 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { z } from "zod";
+import { statusLinkSchema } from "../shared/status.ts";
 
 const StoredAgent = z.object({
-  status: z.object({ summary: z.string(), waitingOn: z.string().optional(), setAt: z.number() }),
+  status: z.object({
+    summary: z.string(),
+    waitingOn: z.string().optional(),
+    links: z.array(statusLinkSchema).optional(),
+    setAt: z.number(),
+  }),
   rowId: z.string().optional(),
 });
 const StoredFile = z.object({ version: z.literal(1), agents: z.record(z.string(), StoredAgent) });

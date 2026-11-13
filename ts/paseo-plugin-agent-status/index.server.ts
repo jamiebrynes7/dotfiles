@@ -9,7 +9,8 @@ const DESCRIPTION = `Set the status shown at the bottom of your chat, so the use
 Call it when you start a task, whenever your phase changes, and always before you end a turn, even if the status is unchanged.
 
 - summary: the task and where it stands, e.g. "Fixing the flaky auth test" or "Auth test fixed, all tests pass". Don't repeat what you are blocked on here; that goes in waiting_on. At most 80 characters.
-- waiting_on: set whenever you are blocked, e.g. "CI on #1234". Use "you" (optionally with what you need, e.g. "you: pick raise or clamp") when you need the user's input or have finished. Omit it while you are working. At most 60 characters.`;
+- waiting_on: set whenever you are blocked, e.g. "CI on #1234". Use "you" (optionally with what you need, e.g. "you: pick raise or clamp") when you need the user's input or have finished. Omit it while you are working. At most 60 characters.
+- links: up to 3 links worth opening, each with a kind: "pr" for the task's pull request, "review" for a review page awaiting the user (e.g. a Plannotator spec or docs review), "other" for anything else. Pass every link that still applies on every call, since each call replaces the whole status. Omit it when there are none.`;
 
 const PAGE_LIMIT = 200;
 
@@ -51,6 +52,7 @@ export default function contribute(server: PluginServerContext) {
       (await rows).record(agent.id, {
         summary: input.summary,
         ...(input.waiting_on ? { waitingOn: input.waiting_on } : {}),
+        ...(input.links ? { links: input.links } : {}),
         setAt: Date.now(),
       });
       return { text: "Status updated." };

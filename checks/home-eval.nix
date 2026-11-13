@@ -8,6 +8,7 @@
     claude-code.enable = true;
     codex.enable = true;
     cursor.enable = true;
+    git.emailByRemote."git@github.com:jamiebrynes7/**" = "jamiebrynes7@gmail.com";
     beans = {
       enable = true;
       enableClaudeCodeIntegration = true;

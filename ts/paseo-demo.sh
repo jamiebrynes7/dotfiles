@@ -36,10 +36,12 @@ done
 
 rm -rf "$PASEO_HOME"
 mkdir -p "$PASEO_HOME"
-# The two creation defaults the paseo module also supplies (home/programs/paseo.nix).
+# The two creation defaults the paseo module also supplies (home/programs/paseo.nix),
+# and the MCP injection that carries plugin agent tools to agents. Unlike the module,
+# this leaves Paseo's built-in tools enabled: they can only reach this throwaway daemon.
 jq -n --argjson plugins "$plugins" '{
   app: { baseUrl: "https://app.paseo.sh" },
-  daemon: { cors: { allowedOrigins: ["https://app.paseo.sh"] } },
+  daemon: { cors: { allowedOrigins: ["https://app.paseo.sh"] }, mcp: { injectIntoAgents: true } },
   pluginsEnabled: true,
   plugins: $plugins
 }' >"${PASEO_HOME}/config.json"

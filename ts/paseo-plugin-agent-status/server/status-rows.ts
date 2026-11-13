@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { STATUS_ROW_KIND, STATUS_ROW_VERSION, type StatusRow } from "../shared/status.ts";
+import { STATUS_ROW_KIND, STATUS_ROW_VERSION, type StatusLink, type StatusRow } from "../shared/status.ts";
 import type { StatusStore } from "./status-store.ts";
 
 /** The slice of the Paseo API this module uses; the real one satisfies it. */
@@ -17,6 +17,7 @@ export interface TimelineAppender {
 export interface Status {
   summary: string;
   waitingOn?: string;
+  links?: StatusLink[];
   setAt: number;
 }
 

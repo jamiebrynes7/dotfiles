@@ -17,7 +17,7 @@ fail_open() {
 # Claude Code won't let a turn end on a silent tool call: it adds a note demanding a
 # visible reply, and the agent then repeats its answer. A fixed one-line closer keeps
 # that second message short, and agents mention the reminder unless told not to.
-reason='Call set_status with your current summary (and waiting_on, if you are blocked or waiting on the user). Make no other tool calls. Then end your turn with exactly this line and nothing else: "Status updated." Your previous reply already stands, so don'"'"'t repeat or add to it. This is an automatic reminder, not a message from the user, so don'"'"'t mention it.'
+reason='Call set_status with your current summary (and waiting_on, if you are blocked or waiting on the user, and links, for any pull request or review that still applies). Make no other tool calls. Then end your turn with exactly this line and nothing else: "Status updated." Your previous reply already stands, so don'"'"'t repeat or add to it. This is an automatic reminder, not a message from the user, so don'"'"'t mention it.'
 
 input=$(cat)
 if ! fields=$(jq -er '[(.stop_hook_active == true), (.transcript_path // "" | strings)] | @tsv' <<<"$input" 2>/dev/null); then

@@ -1,9 +1,10 @@
 import type { PluginTimelineItemProps } from "@getpaseo/plugin/client";
-import { Icon } from "@getpaseo/plugin/client/ui";
+import { ExternalLink, Icon } from "@getpaseo/plugin/client/ui";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import type { StatusRow } from "../shared/status.ts";
+import type { StatusLink, StatusRow } from "../shared/status.ts";
 import { formatAge } from "../shared/age.ts";
+import { linkLabel } from "../shared/link-label.ts";
 
 const TICK_MS = 30_000;
 
@@ -17,6 +18,21 @@ function useNow(): number {
     return () => clearInterval(timer);
   }, []);
   return now;
+}
+
+const LINK_ICONS: Record<string, string> = { pr: "GitPullRequest", review: "MessageSquareText" };
+
+function LinkRow({ link, colors }: { link: StatusLink; colors: Colors }) {
+  return (
+    <View style={styles.row}>
+      <Icon name={LINK_ICONS[link.kind] ?? "Link"} size={12} color={colors.foregroundMuted} />
+      <ExternalLink href={link.url} accessibilityLabel={`Open ${link.url}`}>
+        <Text style={[styles.link, { color: colors.foregroundMuted }]} numberOfLines={1}>
+          {linkLabel(link)}
+        </Text>
+      </ExternalLink>
+    </View>
+  );
 }
 
 function StatusCard({ status, colors }: { status: Status; colors: Colors }) {
@@ -38,6 +54,9 @@ function StatusCard({ status, colors }: { status: Status; colors: Colors }) {
           </Text>
         </View>
       ) : null}
+      {status.links?.map((link, index) => (
+        <LinkRow key={index} link={link} colors={colors} />
+      ))}
     </View>
   );
 }
@@ -60,4 +79,5 @@ const styles = StyleSheet.create({
   summary: { fontSize: 13, fontWeight: "600", lineHeight: 18, flex: 1 },
   age: { fontSize: 11, lineHeight: 18 },
   waiting: { fontSize: 12, fontWeight: "500", lineHeight: 16, flex: 1 },
+  link: { fontSize: 12, lineHeight: 16, textDecorationLine: "underline" },
 });

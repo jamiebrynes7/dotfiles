@@ -1,11 +1,11 @@
 ---
 # dotfiles-4o6t
 title: '[beansd] Embed entire static/ dir via rust-embed instead of per-asset routes'
-status: todo
+status: scrapped
 type: task
 priority: low
 created_at: 2026-07-04T20:56:23Z
-updated_at: 2026-07-04T20:56:23Z
+updated_at: 2026-11-13T14:34:53Z
 ---
 
 The beansd web UI hand-wires every static asset three ways: a `const … = include_str!/include_bytes!`, a `serve_*` handler with a hard-coded content-type, and a `.route(...)` line (see `crates/beansd/src/web/routes/assets.rs`). At three assets (htmx.min.js, app.css, favicon.svg) it's already repetitive and easy to forget a content-type when adding the next one.
@@ -29,3 +29,7 @@ Replace it with a `go:embed`-style whole-directory embed:
 - [ ] Remove the per-asset consts/handlers/routes from `assets.rs`
 - [ ] Update asset tests to cover the wildcard route (js, css, svg content-types)
 - [ ] Validate with `nix flake check`
+
+## Reasons for Scrapping
+
+beansd was decommissioned in dotfiles-a4hx, so there is no static/ dir left to embed.

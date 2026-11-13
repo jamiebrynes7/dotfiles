@@ -2,7 +2,7 @@
 
 Personal Nix-based system configuration for macOS and NixOS.
 
-Freshness: 2026-11-06
+Freshness: 2026-11-13
 
 ## Tech Stack
 
@@ -10,17 +10,17 @@ Freshness: 2026-11-06
 - **nix-darwin** — macOS system configuration (`darwin/`)
 - **home-manager** — user-level dotfiles and programs (`home/`)
 - **direnv** — development shells for this repo and project templates
-- **Rust** — Cargo workspace under `crates/` housing the `beans` issue-tracker daemon + CLI; see `crates/CLAUDE.md`
+- **Rust** — Cargo workspace under `crates/`, currently empty and kept ready for future crates; see `crates/CLAUDE.md`
 - **TypeScript** — repo-local paseo plugins under `ts/`; see "Packages" below
 
 ## Commands
 
 No justfile at the repo root. Common operations:
 
-- `nix flake check` — validate the flake; also checks Nix formatting (the `nixfmt` check) and builds/tests the Rust workspace. CI runs it in full on pushes to master; on PRs it runs `--no-build` and then builds only the checks whose derivation path differs from the base commit's, so a docs- or beans-only PR builds nothing. `gh workflow run ci.yml --ref <branch>` runs the full check on any branch
+- `nix flake check` — validate the flake; also checks Nix formatting (the `nixfmt` check) and builds/tests the Rust workspace once it has crates. CI runs it in full on pushes to master; on PRs it runs `--no-build` and then builds only the checks whose derivation path differs from the base commit's, so a docs- or beans-only PR builds nothing. `gh workflow run ci.yml --ref <branch>` runs the full check on any branch
 - `nix flake show` — list outputs (systems, templates, lib)
 - `nixfmt <file>` — format Nix files (available in the devShell)
-- `cargo test --workspace` — run Rust tests directly without going through Nix (see `crates/CLAUDE.md`)
+- `cargo test --workspace` — run Rust tests directly without going through Nix, once the workspace has crates (see `crates/CLAUDE.md`)
 - `gh workflow run update-flake-lock.yml` — bump `flake.lock`. Manual only: this lock is the single source of truth for every machine (`templates/systems/*` pin nothing but `dotfiles.url`), so a bump here reaches the whole fleet. It opens an auto-merging PR, and re-pins the hashes that `beans` and `paseo` compute against the pinned nixpkgs. Takes an optional space-separated input filter; blank updates everything. Moving to the *next* nixpkgs release is a different job — see "Channel inputs" below.
 
 A `.githooks/pre-commit` formatting gate (Nix + Rust) is auto-wired via `core.hooksPath` by the devShell `shellHook` — commit from inside the devShell (the `direnv` shell) so `nixfmt`/`cargo` are on `PATH`.
@@ -44,7 +44,7 @@ templates/
   systems/           # darwin, nixos, home-manager
 checks/              # home-eval.nix: home-manager config the x86_64-linux `home-eval` check evaluates (assertions + whole home, nothing built)
 modules/             # Cross-platform modules imported by mkDarwin/mkNixosSystem/mkHomeManagerSystem (nix-gc)
-crates/              # Rust workspace: beansd + beansctl + beansd-rpc — see crates/CLAUDE.md
+crates/              # Rust workspace (empty, ready for future crates) — see crates/CLAUDE.md
 ts/                  # Repo-local paseo plugin source (paseo-plugin-<id>/) + buildPaseoPlugin/tsChecks overlay
 packages/            # Nix packages — built from this repo or vendored upstream binaries
 ```
@@ -125,13 +125,13 @@ All Nix files are formatted with `nixfmt` (the official RFC 166-style formatter)
 
 Subject format is `<area>: <imperative summary>`. The area names the part of the repo that changed — there are no Conventional Commits type prefixes (`feat:`, `fix:`, `refactor:`, `chore:`).
 
-- Scope to the crate/subdir when the change lives there: `crates beansd:`, `crates beansd-rpc:`, `home/programs/<tool>:`.
+- Scope to the crate/subdir when the change lives there: `crates <crate>:`, `ts/paseo-plugin-<id>:`, `home/programs/<tool>:`.
 - Use the parent area when a change spans several: `crates:`, `packages:`, `flake.lock:`.
-- `beans:` is for issue-tracker housekeeping (creating, closing, archiving beans) — not for `beansd`/`beansctl` code.
+- `beans:` is for issue-tracker housekeeping (creating, closing, archiving beans) — not for changes to the `beans` package or module.
 - When a bean tracks the work, reference its id in the commit body (not the subject) as a trailer: a `Bean: <id>` line at the end of the message, e.g.
 
   ```
-  crates beansd: extract resolve_active helper
+  home/programs/git: choose the commit email by remote URL
 
   Bean: dotfiles-n7m9
   ```

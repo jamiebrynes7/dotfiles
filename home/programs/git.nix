@@ -11,12 +11,29 @@ in
       default = "jamiebrynes7@gmail.com";
       description = "Email address for git";
     };
+    emailByRemote = mkOption {
+      type = types.attrsOf types.str;
+      default = { };
+      example = {
+        "git@github.com:jamiebrynes7/**" = "jamiebrynes7@gmail.com";
+      };
+      description = ''
+        Email to use instead of `email` in repositories with a remote whose URL
+        matches the key, a git `hasconfig:remote.*.url:` glob. Write one key per URL
+        form you clone with: an SSH glob does not match the HTTPS URL.
+      '';
+    };
   };
 
   config.programs.git = mkIf cfg.enable {
     enable = true;
 
     ignores = [ ".DS_Store" ];
+
+    includes = mapAttrsToList (glob: email: {
+      condition = "hasconfig:remote.*.url:${glob}";
+      contents.user.email = email;
+    }) cfg.emailByRemote;
 
     settings = {
       user = {

@@ -1,5 +1,5 @@
 import type { PluginWorkspacePanelProps } from "@getpaseo/plugin/client";
-import { Icon, Loading, Markdown, ScrollView } from "@getpaseo/plugin/client/ui";
+import { copyText, Icon, Loading, Markdown, ScrollView, useToast } from "@getpaseo/plugin/client/ui";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { BeanDetail, BeanRef } from "../shared/rpc.ts";
 import { PriorityIcon, Tags, TypeBadge, TypeIcon, type Colors } from "./badges.tsx";
@@ -31,6 +31,26 @@ function Hint({ text, colors }: { text: string; colors: Colors }) {
     <View style={[styles.fill, styles.center, { backgroundColor: colors.surface0 }]}>
       <Text style={[styles.hint, { color: colors.foregroundMuted }]}>{text}</Text>
     </View>
+  );
+}
+
+function CopyId({ id, colors }: { id: string; colors: Colors }) {
+  const toast = useToast();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Copy ${id}`}
+      onPress={() =>
+        copyText(id).then(
+          () => toast.show(`Copied ${id}`, { variant: "success" }),
+          () => toast.error(`Couldn't copy ${id}`),
+        )
+      }
+      style={styles.copy}
+    >
+      <Text style={[styles.small, styles.italic, { color: colors.foregroundMuted }]}>{id}</Text>
+      <Icon name="Copy" size={12} color={colors.foregroundMuted} />
+    </Pressable>
   );
 }
 
@@ -83,6 +103,7 @@ function Detail({
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={[styles.title, { color: colors.foreground }]}>{bean.title}</Text>
+      <CopyId id={bean.id} colors={colors} />
       <View style={styles.meta}>
         <TypeBadge type={bean.type} />
         <Text style={[styles.small, { color: colors.foreground }]}>{status}</Text>
@@ -106,9 +127,6 @@ function Detail({
         </View>
       )}
       <View style={[styles.footer, { borderColor: colors.border }]}>
-        <Text style={[styles.small, styles.italic, { color: colors.foregroundMuted }]}>
-          {bean.id}
-        </Text>
         <Text style={[styles.small, { color: colors.foregroundMuted }]}>
           updated {ago(bean.updatedAt, Date.now())} · created {ago(bean.createdAt, Date.now())}
         </Text>
@@ -176,6 +194,7 @@ const styles = StyleSheet.create({
   meta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
   small: { fontSize: 11 },
   italic: { fontStyle: "italic" },
+  copy: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" },
   section: { gap: 4 },
   sectionTitle: { fontSize: 11, fontWeight: "600", textTransform: "uppercase" },
   row: {

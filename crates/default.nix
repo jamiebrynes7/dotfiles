@@ -40,11 +40,10 @@ let
     # the shipped package's own values, so this only labels the deps/check derivations.
     pname = "dotfiles-rs-workspace";
     version = "0.1.0";
-    # Full workspace tree, not `cleanCargoSource`: `beansd` embeds non-Rust assets
-    # (askama `.html` templates compiled by the derive macro, plus `.css`/`.js`
-    # static files) that the cargo-only filter would strip. `buildDepsOnly` keys
-    # its cache off Cargo.{toml,lock} only, so including assets here doesn't churn
-    # the artifact cache.
+    # Full workspace tree, not `cleanCargoSource`, so crates can embed non-Rust
+    # assets (templates, static files) that the cargo-only filter would strip.
+    # `buildDepsOnly` keys its cache off Cargo.{toml,lock} only, so including
+    # assets here doesn't churn the artifact cache.
     src = final.lib.fileset.toSource {
       root = ../.;
       fileset = final.lib.fileset.unions [
@@ -59,10 +58,16 @@ let
   };
   cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
+  # Cargo rejects a virtual workspace with no members (fmt, clippy and nextest all
+  # fail), so the gates only exist once some `crates/<name>/Cargo.toml` does.
+  crateEntries = builtins.readDir ./.;
+  hasCrates = builtins.any (
+    name: crateEntries.${name} == "directory" && builtins.pathExists (./. + "/${name}/Cargo.toml")
+  ) (builtins.attrNames crateEntries);
+
   # Workspace-wide Rust lint/test gates surfaced as flake checks. Named `rust-*`
-  # (not `beans-daemon-*`) because `--workspace` means they cover every crate, not
-  # just the shipped package.
-  rustChecks = {
+  # because `--workspace` means they cover every crate, not one shipped package.
+  rustChecks = final.lib.optionalAttrs hasCrates {
     rust-fmt = craneLib.cargoFmt { inherit (commonArgs) src pname version; };
     rust-clippy = craneLib.cargoClippy (
       commonArgs

@@ -17,12 +17,49 @@ jobs:
     permissions:
       contents: read
       pull-requests: write # the changed-checks comment
+      id-token: write # niks3-action's OIDC push to nimbus
     steps:
       - uses: actions/checkout@v4
         with:
           # The base commit is evaluated from local history.
           fetch-depth: 0
+
+      # Reads from nimbus need a `read` token. Fork PRs get no secrets, so the
+      # load fails soft: Nix treats the 401s as cache misses and builds instead.
+      - name: Load nimbus read token
+        id: op
+        continue-on-error: true
+        uses: 1password/load-secrets-action@v5
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          NIMBUS_READ_TOKEN: op://dev-dotfiles/nimbus-gha-dotfiles/credential
+
+      # Written before Nix is installed. With `id-token: write` the installer
+      # logs Determinate Nixd in to FlakeHub, which repoints `netrc-file` at its
+      # own managed file; `additionalNetrcSources` merges ours into it. Without
+      # a login, the `netrc-file` below applies directly.
+      - name: Write nimbus netrc
+        if: steps.op.outputs.NIMBUS_READ_TOKEN != ''
+        env:
+          NIMBUS_READ_TOKEN: ${{ steps.op.outputs.NIMBUS_READ_TOKEN }}
+        run: |
+          printf 'machine nimbus.jb7.sh login gha-dotfiles password %s\n' "$NIMBUS_READ_TOKEN" \
+            | sudo install -D -m 600 /dev/stdin /etc/nix/netrc
+          echo '{"authentication":{"additionalNetrcSources":["/etc/nix/netrc"]}}' \
+            | sudo install -D -m 644 /dev/stdin /etc/determinate/config.json
+
       - uses: DeterminateSystems/nix-installer-action@v21
+        with:
+          extra-conf: |
+            netrc-file = /etc/nix/netrc
+
+      # Adds nimbus as a substituter and pushes every output built after it.
+      # Only master pushes: the trust rule binds refs/heads/master, because
+      # nimbus signs whatever it is sent and master's builds substitute it.
+      - uses: Mic92/niks3-action@01820a2b97ac01531ad9fb859db94af63ffcbd83 # v1.10.0
+        with:
+          server-url: https://nimbus.jb7.sh
+          skip-push: ${{ github.ref != 'refs/heads/master' }}
 
       # Master always gets the full check, so a check that breaks without its
       # derivation changing still goes red somewhere. PRs below trust it.

@@ -1,14 +1,14 @@
 {
-  "version": "0.15.4",
-  "tag": "v0.15.4",
+  "version": "0.16.0",
+  "tag": "v0.16.0",
   "src": {
-    "hash": "sha256-zqD9MrqYZ6S3O72b5y+7P0iJgIMf4MRq1zgcqBcyhko="
+    "hash": "sha256-f07SCDr+Dt0FVtQE8LHOgLB9G5OcWdA9xY8hhMW1X9c="
   },
-  "npmDepsHash": "sha256-hx0ojqxSDeQekUU+qSTqDenPEHzu59bjABpBb5NeANM=",
+  "npmDepsHash": "sha256-alhf4ULeJ7n8sfgnxsX8Ugw40GB7jz0u9R/3/MOveIw=",
   "desktop": {
     "aarch64-darwin": {
-      "artifact": "Paseo-0.15.4-arm64.zip",
-      "hash": "sha512-JfciAvMpAlG4MuhC0l6aY7X6NiWfrp7K/xzoLakHZ6i7nymfH5DruBGGauMnU6B/s1MbVY5tMtGxGGZd7bUcpw=="
+      "artifact": "Paseo-0.16.0-arm64.zip",
+      "hash": "sha512-0mpGhljdV9+Q8+vZ1e9Mt+xhwkwn0nRLcpkAbXgMq07WUKyqqR5MUoEqAmOU8dvjyBY1ErK9DolKZRHL1E/vDg=="
     }
   }
 }

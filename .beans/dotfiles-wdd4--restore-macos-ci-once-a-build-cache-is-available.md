@@ -5,7 +5,7 @@ status: in-progress
 type: feature
 priority: normal
 created_at: 2026-10-06T18:00:41Z
-updated_at: 2026-11-18T09:34:42Z
+updated_at: 2026-11-18T16:46:53Z
 ---
 
 Land the `macos-latest` CI leg that was split out of #359, once CI has a binary cache.
@@ -25,7 +25,13 @@ Running it was still worth it: it surfaced an intermittent aarch64-darwin crash 
 
 ## Todo
 
-- [ ] Choose and wire up a push cache for CI (e.g. `DeterminateSystems/flakehub-cache-action` or `cachix/cachix-action`)
-- [ ] Rebase the macOS CI PR onto it, and re-measure both legs warm
+- [x] Choose and wire up a push cache for CI (nimbus via niks3: dotfiles-moh7, #469)
+- [x] Rebase the macOS CI PR onto it, and re-measure both legs (cold only: branch runs never push to nimbus)
 - [x] Update the `update-flake-lock.yml` job comment, which says Darwin lands unvalidated
 - [ ] Land it
+
+## Findings (2026-11-18)
+
+Once rebased, the macOS leg failed in every full run: paseo's Metro web bundle hung at 99.9% or reported `Bundling failed` with no message. The cause was the Metro worker running out of Node heap while Babel-transforming `packages/protocol/dist/generated/validation/ws-outbound.aot.js`, an ~11 MB zod-aot validator that the browser client imports. Node sizes its default heap at ~1/4 of RAM: ~1.75 GB on the 7 GB macos-latest runner, ~4.2 GB on an 18 GB Mac. `--max-old-space-size=1792` reproduces the failure locally. Ruled out along the way: sandboxing (off in both), parallel Nix builds (`max-jobs = 1` still hung), Metro worker count, log volume.
+
+Fix: `packages/paseo` sets `NODE_OPTIONS=--max-old-space-size=4096` for the build. Cold full run with it: macOS 19m51s, Linux 10m03s (paseo's derivation changed, so Linux rebuilt it too). It can go once upstream shrinks the generated validator, keeps it out of the web bundle, or raises the heap in its own build.

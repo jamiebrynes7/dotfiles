@@ -21,6 +21,9 @@ jobs:
       matrix:
         runner: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.runner }}
+    # A cold macOS check takes ~20 min. Without a cap, a hung build holds the
+    # runner for GitHub's 6 h default.
+    timeout-minutes: 60
     permissions:
       contents: read
       pull-requests: write # the changed-checks comment

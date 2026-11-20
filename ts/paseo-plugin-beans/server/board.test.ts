@@ -245,6 +245,7 @@ const DETAIL = {
   updatedAt: "2026-01-02T00:00:00Z",
   parent: { id: "x-0", title: "Epic", status: "todo", type: "epic" },
   blockedBy: [],
+  blocking: [],
   children: [],
 };
 

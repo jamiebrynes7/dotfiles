@@ -120,6 +120,7 @@ function Detail({
         colors={colors}
       />
       <Relations title="Blocked by" beans={bean.blockedBy} onSelect={onSelect} colors={colors} />
+      <Relations title="Blocks" beans={bean.blocking} onSelect={onSelect} colors={colors} />
       <Relations title="Children" beans={bean.children} onSelect={onSelect} colors={colors} />
       {bean.body.trim() !== "" && (
         <View style={[styles.section, styles.body, { borderColor: colors.border }]}>

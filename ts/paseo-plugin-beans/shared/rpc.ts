@@ -85,6 +85,7 @@ export const BeanDetail = z.object({
   updatedAt: z.string(),
   parent: BeanRef.nullable(),
   blockedBy: z.array(BeanRef),
+  blocking: z.array(BeanRef),
   children: z.array(BeanRef),
 });
 export type BeanDetail = z.infer<typeof BeanDetail>;

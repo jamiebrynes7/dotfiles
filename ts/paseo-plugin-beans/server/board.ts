@@ -134,6 +134,7 @@ const BEAN_QUERY = `query Bean($id: ID!) {
     id slug title status implicitStatus type priority tags body createdAt updatedAt
     parent { id title status type }
     blockedBy { id title status type }
+    blocking { id title status type }
     children { id title status type }
   }
 }`;

@@ -18,8 +18,7 @@ permissions:
 
 jobs:
   # Locking and re-pinning are platform-independent, so Linux is enough here.
-  # CI is Linux-only too, so a nixpkgs-darwin move lands unvalidated and first
-  # builds on a Mac at its next `just update`.
+  # The PR's CI run checks both systems, nixpkgs-darwin included.
   update-lock:
     runs-on: ubuntu-latest
     steps:

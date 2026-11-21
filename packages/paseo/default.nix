@@ -40,6 +40,15 @@ let
   configGuardMessage = "config.json is managed by Nix; edit dotfiles.programs.paseo (settings or plugins) and run a home-manager switch";
 in
 daemon.overrideAttrs (old: {
+  # Metro's web export Babel-transforms packages/protocol's generated
+  # ws-outbound.aot.js, an ~11 MB file, in a single worker. Node sizes its
+  # default heap from physical RAM (~1/4), so on a 7 GB machine such as a
+  # macos-latest runner the worker dies on that file and the bundle hangs at
+  # 99.9% or fails with no message. Pin what an 18 GB Mac gets by default.
+  env = (old.env or { }) // {
+    NODE_OPTIONS = "--max-old-space-size=4096";
+  };
+
   # Nix owns $PASEO_HOME/config.json, and the daemon's atomic save would rename a temp
   # file over the store symlink. Refuse the write so a Settings/CLI edit fails loudly
   # instead of surviving until the next home-manager switch silently reverts it.

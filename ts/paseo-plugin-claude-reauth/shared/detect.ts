@@ -1,11 +1,14 @@
-// Claude Code's `authentication_failed` replies, as of 2.1.308. Under paseo's
+// Claude Code's `authentication_failed` replies, as of 2.1.329. Under paseo's
 // sdk-cli launch it sends the "Failed to authenticate" forms; the "· Please run
 // /login" forms are its interactive ones, kept in case that changes.
 const AUTH_FAILURE_MESSAGES = [
   "Failed to authenticate: OAuth session expired and could not be refreshed",
   "Failed to authenticate: OAuth token revoked. Please log in again or contact your administrator.",
+  "Failed to authenticate: this login reached its time limit and cannot be renewed. Run `claude auth login` to sign in again, or use `claude setup-token` and set CLAUDE_CODE_OAUTH_TOKEN for unattended jobs",
+  "Failed to authenticate: this login reached its time limit · Sign in again to continue.",
   "Login expired · Please run /login",
   "OAuth token revoked · Please run /login",
+  "Login reached its time limit · Please run /login",
   "Not logged in · Please run /login",
 ];
 
@@ -16,6 +19,8 @@ const AUTH_FAILURE_PHRASES = [
   "OAuth session expired",
   "OAuth token revoked",
   "OAuth access token has been revoked",
+  "this login reached its time limit",
+  "Login reached its time limit · Please run /login",
   "Login expired · Please run /login",
   "Not logged in · Please run /login",
 ];
